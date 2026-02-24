@@ -207,9 +207,9 @@ void TerminalWidget::updateScrollBars()
 {
     int totalLines = m_historySize + m_terminalRows;
     
-    // 计算实际可视行数（与ensureCursorVisible和paintEvent保持一致）
+    // 计算实际可视行数（向下取整，确保只显示完整行）
     int charHeight = m_charHeight > 0 ? m_charHeight : 20;
-    int visibleLines = viewport()->height() / charHeight + 1; // 添加+1以处理部分可见的行
+    int visibleLines = viewport()->height() / charHeight; // 向下取整，只计算完整行
     if (visibleLines <= 0) visibleLines = 1;
     
     verticalScrollBar()->setRange(0, qMax(0, totalLines - visibleLines));
@@ -230,9 +230,9 @@ void TerminalWidget::ensureCursorVisible()
     int cursorGlobalLine = m_historySize + m_cursorRow;
     int topLine = verticalScrollBar()->value();
     
-    // 计算实际可视行数（与paintEvent中的计算保持一致）
+    // 计算实际可视行数（向下取整，确保只显示完整行）
     int charHeight = m_charHeight > 0 ? m_charHeight : 20;
-    int visibleLines = viewport()->height() / charHeight + 1; // 添加+1以处理部分可见的行
+    int visibleLines = viewport()->height() / charHeight; // 向下取整，只计算完整行
     if (visibleLines <= 0) visibleLines = 1;
     
     // 获取当前滚动条范围以确保不设置超出范围的值
@@ -323,8 +323,13 @@ void TerminalWidget::paintEvent(QPaintEvent *event)
     
     int topLine = verticalScrollBar()->value();
     int leftColumn = horizontalScrollBar()->value() / m_charWidth;
-    int visibleColumns = viewport()->width() / m_charWidth + 1;
-    int visibleLines = viewport()->height() / m_charHeight + 1;
+    int visibleColumns = viewport()->width() / m_charWidth; // 向下取整，只计算完整列
+    int visibleLines = viewport()->height() / m_charHeight; // 向下取整，只计算完整行
+    
+    // 确保至少显示一行和一列
+    if (visibleColumns <= 0) visibleColumns = 1;
+    if (visibleLines <= 0) visibleLines = 1;
+    
     int totalLines = m_historySize + m_terminalRows;
     
     for (int line = topLine; line < topLine + visibleLines && line < totalLines; ++line) {
