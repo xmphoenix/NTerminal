@@ -33,6 +33,17 @@ public:
         QColor background;
         Attributes attributes;
     };
+    
+    struct SelectionPoint {
+        int line;    // 缓冲区行号（0-based）
+        int column;  // 列号（0-based）
+        bool operator==(const SelectionPoint &other) const {
+            return line == other.line && column == other.column;
+        }
+        bool operator!=(const SelectionPoint &other) const {
+            return !(*this == other);
+        }
+    };
 
     void setTerminalSize(int columns, int rows);
     void setHistorySize(int lines);
@@ -57,6 +68,12 @@ public:
     void sendData(const QByteArray &data);
     void sendText(const QString &text);
     ConnectionDialog::ConnectionSettings getConnectionSettings() const;
+    
+    // 文本选择和复制
+    void copyToClipboard();
+    void clearSelection();
+    bool hasSelection() const;
+    QString getSelectedText() const;
 
 signals:
     void connectionOpened();
@@ -70,6 +87,11 @@ protected:
     void resizeEvent(QResizeEvent *event) override;
     void scrollContentsBy(int dx, int dy) override;
     void keyPressEvent(QKeyEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void contextMenuEvent(QContextMenuEvent *event) override;
 
 private:
     void updateScrollBars();
@@ -80,6 +102,12 @@ private:
     void shiftLinesUp(int count);
     void appendHistoryLine();
     void scrollTerminalUp();
+    
+    // 选择相关私有方法
+    SelectionPoint viewportToBuffer(const QPoint &pos) const;
+    void updateSelection(const QPoint &pos);
+    void normalizeSelection() const;
+    void drawSelectionBackground(QPainter &painter, int line, int lineInView, int topLine, int leftColumn, int visibleLines, int visibleColumns) const;
     
     // 连接相关私有方法
     void connectVT100ParserSignals();
@@ -114,6 +142,12 @@ private:
 
     int m_charWidth;
     int m_charHeight;
+    
+    // 文本选择相关
+    mutable SelectionPoint m_selectionStart;
+    mutable SelectionPoint m_selectionEnd;
+    bool m_selecting;
+    bool m_hasSelection;
 
     // 连接相关成员
     ConnectionDialog::ConnectionSettings m_connectionSettings;

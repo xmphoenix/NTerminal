@@ -3,6 +3,11 @@
 #include <QScrollBar>
 #include <QFontMetrics>
 #include <QKeyEvent>
+#include <QMouseEvent>
+#include <QContextMenuEvent>
+#include <QClipboard>
+#include <QApplication>
+#include <QMenu>
 #include <QDebug>
 
 static QColor ansiColorToQColor(int code, bool isBright);
@@ -26,6 +31,8 @@ TerminalWidget::TerminalWidget(QWidget *parent)
     , m_currentAttributes(Normal)
     , m_charWidth(10)
     , m_charHeight(20)
+    , m_selecting(false)
+    , m_hasSelection(false)
     , m_serialPort(nullptr)
     , m_tcpSocket(nullptr)
     , m_sshProcess(nullptr)
@@ -81,6 +88,7 @@ void TerminalWidget::writeText(const QString &text)
         writeChar(ch);
     }
     viewport()->update();
+    ensureCursorVisible();
 }
 
 void TerminalWidget::writeChar(QChar ch)
@@ -117,6 +125,7 @@ void TerminalWidget::newLine()
         m_cursorRow = m_terminalRows - 1;
     }
     viewport()->update();
+    ensureCursorVisible();
 }
 
 void TerminalWidget::carriageReturn()
@@ -197,12 +206,22 @@ void TerminalWidget::allocateBuffers()
 void TerminalWidget::updateScrollBars()
 {
     int totalLines = m_historySize + m_terminalRows;
-    verticalScrollBar()->setRange(0, qMax(0, totalLines - m_viewportLines));
-    verticalScrollBar()->setPageStep(m_viewportLines);
+    
+    // 计算实际可视行数（与ensureCursorVisible和paintEvent保持一致）
+    int charHeight = m_charHeight > 0 ? m_charHeight : 20;
+    int visibleLines = viewport()->height() / charHeight + 1; // 添加+1以处理部分可见的行
+    if (visibleLines <= 0) visibleLines = 1;
+    
+    verticalScrollBar()->setRange(0, qMax(0, totalLines - visibleLines));
+    verticalScrollBar()->setPageStep(visibleLines);
     verticalScrollBar()->setSingleStep(1);
     
-    horizontalScrollBar()->setRange(0, qMax(0, m_columns - viewport()->width() / m_charWidth));
-    horizontalScrollBar()->setPageStep(viewport()->width() / m_charWidth);
+    int charWidth = m_charWidth > 0 ? m_charWidth : 10;
+    int visibleColumns = viewport()->width() / charWidth;
+    if (visibleColumns <= 0) visibleColumns = 1;
+    
+    horizontalScrollBar()->setRange(0, qMax(0, m_columns - visibleColumns));
+    horizontalScrollBar()->setPageStep(visibleColumns);
     horizontalScrollBar()->setSingleStep(1);
 }
 
@@ -211,10 +230,21 @@ void TerminalWidget::ensureCursorVisible()
     int cursorGlobalLine = m_historySize + m_cursorRow;
     int topLine = verticalScrollBar()->value();
     
+    // 计算实际可视行数（与paintEvent中的计算保持一致）
+    int charHeight = m_charHeight > 0 ? m_charHeight : 20;
+    int visibleLines = viewport()->height() / charHeight + 1; // 添加+1以处理部分可见的行
+    if (visibleLines <= 0) visibleLines = 1;
+    
+    // 获取当前滚动条范围以确保不设置超出范围的值
+    int maxScroll = verticalScrollBar()->maximum();
+    
     if (cursorGlobalLine < topLine) {
-        verticalScrollBar()->setValue(cursorGlobalLine);
-    } else if (cursorGlobalLine >= topLine + m_viewportLines) {
-        verticalScrollBar()->setValue(cursorGlobalLine - m_viewportLines + 1);
+        // 光标在可视区域上方，滚动到光标位置
+        verticalScrollBar()->setValue(qMin(cursorGlobalLine, maxScroll));
+    } else if (cursorGlobalLine >= topLine + visibleLines) {
+        // 光标在可视区域下方，滚动使光标在底部可见
+        int newTopLine = cursorGlobalLine - visibleLines + 1;
+        verticalScrollBar()->setValue(qMin(newTopLine, maxScroll));
     }
 }
 
@@ -265,11 +295,15 @@ void TerminalWidget::appendHistoryLine()
         cell.background = m_defaultBackground;
         cell.attributes = Normal;
     }
+    
+    // 更新滚动条范围，因为历史大小可能已更改
+    updateScrollBars();
 }
 
 void TerminalWidget::scrollTerminalUp()
 {
     appendHistoryLine();
+    ensureCursorVisible();
 }
 
 // 绘图事件
@@ -295,6 +329,10 @@ void TerminalWidget::paintEvent(QPaintEvent *event)
     
     for (int line = topLine; line < topLine + visibleLines && line < totalLines; ++line) {
         int lineInView = line - topLine;
+        
+        // 绘制选择背景（如果有）
+        drawSelectionBackground(painter, line, lineInView, topLine, leftColumn, visibleLines, visibleColumns);
+        
         if (line < m_historySize) {
             int idx = historyIndex(line);
             if (idx < 0) continue;
@@ -403,6 +441,40 @@ void TerminalWidget::scrollContentsBy(int dx, int dy)
 // 键盘事件处理
 void TerminalWidget::keyPressEvent(QKeyEvent *event)
 {
+    // 首先处理终端相关的快捷键
+    if (event->modifiers() & Qt::ControlModifier) {
+        switch (event->key()) {
+            case Qt::Key_C: // Ctrl+C
+                if (hasSelection()) {
+                    copyToClipboard();
+                } else {
+                    // 如果没有选择，发送Ctrl+C中断信号
+                    if (m_isConnected) {
+                        sendData(QByteArray("\x03", 1)); // ASCII ETX (Ctrl+C)
+                    }
+                }
+                return;
+            case Qt::Key_V: // Ctrl+V
+                if (QApplication::clipboard()->text().isEmpty()) {
+                    QAbstractScrollArea::keyPressEvent(event);
+                } else {
+                    // 粘贴剪贴板文本
+                    QString text = QApplication::clipboard()->text();
+                    sendText(text);
+                }
+                return;
+            case Qt::Key_A: // Ctrl+A
+                m_selectionStart = {0, 0};
+                m_selectionEnd = {m_historySize + m_terminalRows - 1, m_columns - 1};
+                m_hasSelection = true;
+                viewport()->update();
+                return;
+            case Qt::Key_L: // Ctrl+L
+                clearSelection();
+                return;
+        }
+    }
+    
     if (!m_isConnected) {
         QAbstractScrollArea::keyPressEvent(event);
         return;
@@ -999,4 +1071,236 @@ void TerminalWidget::onClearScreen()
 void TerminalWidget::onClearLine()
 {
     clearLine();
+}
+
+// 文本选择和复制功能实现
+
+TerminalWidget::SelectionPoint TerminalWidget::viewportToBuffer(const QPoint &pos) const
+{
+    int charWidth = m_charWidth > 0 ? m_charWidth : 10;
+    int charHeight = m_charHeight > 0 ? m_charHeight : 20;
+    
+    int column = pos.x() / charWidth + horizontalScrollBar()->value();
+    int line = pos.y() / charHeight + verticalScrollBar()->value();
+    
+    // 限制在有效范围内
+    column = qMax(0, qMin(column, m_columns - 1));
+    line = qMax(0, qMin(line, m_historySize + m_terminalRows - 1));
+    
+    return {line, column};
+}
+
+void TerminalWidget::updateSelection(const QPoint &pos)
+{
+    SelectionPoint bufferPos = viewportToBuffer(pos);
+    
+    if (m_selecting) {
+        m_selectionEnd = bufferPos;
+        normalizeSelection();
+        viewport()->update();
+    }
+}
+
+void TerminalWidget::normalizeSelection() const
+{
+    // 确保start在end之前（按行和列排序）
+    if (m_selectionStart.line > m_selectionEnd.line ||
+        (m_selectionStart.line == m_selectionEnd.line && m_selectionStart.column > m_selectionEnd.column)) {
+        qSwap(m_selectionStart, m_selectionEnd);
+    }
+}
+
+void TerminalWidget::drawSelectionBackground(QPainter &painter, int line, int lineInView, int topLine, int leftColumn, int visibleLines, int visibleColumns) const
+{
+    Q_UNUSED(topLine);
+    Q_UNUSED(visibleLines);
+    
+    if (!m_hasSelection) return;
+    
+    int charWidth = m_charWidth > 0 ? m_charWidth : 10;
+    int charHeight = m_charHeight > 0 ? m_charHeight : 20;
+    
+    // 检查这一行是否在选择范围内
+    if (line < m_selectionStart.line || line > m_selectionEnd.line) {
+        return;
+    }
+    
+    // 计算这一行的选择起始和结束列
+    int startCol = (line == m_selectionStart.line) ? m_selectionStart.column : 0;
+    int endCol = (line == m_selectionEnd.line) ? m_selectionEnd.column : m_columns - 1;
+    
+    // 调整为可视范围内的列
+    if (endCol < leftColumn || startCol >= leftColumn + visibleColumns) {
+        return;
+    }
+    
+    startCol = qMax(startCol, leftColumn);
+    endCol = qMin(endCol, leftColumn + visibleColumns - 1);
+    
+    // 绘制选择背景
+    QColor selectionColor = QColor(100, 100, 255, 100); // 半透明蓝色
+    painter.fillRect(startCol * charWidth - leftColumn * charWidth,
+                     lineInView * charHeight,
+                     (endCol - startCol + 1) * charWidth,
+                     charHeight,
+                     selectionColor);
+}
+
+// 鼠标事件处理
+void TerminalWidget::mousePressEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton) {
+        // 开始选择
+        m_selecting = true;
+        m_hasSelection = false;
+        m_selectionStart = viewportToBuffer(event->pos());
+        m_selectionEnd = m_selectionStart;
+        
+        // 设置鼠标捕获
+        setMouseTracking(true);
+        grabMouse();
+        
+        viewport()->update();
+    }
+    
+    QAbstractScrollArea::mousePressEvent(event);
+}
+
+void TerminalWidget::mouseMoveEvent(QMouseEvent *event)
+{
+    if (m_selecting) {
+        updateSelection(event->pos());
+    }
+    
+    QAbstractScrollArea::mouseMoveEvent(event);
+}
+
+void TerminalWidget::mouseReleaseEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton && m_selecting) {
+        m_selecting = false;
+        m_hasSelection = (m_selectionStart != m_selectionEnd);
+        
+        // 释放鼠标捕获
+        releaseMouse();
+        setMouseTracking(false);
+        
+        viewport()->update();
+    }
+    
+    QAbstractScrollArea::mouseReleaseEvent(event);
+}
+
+void TerminalWidget::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton) {
+        // 双击选择当前单词
+        SelectionPoint pos = viewportToBuffer(event->pos());
+        
+        // 简化实现：选择当前行
+        m_selectionStart = {pos.line, 0};
+        m_selectionEnd = {pos.line, m_columns - 1};
+        m_hasSelection = true;
+        
+        viewport()->update();
+    }
+    
+    QAbstractScrollArea::mouseDoubleClickEvent(event);
+}
+
+void TerminalWidget::contextMenuEvent(QContextMenuEvent *event)
+{
+    QMenu menu(this);
+    
+    QAction *copyAction = new QAction("复制", &menu);
+    copyAction->setEnabled(m_hasSelection);
+    connect(copyAction, &QAction::triggered, this, &TerminalWidget::copyToClipboard);
+    
+    QAction *selectAllAction = new QAction("全选", &menu);
+    connect(selectAllAction, &QAction::triggered, this, [this]() {
+        m_selectionStart = {0, 0};
+        m_selectionEnd = {m_historySize + m_terminalRows - 1, m_columns - 1};
+        m_hasSelection = true;
+        viewport()->update();
+    });
+    
+    QAction *clearSelectionAction = new QAction("清除选择", &menu);
+    clearSelectionAction->setEnabled(m_hasSelection);
+    connect(clearSelectionAction, &QAction::triggered, this, &TerminalWidget::clearSelection);
+    
+    menu.addAction(copyAction);
+    menu.addAction(selectAllAction);
+    menu.addAction(clearSelectionAction);
+    menu.addSeparator();
+    
+    // 添加其他终端相关操作...
+    
+    menu.exec(event->globalPos());
+}
+
+// 选择相关公共方法
+void TerminalWidget::copyToClipboard()
+{
+    if (!m_hasSelection) return;
+    
+    QString selectedText = getSelectedText();
+    if (!selectedText.isEmpty()) {
+        QApplication::clipboard()->setText(selectedText);
+    }
+}
+
+void TerminalWidget::clearSelection()
+{
+    m_hasSelection = false;
+    viewport()->update();
+}
+
+bool TerminalWidget::hasSelection() const
+{
+    return m_hasSelection;
+}
+
+QString TerminalWidget::getSelectedText() const
+{
+    if (!m_hasSelection) return QString();
+    
+    QString result;
+    normalizeSelection();
+    
+    // 遍历选择范围内的每一行
+    for (int line = m_selectionStart.line; line <= m_selectionEnd.line; ++line) {
+        int startCol = (line == m_selectionStart.line) ? m_selectionStart.column : 0;
+        int endCol = (line == m_selectionEnd.line) ? m_selectionEnd.column : m_columns - 1;
+        
+        // 获取该行的文本
+        QString lineText;
+        if (line < m_historySize) {
+            // 历史行
+            int idx = historyIndex(line);
+            if (idx >= 0) {
+                for (int col = startCol; col <= endCol && col < m_columns; ++col) {
+                    lineText.append(m_historyBuffer[idx][col].character);
+                }
+            }
+        } else {
+            // 终端行
+            int row = line - m_historySize;
+            if (row >= 0 && row < m_terminalRows) {
+                for (int col = startCol; col <= endCol && col < m_columns; ++col) {
+                    lineText.append(m_terminalBuffer[row][col].character);
+                }
+            }
+        }
+        
+        // 移除行尾空格
+        lineText = lineText.trimmed();
+        if (!lineText.isEmpty()) {
+            result.append(lineText);
+            if (line < m_selectionEnd.line) {
+                result.append('\n');
+            }
+        }
+    }
+    
+    return result;
 }
