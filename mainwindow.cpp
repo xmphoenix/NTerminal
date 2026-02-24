@@ -463,8 +463,8 @@ void MainWindow::initMainWindowMenu()
         ConnectionDialog dialog(this);
         if (dialog.exec() == QDialog::Accepted) {
             ConnectionDialog::ConnectionSettings settings = dialog.getSettings();
-            qDebug() << "新建连接: 会话名称 =" << settings.sessionName
-                     << "类型 =" << settings.type;
+            // qDebug() << "新建连接: 会话名称 =" << settings.sessionName
+            //          << "类型 =" << settings.type;
             
             // 创建新的终端标签页
             QString tabName = settings.sessionName.isEmpty() ? 
@@ -494,8 +494,8 @@ void MainWindow::initMainWindowMenu()
         ConnectionDialog dialog(this);
         if (dialog.exec() == QDialog::Accepted) {
             ConnectionDialog::ConnectionSettings settings = dialog.getSettings();
-            qDebug() << "工具栏新建连接: 会话名称 =" << settings.sessionName
-                     << "类型 =" << settings.type;
+            // qDebug() << "工具栏新建连接: 会话名称 =" << settings.sessionName
+            //          << "类型 =" << settings.type;
             
             // 创建新的终端标签页
             QString tabName = settings.sessionName.isEmpty() ? 

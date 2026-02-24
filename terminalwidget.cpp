@@ -5,6 +5,7 @@
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QContextMenuEvent>
+#include <QFocusEvent>
 #include <QClipboard>
 #include <QApplication>
 #include <QMenu>
@@ -43,6 +44,9 @@ TerminalWidget::TerminalWidget(QWidget *parent)
     setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     
+    // 设置视口也接收鼠标事件
+    viewport()->setMouseTracking(true);
+    
     // 初始化VT100解析器
     m_vt100Parser = new VT100Parser(this);
     connectVT100ParserSignals();
@@ -53,6 +57,13 @@ TerminalWidget::TerminalWidget(QWidget *parent)
 
 TerminalWidget::~TerminalWidget()
 {
+    // 安全释放鼠标捕获，防止在捕获状态下销毁对象
+    if (m_selecting) {
+        m_selecting = false;
+        m_hasSelection = false;
+        viewport()->setMouseTracking(false);
+    }
+    
     closeConnection();
     if (m_serialPort) delete m_serialPort;
     if (m_tcpSocket) delete m_tcpSocket;
@@ -706,8 +717,6 @@ static QColor ansi256ColorToQColor(int code)
 void TerminalWidget::setConnectionSettings(const ConnectionDialog::ConnectionSettings &settings)
 {
     m_connectionSettings = settings;
-    qDebug() << "TerminalWidget: 设置连接参数，类型 =" << settings.type
-             << "会话名称 =" << settings.sessionName;
 }
 
 bool TerminalWidget::openConnection()
@@ -830,8 +839,6 @@ bool TerminalWidget::openSerialConnection()
     connect(m_serialPort, &QSerialPort::errorOccurred, this, &TerminalWidget::onSerialError);
     
     if (m_serialPort->open(QIODevice::ReadWrite)) {
-        qDebug() << "串口连接已打开:" << m_connectionSettings.portName
-                 << "波特率:" << m_connectionSettings.baudRate;
         return true;
     } else {
         QString error = QString("无法打开串口 %1: %2")
@@ -865,7 +872,6 @@ bool TerminalWidget::openTelnetConnection()
     connect(m_tcpSocket, &QTcpSocket::readyRead, this, &TerminalWidget::onTcpDataReady);
     connect(m_tcpSocket, &QTcpSocket::errorOccurred, this, &TerminalWidget::onTcpError);
     connect(m_tcpSocket, &QTcpSocket::connected, this, [this]() {
-        qDebug() << "Telnet连接已建立:" << m_connectionSettings.host << ":" << m_connectionSettings.port;
     });
     
     m_tcpSocket->connectToHost(m_connectionSettings.host, m_connectionSettings.port);
@@ -936,12 +942,9 @@ bool TerminalWidget::openSshConnection()
         arguments << "-i" << m_connectionSettings.sshKeyPath;
     }
     
-    qDebug() << "启动SSH进程:" << program << arguments;
-    
     m_sshProcess->start(program, arguments);
     
     if (m_sshProcess->waitForStarted(5000)) {
-        qDebug() << "SSH进程已启动，PID:" << m_sshProcess->processId();
         return true;
     } else {
         QString error = QString("无法启动SSH进程: %1").arg(m_sshProcess->errorString());
@@ -1181,17 +1184,37 @@ void TerminalWidget::drawSelectionBackground(QPainter &painter, int line, int li
 // 鼠标事件处理
 void TerminalWidget::mousePressEvent(QMouseEvent *event)
 {
-    if (event->button() == Qt::LeftButton) {
+    // 检查鼠标是否按下在TerminalWidget视口范围内
+    QPoint pos = event->pos();
+    bool insideViewport = viewport()->rect().contains(pos);
+    
+    if (!insideViewport && m_selecting) {
+        // 鼠标按下在控件外部，且正在进行选择，清除选择状态
+        m_selecting = false;
+        m_hasSelection = false;
+        viewport()->setMouseTracking(false);
+        viewport()->update();
+        
+        // 让事件继续传递
+        QAbstractScrollArea::mousePressEvent(event);
+        return;
+    }
+    
+    if (event->button() == Qt::LeftButton && insideViewport) {
         // 开始选择
         m_selecting = true;
         m_hasSelection = false;
         m_selectionStart = viewportToBuffer(event->pos());
         m_selectionEnd = m_selectionStart;
         
-        // 设置鼠标捕获
-        setMouseTracking(true);
-        grabMouse();
+        // 确保我们有焦点
+        if (!hasFocus()) {
+            setFocus();
+        }
         
+        // 启用鼠标跟踪以接收鼠标移动事件（在视口上）
+        // 注意：我们不使用grabMouse()，避免捕获所有鼠标事件
+        viewport()->setMouseTracking(true);
         viewport()->update();
     }
     
@@ -1201,7 +1224,13 @@ void TerminalWidget::mousePressEvent(QMouseEvent *event)
 void TerminalWidget::mouseMoveEvent(QMouseEvent *event)
 {
     if (m_selecting) {
-        updateSelection(event->pos());
+        // 检查鼠标是否在视口范围内，避免在外部控件上更新选择
+        QPoint pos = event->pos();
+        bool insideViewport = viewport()->rect().contains(pos);
+        
+        if (insideViewport) {
+            updateSelection(event->pos());
+        }
     }
     
     QAbstractScrollArea::mouseMoveEvent(event);
@@ -1209,13 +1238,19 @@ void TerminalWidget::mouseMoveEvent(QMouseEvent *event)
 
 void TerminalWidget::mouseReleaseEvent(QMouseEvent *event)
 {
-    if (event->button() == Qt::LeftButton && m_selecting) {
+    // 如果正在进行选择操作，任何鼠标按钮释放都应该结束选择
+    if (m_selecting) {
         m_selecting = false;
-        m_hasSelection = (m_selectionStart != m_selectionEnd);
         
-        // 释放鼠标捕获
-        releaseMouse();
-        setMouseTracking(false);
+        // 只有左键释放时才确认选择，其他按钮释放时清除选择
+        if (event->button() == Qt::LeftButton) {
+            m_hasSelection = (m_selectionStart != m_selectionEnd);
+        } else {
+            m_hasSelection = false;
+        }
+        
+        // 禁用视口的鼠标跟踪
+        viewport()->setMouseTracking(false);
         
         viewport()->update();
     }
@@ -1335,4 +1370,61 @@ QString TerminalWidget::getSelectedText() const
     }
     
     return result;
+}
+
+void TerminalWidget::focusInEvent(QFocusEvent *event)
+{
+    // 确保视口的鼠标跟踪状态正确
+    viewport()->setMouseTracking(true);
+    // qDebug() << "[TerminalWidget] 视口鼠标跟踪状态已更新:" << viewport()->hasMouseTracking();
+    
+    // 如果正在选择但丢失了鼠标捕获，确保状态一致
+    if (m_selecting) {
+        // qDebug() << "[TerminalWidget] 焦点进入时正在选择，但可能丢失了鼠标捕获";
+        // 我们不重新捕获鼠标，因为用户可能已经移走了
+        // 只是更新显示
+        viewport()->update();
+    }
+    
+    QAbstractScrollArea::focusInEvent(event);
+    // qDebug() << "[TerminalWidget] focusInEvent 处理完成";
+}
+
+void TerminalWidget::focusOutEvent(QFocusEvent *event)
+{
+    QString reasonStr;
+    switch (event->reason()) {
+        case Qt::MouseFocusReason: reasonStr = "MouseFocusReason"; break;
+        case Qt::TabFocusReason: reasonStr = "TabFocusReason"; break;
+        case Qt::BacktabFocusReason: reasonStr = "BacktabFocusReason"; break;
+        case Qt::ActiveWindowFocusReason: reasonStr = "ActiveWindowFocusReason"; break;
+        case Qt::PopupFocusReason: reasonStr = "PopupFocusReason"; break;
+        case Qt::ShortcutFocusReason: reasonStr = "ShortcutFocusReason"; break;
+        case Qt::MenuBarFocusReason: reasonStr = "MenuBarFocusReason"; break;
+        case Qt::OtherFocusReason: reasonStr = "OtherFocusReason"; break;
+        default: reasonStr = QString("Unknown(%1)").arg(event->reason()); break;
+    }
+    
+    // qDebug() << "[TerminalWidget] focusOutEvent - 原因:" << reasonStr
+    //          << "选择状态:" << m_selecting
+    //          << "hasFocus:" << hasFocus()
+    //          << "viewport hasFocus:" << viewport()->hasFocus();
+    
+    // 当控件失去焦点时，确保释放鼠标捕获
+    if (m_selecting) {
+        // qDebug() << "[TerminalWidget] 失去焦点且正在选择，清除选择状态";
+        m_selecting = false;
+        m_hasSelection = false;
+        
+        // 禁用视口的鼠标跟踪
+        viewport()->setMouseTracking(false);
+        // qDebug() << "[TerminalWidget] 视口鼠标跟踪已禁用";
+        
+        viewport()->update();
+    } else {
+        // qDebug() << "[TerminalWidget] 失去焦点但不在选择状态";
+    }
+    
+    QAbstractScrollArea::focusOutEvent(event);
+    // qDebug() << "[TerminalWidget] focusOutEvent 处理完成";
 }
