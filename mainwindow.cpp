@@ -324,10 +324,14 @@ void MainWindow::closeTerminalTabById(const QString &terminalId)
     
     qDebug() << "关闭终端标签页 ID:" << terminalId;
     
-    // 如果所有标签页都关闭了，创建一个新的
-    if (m_screenTabWidget->count() == 0) {
-        createNewTerminalTab("终端 1");
+    // 如果关闭的是当前终端，更新当前终端指针
+    if (m_currentTerminal == terminal) {
+        m_currentTerminal = nullptr;
+        qDebug() << "当前活动终端已被关闭";
     }
+    
+    // 保持标签页控件为空，等待用户创建新会话
+    // 不再自动创建新标签页
 }
 
 TerminalWidget* MainWindow::getCurrentTerminal() const
@@ -396,8 +400,8 @@ void MainWindow::initMainWindowLayout()
     connect(m_screenTabWidget, &QTabWidget::currentChanged,
             this, &MainWindow::onTabCurrentChanged);
 
-    // 创建第一个终端标签页
-    createNewTerminalTab("终端 1");
+    // 移除默认标签页，等待用户创建会话后才创建标签页
+    // 启动时不创建任何标签页
 
     m_commandTextEdit = new QTextEdit(QObject::tr("手动输入命令区域"), m_verticalSplitter);
 
