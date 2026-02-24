@@ -35,13 +35,27 @@ private:
     void startLogging();
     void stopLogging();
     void toggleLogging();
+    
+    // 多终端管理方法
+    TerminalWidget* createNewTerminalTab(const QString &tabName = QString());
+    void closeTerminalTab(int index);
+    void closeTerminalTabById(const QString &terminalId);
+    TerminalWidget* getCurrentTerminal() const;
+    TerminalWidget* getTerminalById(const QString &terminalId) const;
+    void updateCurrentTerminal(TerminalWidget *terminal);
+    void onTabCloseRequested(int index);
+    void onTabCurrentChanged(int index);
 
     QSplitter *m_verticalSplitter;
     QSplitter *m_horizontalSplitter;
     QListWidget *m_listWidget;
     QTabWidget *m_screenTabWidget;
     QTextEdit *m_commandTextEdit;
-    TerminalWidget *m_terminal;
+    
+    // 多终端管理
+    QMap<QString, TerminalWidget*> m_terminals; // 标签页ID -> TerminalWidget
+    TerminalWidget *m_currentTerminal;
+    int m_nextTerminalId;
 
     QMenuBar *m_menuBar;
     QMenu *m_fileMenu;

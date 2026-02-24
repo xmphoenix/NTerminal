@@ -21,7 +21,8 @@ MainWindow::MainWindow(QWidget *parent)
     , m_listWidget(nullptr)
     , m_screenTabWidget(nullptr)
     , m_commandTextEdit(nullptr)
-    , m_terminal(nullptr)
+    , m_currentTerminal(nullptr)
+    , m_nextTerminalId(1)
     , m_menuBar(nullptr)
     , m_fileMenu(nullptr)
     , m_editMenu(nullptr)
@@ -52,12 +53,13 @@ MainWindow::MainWindow(QWidget *parent)
 
 void MainWindow::saveCurrentSession()
 {
-    if (!m_terminal || !m_terminal->isConnected()) {
+    TerminalWidget *terminal = getCurrentTerminal();
+    if (!terminal || !terminal->isConnected()) {
         qDebug() << "没有活动的连接，无法保存会话";
         return;
     }
     
-    ConnectionDialog::ConnectionSettings settings = m_terminal->getConnectionSettings();
+    ConnectionDialog::ConnectionSettings settings = terminal->getConnectionSettings();
     if (settings.sessionName.isEmpty()) {
         settings.sessionName = "未命名会话";
     }
@@ -103,21 +105,22 @@ void MainWindow::setupLogger()
 
 void MainWindow::startLogging()
 {
-    if (!m_terminal || !m_terminal->isConnected()) {
+    TerminalWidget *terminal = getCurrentTerminal();
+    if (!terminal || !terminal->isConnected()) {
         qDebug() << "没有活动的连接，无法开始日志记录";
         return;
     }
     
-    ConnectionDialog::ConnectionSettings settings = m_terminal->getConnectionSettings();
+    ConnectionDialog::ConnectionSettings settings = terminal->getConnectionSettings();
     QString sessionName = settings.sessionName.isEmpty() ? "未命名会话" : settings.sessionName;
     
     if (m_logger->startLogging(sessionName)) {
         // 连接终端信号到日志记录器
-        connect(m_terminal, &TerminalWidget::dataReceived, m_logger, &Logger::onDataReceived);
-        connect(m_terminal, &TerminalWidget::dataSent, m_logger, &Logger::onDataSent);
-        connect(m_terminal, &TerminalWidget::connectionOpened, m_logger, &Logger::onConnectionOpened);
-        connect(m_terminal, &TerminalWidget::connectionClosed, m_logger, &Logger::onConnectionClosed);
-        connect(m_terminal, &TerminalWidget::connectionError, m_logger, &Logger::onConnectionError);
+        connect(terminal, &TerminalWidget::dataReceived, m_logger, &Logger::onDataReceived);
+        connect(terminal, &TerminalWidget::dataSent, m_logger, &Logger::onDataSent);
+        connect(terminal, &TerminalWidget::connectionOpened, m_logger, &Logger::onConnectionOpened);
+        connect(terminal, &TerminalWidget::connectionClosed, m_logger, &Logger::onConnectionClosed);
+        connect(terminal, &TerminalWidget::connectionError, m_logger, &Logger::onConnectionError);
         
         qDebug() << "已开始记录日志:" << m_logger->getCurrentLogFile();
         if (m_toggleLoggingAction) m_toggleLoggingAction->setText("停止记录日志");
@@ -127,13 +130,13 @@ void MainWindow::startLogging()
 void MainWindow::stopLogging()
 {
     if (m_logger && m_logger->isLogging()) {
-        // 断开终端信号
-        if (m_terminal) {
-            disconnect(m_terminal, &TerminalWidget::dataReceived, m_logger, &Logger::onDataReceived);
-            disconnect(m_terminal, &TerminalWidget::dataSent, m_logger, &Logger::onDataSent);
-            disconnect(m_terminal, &TerminalWidget::connectionOpened, m_logger, &Logger::onConnectionOpened);
-            disconnect(m_terminal, &TerminalWidget::connectionClosed, m_logger, &Logger::onConnectionClosed);
-            disconnect(m_terminal, &TerminalWidget::connectionError, m_logger, &Logger::onConnectionError);
+        // 断开所有终端信号
+        for (TerminalWidget *terminal : m_terminals) {
+            disconnect(terminal, &TerminalWidget::dataReceived, m_logger, &Logger::onDataReceived);
+            disconnect(terminal, &TerminalWidget::dataSent, m_logger, &Logger::onDataSent);
+            disconnect(terminal, &TerminalWidget::connectionOpened, m_logger, &Logger::onConnectionOpened);
+            disconnect(terminal, &TerminalWidget::connectionClosed, m_logger, &Logger::onConnectionClosed);
+            disconnect(terminal, &TerminalWidget::connectionError, m_logger, &Logger::onConnectionError);
         }
         
         m_logger->stopLogging();
@@ -190,9 +193,15 @@ void MainWindow::populateSessionMenu()
             
             qDebug() << "加载会话:" << session.name;
             
-            if (m_terminal) {
-                m_terminal->setConnectionSettings(settings);
-                if (m_terminal->openConnection()) {
+            // 创建新的终端标签页
+            QString tabName = session.name.isEmpty() ? 
+                QString("终端 %1").arg(m_terminals.size() + 1) : 
+                session.name;
+            
+            TerminalWidget *terminal = createNewTerminalTab(tabName);
+            if (terminal) {
+                terminal->setConnectionSettings(settings);
+                if (terminal->openConnection()) {
                     qDebug() << "会话连接已打开";
                 } else {
                     qDebug() << "会话连接打开失败";
@@ -237,7 +246,135 @@ void MainWindow::toggleLogging()
     }
 }
 
-MainWindow::~MainWindow() {}
+// 多终端管理方法实现
+
+TerminalWidget* MainWindow::createNewTerminalTab(const QString &tabName)
+{
+    QString terminalId = QString("terminal_%1").arg(m_nextTerminalId++);
+    QString displayName = tabName.isEmpty() ? QString("终端 %1").arg(m_terminals.size() + 1) : tabName;
+    
+    // 创建新的终端控件
+    TerminalWidget *terminal = new TerminalWidget();
+    
+    // 添加到标签页
+    int tabIndex = m_screenTabWidget->addTab(terminal, displayName);
+    
+    // 存储到映射中
+    m_terminals.insert(terminalId, terminal);
+    
+    // 设置标签页数据以便查找
+    m_screenTabWidget->tabBar()->setTabData(tabIndex, terminalId);
+    
+    // 设置为当前标签页
+    m_screenTabWidget->setCurrentIndex(tabIndex);
+    
+    // 更新当前终端
+    updateCurrentTerminal(terminal);
+    
+    qDebug() << "创建新终端标签页:" << displayName << "ID:" << terminalId;
+    
+    return terminal;
+}
+
+void MainWindow::closeTerminalTab(int index)
+{
+    if (index < 0 || index >= m_screenTabWidget->count()) {
+        return;
+    }
+    
+    QString terminalId = m_screenTabWidget->tabBar()->tabData(index).toString();
+    
+    if (!terminalId.isEmpty()) {
+        closeTerminalTabById(terminalId);
+    }
+}
+
+void MainWindow::closeTerminalTabById(const QString &terminalId)
+{
+    TerminalWidget *terminal = m_terminals.value(terminalId, nullptr);
+    if (!terminal) {
+        return;
+    }
+    
+    // 找到对应的标签页索引
+    int tabIndex = -1;
+    for (int i = 0; i < m_screenTabWidget->count(); ++i) {
+        QString tabTerminalId = m_screenTabWidget->tabBar()->tabData(i).toString();
+        if (tabTerminalId == terminalId) {
+            tabIndex = i;
+            break;
+        }
+    }
+    
+    // 关闭连接（如果已连接）
+    if (terminal->isConnected()) {
+        terminal->closeConnection();
+    }
+    
+    // 从映射中移除
+    m_terminals.remove(terminalId);
+    
+    // 从标签页控件中移除（如果找到了索引）
+    if (tabIndex >= 0) {
+        m_screenTabWidget->removeTab(tabIndex);
+    }
+    
+    // 删除控件
+    terminal->deleteLater();
+    
+    qDebug() << "关闭终端标签页 ID:" << terminalId;
+    
+    // 如果所有标签页都关闭了，创建一个新的
+    if (m_screenTabWidget->count() == 0) {
+        createNewTerminalTab("终端 1");
+    }
+}
+
+TerminalWidget* MainWindow::getCurrentTerminal() const
+{
+    return m_currentTerminal;
+}
+
+TerminalWidget* MainWindow::getTerminalById(const QString &terminalId) const
+{
+    return m_terminals.value(terminalId, nullptr);
+}
+
+void MainWindow::updateCurrentTerminal(TerminalWidget *terminal)
+{
+    if (m_currentTerminal != terminal) {
+        m_currentTerminal = terminal;
+        qDebug() << "当前活动终端已更新";
+    }
+}
+
+void MainWindow::onTabCloseRequested(int index)
+{
+    closeTerminalTab(index);
+}
+
+void MainWindow::onTabCurrentChanged(int index)
+{
+    if (index >= 0 && index < m_screenTabWidget->count()) {
+        QString terminalId = m_screenTabWidget->tabBar()->tabData(index).toString();
+        TerminalWidget *terminal = getTerminalById(terminalId);
+        if (terminal) {
+            updateCurrentTerminal(terminal);
+        }
+    }
+}
+
+MainWindow::~MainWindow() 
+{
+    // 清理所有终端实例
+    for (TerminalWidget *terminal : m_terminals) {
+        if (terminal) {
+            terminal->closeConnection();
+            terminal->deleteLater();
+        }
+    }
+    m_terminals.clear();
+}
 
 void MainWindow::initMainWindowLayout()
 {
@@ -249,8 +386,18 @@ void MainWindow::initMainWindowLayout()
     m_horizontalSplitter->setStretchFactor(0, 1);
     m_horizontalSplitter->setStretchFactor(1, 180);
 
-    m_terminal = new TerminalWidget();
-    m_screenTabWidget->addTab(m_terminal, "Terminal");
+    // 设置标签页可关闭
+    m_screenTabWidget->setTabsClosable(true);
+    m_screenTabWidget->setMovable(true);
+    
+    // 连接标签页信号
+    connect(m_screenTabWidget, &QTabWidget::tabCloseRequested,
+            this, &MainWindow::onTabCloseRequested);
+    connect(m_screenTabWidget, &QTabWidget::currentChanged,
+            this, &MainWindow::onTabCurrentChanged);
+
+    // 创建第一个终端标签页
+    createNewTerminalTab("终端 1");
 
     m_commandTextEdit = new QTextEdit(QObject::tr("手动输入命令区域"), m_verticalSplitter);
 
@@ -315,10 +462,15 @@ void MainWindow::initMainWindowMenu()
             qDebug() << "新建连接: 会话名称 =" << settings.sessionName
                      << "类型 =" << settings.type;
             
-            // 设置连接参数并打开连接
-            if (m_terminal) {
-                m_terminal->setConnectionSettings(settings);
-                if (m_terminal->openConnection()) {
+            // 创建新的终端标签页
+            QString tabName = settings.sessionName.isEmpty() ? 
+                QString("终端 %1").arg(m_terminals.size() + 1) : 
+                settings.sessionName;
+            
+            TerminalWidget *terminal = createNewTerminalTab(tabName);
+            if (terminal) {
+                terminal->setConnectionSettings(settings);
+                if (terminal->openConnection()) {
                     qDebug() << "连接已成功打开";
                 } else {
                     qDebug() << "连接打开失败";
@@ -341,10 +493,15 @@ void MainWindow::initMainWindowMenu()
             qDebug() << "工具栏新建连接: 会话名称 =" << settings.sessionName
                      << "类型 =" << settings.type;
             
-            // 设置连接参数并打开连接
-            if (m_terminal) {
-                m_terminal->setConnectionSettings(settings);
-                if (m_terminal->openConnection()) {
+            // 创建新的终端标签页
+            QString tabName = settings.sessionName.isEmpty() ? 
+                QString("终端 %1").arg(m_terminals.size() + 1) : 
+                settings.sessionName;
+            
+            TerminalWidget *terminal = createNewTerminalTab(tabName);
+            if (terminal) {
+                terminal->setConnectionSettings(settings);
+                if (terminal->openConnection()) {
                     qDebug() << "连接已成功打开";
                 } else {
                     qDebug() << "连接打开失败";
