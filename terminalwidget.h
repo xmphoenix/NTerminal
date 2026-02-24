@@ -6,6 +6,7 @@
 #include <QVector>
 #include <QSerialPort>
 #include <QTcpSocket>
+#include <QProcess>
 #include "connectiondialog.h"
 #include "vt100parser.h"
 
@@ -55,6 +56,7 @@ public:
     bool isConnected() const;
     void sendData(const QByteArray &data);
     void sendText(const QString &text);
+    ConnectionDialog::ConnectionSettings getConnectionSettings() const;
 
 signals:
     void connectionOpened();
@@ -106,6 +108,9 @@ private:
 
     QColor m_defaultForeground;
     QColor m_defaultBackground;
+    QColor m_currentForeground;
+    QColor m_currentBackground;
+    Attributes m_currentAttributes;
 
     int m_charWidth;
     int m_charHeight;
@@ -114,17 +119,22 @@ private:
     ConnectionDialog::ConnectionSettings m_connectionSettings;
     QSerialPort *m_serialPort;
     QTcpSocket *m_tcpSocket;
+    QProcess *m_sshProcess;
     VT100Parser *m_vt100Parser;
     bool m_isConnected;
     
 private slots:
     void onSerialDataReady();
     void onTcpDataReady();
+    void onSshProcessReadyRead();
+    void onSshProcessErrorOccurred(QProcess::ProcessError error);
     void onSerialError(QSerialPort::SerialPortError error);
     void onTcpError(QAbstractSocket::SocketError error);
     
     // VT100解析器信号处理
     void onTextReceived(const QString &text);
+    void onSetAttributes(const QVector<int> &params);
+    void onResetAttributes();
     void onCursorUp(int count);
     void onCursorDown(int count);
     void onCursorForward(int count);

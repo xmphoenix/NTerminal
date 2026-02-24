@@ -5,6 +5,9 @@
 #include <QKeyEvent>
 #include <QDebug>
 
+static QColor ansiColorToQColor(int code, bool isBright);
+static QColor ansi256ColorToQColor(int code);
+
 TerminalWidget::TerminalWidget(QWidget *parent)
     : QAbstractScrollArea(parent)
     , m_columns(80)
@@ -18,10 +21,14 @@ TerminalWidget::TerminalWidget(QWidget *parent)
     , m_historySize(0)
     , m_defaultForeground(Qt::white)
     , m_defaultBackground(Qt::black)
+    , m_currentForeground(Qt::white)
+    , m_currentBackground(Qt::black)
+    , m_currentAttributes(Normal)
     , m_charWidth(10)
     , m_charHeight(20)
     , m_serialPort(nullptr)
     , m_tcpSocket(nullptr)
+    , m_sshProcess(nullptr)
     , m_vt100Parser(nullptr)
     , m_isConnected(false)
 {
@@ -42,6 +49,7 @@ TerminalWidget::~TerminalWidget()
     closeConnection();
     if (m_serialPort) delete m_serialPort;
     if (m_tcpSocket) delete m_tcpSocket;
+    if (m_sshProcess) delete m_sshProcess;
 }
 
 // 基础终端方法
@@ -91,9 +99,9 @@ void TerminalWidget::writeChar(QChar ch)
         m_cursorColumn >= 0 && m_cursorColumn < m_columns) {
         Cell &cell = m_terminalBuffer[m_cursorRow][m_cursorColumn];
         cell.character = ch;
-        cell.foreground = m_defaultForeground;
-        cell.background = m_defaultBackground;
-        cell.attributes = Normal;
+        cell.foreground = m_currentForeground;
+        cell.background = m_currentBackground;
+        cell.attributes = m_currentAttributes;
         
         m_cursorColumn++;
     }
@@ -304,9 +312,26 @@ void TerminalWidget::paintEvent(QPaintEvent *event)
                                      lineInView * m_charHeight,
                                      m_charWidth, m_charHeight, bg);
                 }
+                
+                QFont font = painter.font();
+                if (cell.attributes & Bold) {
+                    font.setBold(true);
+                }
+                if (cell.attributes & Underline) {
+                    font.setUnderline(true);
+                }
+                painter.setFont(font);
+                
                 painter.drawText(col * m_charWidth - leftColumn * m_charWidth,
                                  lineInView * m_charHeight + fm.ascent(),
                                  QString(cell.character));
+                
+                // 恢复字体
+                if (cell.attributes & (Bold | Underline)) {
+                    font.setBold(false);
+                    font.setUnderline(false);
+                    painter.setFont(font);
+                }
             }
         } else {
             int terminalLine = line - m_historySize;
@@ -325,9 +350,26 @@ void TerminalWidget::paintEvent(QPaintEvent *event)
                                      lineInView * m_charHeight,
                                      m_charWidth, m_charHeight, bg);
                 }
+                
+                QFont font = painter.font();
+                if (cell.attributes & Bold) {
+                    font.setBold(true);
+                }
+                if (cell.attributes & Underline) {
+                    font.setUnderline(true);
+                }
+                painter.setFont(font);
+                
                 painter.drawText(col * m_charWidth - leftColumn * m_charWidth,
                                  lineInView * m_charHeight + fm.ascent(),
                                  QString(cell.character));
+                
+                // 恢复字体
+                if (cell.attributes & (Bold | Underline)) {
+                    font.setBold(false);
+                    font.setUnderline(false);
+                    painter.setFont(font);
+                }
             }
         }
     }
@@ -403,6 +445,8 @@ void TerminalWidget::connectVT100ParserSignals()
     if (!m_vt100Parser) return;
     
     connect(m_vt100Parser, &VT100Parser::textReceived, this, &TerminalWidget::onTextReceived);
+    connect(m_vt100Parser, &VT100Parser::setAttributes, this, &TerminalWidget::onSetAttributes);
+    connect(m_vt100Parser, &VT100Parser::resetAttributes, this, &TerminalWidget::onResetAttributes);
     connect(m_vt100Parser, &VT100Parser::cursorUp, this, &TerminalWidget::onCursorUp);
     connect(m_vt100Parser, &VT100Parser::cursorDown, this, &TerminalWidget::onCursorDown);
     connect(m_vt100Parser, &VT100Parser::cursorForward, this, &TerminalWidget::onCursorForward);
@@ -413,6 +457,146 @@ void TerminalWidget::connectVT100ParserSignals()
     connect(m_vt100Parser, &VT100Parser::lineFeed, this, &TerminalWidget::onLineFeed);
     connect(m_vt100Parser, &VT100Parser::clearScreen, this, &TerminalWidget::onClearScreen);
     connect(m_vt100Parser, &VT100Parser::clearLine, this, &TerminalWidget::onClearLine);
+}
+
+void TerminalWidget::onSetAttributes(const QVector<int> &params)
+{
+    for (int i = 0; i < params.size(); ++i) {
+        int param = params[i];
+        switch (param) {
+            case 0: // 重置所有属性
+                m_currentAttributes = Normal;
+                m_currentForeground = m_defaultForeground;
+                m_currentBackground = m_defaultBackground;
+                break;
+            case 1: // 粗体
+                m_currentAttributes |= Bold;
+                break;
+            case 4: // 下划线
+                m_currentAttributes |= Underline;
+                break;
+            case 5: // 闪烁
+                m_currentAttributes |= Blink;
+                break;
+            case 7: // 反色
+                m_currentAttributes |= Reverse;
+                break;
+            case 22: // 正常亮度（取消粗体）
+                m_currentAttributes &= ~Bold;
+                break;
+            case 24: // 取消下划线
+                m_currentAttributes &= ~Underline;
+                break;
+            case 25: // 取消闪烁
+                m_currentAttributes &= ~Blink;
+                break;
+            case 27: // 取消反色
+                m_currentAttributes &= ~Reverse;
+                break;
+            case 30: case 31: case 32: case 33:
+            case 34: case 35: case 36: case 37:
+                // 标准前景色
+                m_currentForeground = ansiColorToQColor(param - 30, false);
+                break;
+            case 40: case 41: case 42: case 43:
+            case 44: case 45: case 46: case 47:
+                // 标准背景色
+                m_currentBackground = ansiColorToQColor(param - 40, true);
+                break;
+            case 90: case 91: case 92: case 93:
+            case 94: case 95: case 96: case 97:
+                // 明亮前景色
+                m_currentForeground = ansiColorToQColor(param - 90 + 8, false);
+                break;
+            case 100: case 101: case 102: case 103:
+            case 104: case 105: case 106: case 107:
+                // 明亮背景色
+                m_currentBackground = ansiColorToQColor(param - 100 + 8, true);
+                break;
+            case 38: // 扩展前景色
+            case 48: // 扩展背景色
+                // 暂时不支持扩展颜色
+                i++; // 跳过下一个参数
+                if (i < params.size() && params[i] == 5) {
+                    i++; // 跳过颜色类型
+                    if (i < params.size()) {
+                        // 256色索引，简化处理
+                        int colorIndex = params[i];
+                        QColor color = ansi256ColorToQColor(colorIndex);
+                        if (param == 38) {
+                            m_currentForeground = color;
+                        } else {
+                            m_currentBackground = color;
+                        }
+                    }
+                } else if (i < params.size() && params[i] == 2) {
+                    // RGB颜色，跳过三个参数
+                    i += 3;
+                }
+                break;
+            default:
+                // 忽略未知参数
+                break;
+        }
+    }
+}
+
+void TerminalWidget::onResetAttributes()
+{
+    m_currentAttributes = Normal;
+    m_currentForeground = m_defaultForeground;
+    m_currentBackground = m_defaultBackground;
+}
+
+static QColor ansiColorToQColor(int code, bool isBright)
+{
+    static const QColor standardColors[] = {
+        Qt::black,      // 0: 黑
+        Qt::red,        // 1: 红
+        Qt::green,      // 2: 绿
+        Qt::yellow,     // 3: 黄
+        Qt::blue,       // 4: 蓝
+        Qt::magenta,    // 5: 洋红
+        Qt::cyan,       // 6: 青
+        Qt::white,      // 7: 白
+    };
+    
+    static const QColor brightColors[] = {
+        QColor(128, 128, 128),  // 8: 灰（亮黑）
+        QColor(255, 128, 128),  // 9: 亮红
+        QColor(128, 255, 128),  // 10: 亮绿
+        QColor(255, 255, 128),  // 11: 亮黄
+        QColor(128, 128, 255),  // 12: 亮蓝
+        QColor(255, 128, 255),  // 13: 亮洋红
+        QColor(128, 255, 255),  // 14: 亮青
+        QColor(255, 255, 255),  // 15: 亮白
+    };
+    
+    if (code >= 0 && code < 8) {
+        return standardColors[code];
+    } else if (code >= 8 && code < 16) {
+        return brightColors[code - 8];
+    } else if (code >= 16 && code < 232) {
+        // 216种颜色
+        int r = (code - 16) / 36;
+        int g = ((code - 16) % 36) / 6;
+        int b = (code - 16) % 6;
+        r = r > 0 ? 55 + r * 40 : 0;
+        g = g > 0 ? 55 + g * 40 : 0;
+        b = b > 0 ? 55 + b * 40 : 0;
+        return QColor(r, g, b);
+    } else if (code >= 232 && code < 256) {
+        // 灰度
+        int gray = (code - 232) * 10 + 8;
+        return QColor(gray, gray, gray);
+    }
+    
+    return isBright ? Qt::white : Qt::black;
+}
+
+static QColor ansi256ColorToQColor(int code)
+{
+    return ansiColorToQColor(code, false);
 }
 
 void TerminalWidget::setConnectionSettings(const ConnectionDialog::ConnectionSettings &settings)
@@ -496,7 +680,6 @@ void TerminalWidget::sendData(const QByteArray &data)
             }
             break;
         case ConnectionDialog::Telnet:
-        case ConnectionDialog::SSH:
             if (m_tcpSocket && m_tcpSocket->state() == QAbstractSocket::ConnectedState) {
                 qint64 bytesWritten = m_tcpSocket->write(data);
                 if (bytesWritten == data.size()) {
@@ -506,12 +689,23 @@ void TerminalWidget::sendData(const QByteArray &data)
                 }
             }
             break;
+        case ConnectionDialog::SSH:
+            if (m_sshProcess && m_sshProcess->state() == QProcess::Running) {
+                m_sshProcess->write(data);
+                emit dataSent(data);
+            }
+            break;
     }
 }
 
 void TerminalWidget::sendText(const QString &text)
 {
     sendData(text.toUtf8());
+}
+
+ConnectionDialog::ConnectionSettings TerminalWidget::getConnectionSettings() const
+{
+    return m_connectionSettings;
 }
 
 bool TerminalWidget::openSerialConnection()
@@ -602,13 +796,92 @@ void TerminalWidget::closeTelnetConnection()
 
 bool TerminalWidget::openSshConnection()
 {
-    emit connectionError("SSH连接暂未实现，请使用Telnet或串口");
-    return false;
+    if (m_sshProcess) {
+        delete m_sshProcess;
+        m_sshProcess = nullptr;
+    }
+    
+    m_sshProcess = new QProcess(this);
+    m_sshProcess->setProcessChannelMode(QProcess::MergedChannels);
+    
+    connect(m_sshProcess, &QProcess::readyRead, this, &TerminalWidget::onSshProcessReadyRead);
+    connect(m_sshProcess, &QProcess::errorOccurred, this, &TerminalWidget::onSshProcessErrorOccurred);
+    connect(m_sshProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this, [this](int exitCode, QProcess::ExitStatus exitStatus) {
+                if (exitStatus == QProcess::CrashExit || exitCode != 0) {
+                    emit connectionError(QString("SSH进程异常退出，代码: %1").arg(exitCode));
+                }
+                closeConnection();
+            });
+    
+    QString program = "ssh";
+    QStringList arguments;
+    
+    arguments << "-o" << "StrictHostKeyChecking=no"
+              << "-o" << "LogLevel=ERROR";
+    
+    if (!m_connectionSettings.username.isEmpty()) {
+        arguments << QString("%1@%2").arg(m_connectionSettings.username, m_connectionSettings.host);
+    } else {
+        arguments << m_connectionSettings.host;
+    }
+    
+    arguments << "-p" << QString::number(m_connectionSettings.port);
+    
+    if (m_connectionSettings.useSshKey && !m_connectionSettings.sshKeyPath.isEmpty()) {
+        arguments << "-i" << m_connectionSettings.sshKeyPath;
+    }
+    
+    qDebug() << "启动SSH进程:" << program << arguments;
+    
+    m_sshProcess->start(program, arguments);
+    
+    if (m_sshProcess->waitForStarted(5000)) {
+        qDebug() << "SSH进程已启动，PID:" << m_sshProcess->processId();
+        return true;
+    } else {
+        QString error = QString("无法启动SSH进程: %1").arg(m_sshProcess->errorString());
+        emit connectionError(error);
+        delete m_sshProcess;
+        m_sshProcess = nullptr;
+        return false;
+    }
 }
 
 void TerminalWidget::closeSshConnection()
 {
-    // SSH连接关闭
+    if (m_sshProcess) {
+        if (m_sshProcess->state() == QProcess::Running) {
+            m_sshProcess->terminate();
+            if (!m_sshProcess->waitForFinished(1000)) {
+                m_sshProcess->kill();
+            }
+        }
+        disconnect(m_sshProcess, &QProcess::readyRead, this, &TerminalWidget::onSshProcessReadyRead);
+        disconnect(m_sshProcess, &QProcess::errorOccurred, this, &TerminalWidget::onSshProcessErrorOccurred);
+        delete m_sshProcess;
+        m_sshProcess = nullptr;
+    }
+}
+
+void TerminalWidget::onSshProcessReadyRead()
+{
+    if (m_sshProcess && m_sshProcess->state() == QProcess::Running) {
+        QByteArray data = m_sshProcess->readAll();
+        processReceivedData(data);
+    }
+}
+
+void TerminalWidget::onSshProcessErrorOccurred(QProcess::ProcessError error)
+{
+    if (error == QProcess::UnknownError) return;
+    
+    QString errorMsg = QString("SSH进程错误: %1").arg(m_sshProcess ? m_sshProcess->errorString() : "未知错误");
+    emit connectionError(errorMsg);
+    
+    if (error == QProcess::FailedToStart || error == QProcess::Crashed) {
+        closeConnection();
+    }
 }
 
 void TerminalWidget::onSerialDataReady()

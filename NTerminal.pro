@@ -13,13 +13,19 @@ SOURCES += \
     mainwindow.cpp \
     terminalwidget.cpp \
     connectiondialog.cpp \
-    vt100parser.cpp
+    vt100parser.cpp \
+    sessionmanager.cpp \
+    logger.cpp \
+    scriptrecorder.cpp
 
 HEADERS += \
-    mainwindow.h \
     terminalwidget.h \
+    mainwindow.h \
     connectiondialog.h \
-    vt100parser.h
+    vt100parser.h \
+    sessionmanager.h \
+    logger.h \
+    scriptrecorder.h
 
 TRANSLATIONS += \
     NTerminal_en_US.ts

@@ -12,6 +12,8 @@ class QMenuBar;
 class QMenu;
 class QToolBar;
 class QAction;
+class SessionManager;
+class Logger;
 
 class MainWindow : public QMainWindow
 {
@@ -24,6 +26,15 @@ public:
 private:
     void initMainWindowLayout();
     void initMainWindowMenu();
+    void setupSessionManager();
+    void saveCurrentSession();
+    void loadSession();
+    void manageSessions();
+    void populateSessionMenu();
+    void setupLogger();
+    void startLogging();
+    void stopLogging();
+    void toggleLogging();
 
     QSplitter *m_verticalSplitter;
     QSplitter *m_horizontalSplitter;
@@ -45,5 +56,15 @@ private:
     QToolBar *m_toolBar;
     QAction *m_toolbarSessionAction;
     QAction *m_debugAction;
+    
+    SessionManager *m_sessionManager;
+    QAction *m_saveSessionAction;
+    QAction *m_loadSessionAction;
+    QAction *m_manageSessionsAction;
+    
+    Logger *m_logger;
+    QAction *m_startLoggingAction;
+    QAction *m_stopLoggingAction;
+    QAction *m_toggleLoggingAction;
 };
 #endif // MAINWINDOW_H
