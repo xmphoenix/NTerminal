@@ -144,6 +144,7 @@ void TerminalWidget::setCursor(int column, int row)
 
 void TerminalWidget::clearScreen()
 {
+    // 1. 清空terminal buffer数据
     for (int row = 0; row < m_terminalRows; ++row) {
         for (int col = 0; col < m_columns; ++col) {
             Cell &cell = m_terminalBuffer[row][col];
@@ -153,8 +154,28 @@ void TerminalWidget::clearScreen()
             cell.attributes = Normal;
         }
     }
+    
+    // 2. 清空历史缓冲区（丢弃所有历史数据）
+    m_historyStart = 0;
+    m_historySize = 0;
+    
+    // 3. 重置光标位置
     m_cursorColumn = 0;
     m_cursorRow = 0;
+    
+    // 4. 更新滚动条范围（历史缓冲区已清空，terminal buffer从第0行开始）
+    updateScrollBars();
+    
+    // 5. 将滚动条位置设置为0，使terminal buffer从视口顶部开始显示
+    verticalScrollBar()->setValue(0);
+    
+    // 6. 确保光标可见（光标在terminal buffer的(0,0)位置）
+    ensureCursorVisible();
+    
+    // 7. 清除任何文本选择
+    clearSelection();
+    
+    // 8. 更新视图
     viewport()->update();
 }
 
@@ -475,7 +496,13 @@ void TerminalWidget::keyPressEvent(QKeyEvent *event)
                 viewport()->update();
                 return;
             case Qt::Key_L: // Ctrl+L
-                clearSelection();
+                if (m_isConnected) {
+                    // 发送VT100清屏序列（ESC [ 2J）
+                    sendData(QByteArray("\x1b[2J", 4));
+                } else {
+                    // 未连接时本地清屏
+                    clearScreen();
+                }
                 return;
         }
     }
