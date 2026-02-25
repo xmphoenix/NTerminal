@@ -95,6 +95,7 @@ void TerminalWidget::setViewportSize(int lines)
 
 void TerminalWidget::writeText(const QString &text)
 {
+    qDebug() << "[TerminalWidget] writeText - 写入文本:" << text << "长度:" << text.length();
     for (const QChar &ch : text) {
         writeChar(ch);
     }
@@ -104,6 +105,8 @@ void TerminalWidget::writeText(const QString &text)
 
 void TerminalWidget::writeChar(QChar ch)
 {
+    qDebug() << "[TerminalWidget] writeChar - 字符:" << ch << "光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
+    
     if (m_cursorColumn >= m_columns) {
         m_cursorColumn = 0;
         m_cursorRow++;
@@ -121,6 +124,8 @@ void TerminalWidget::writeChar(QChar ch)
         cell.foreground = m_currentForeground;
         cell.background = m_currentBackground;
         cell.attributes = m_currentAttributes;
+        
+        qDebug() << "[TerminalWidget] writeChar - 写入缓冲区位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
         
         m_cursorColumn++;
     }
@@ -141,6 +146,7 @@ void TerminalWidget::newLine()
 
 void TerminalWidget::carriageReturn()
 {
+    qDebug() << "[TerminalWidget] carriageReturn - 设置光标列从" << m_cursorColumn << "到0，行保持" << m_cursorRow;
     m_cursorColumn = 0;
 }
 
@@ -155,6 +161,7 @@ void TerminalWidget::setCursor(int column, int row)
 
 void TerminalWidget::clearScreen()
 {
+    qDebug() << "[TerminalWidget] clearScreen - 开始清除屏幕，当前光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
     // 1. 清空terminal buffer数据
     for (int row = 0; row < m_terminalRows; ++row) {
         for (int col = 0; col < m_columns; ++col) {
@@ -478,6 +485,10 @@ void TerminalWidget::scrollContentsBy(int dx, int dy)
 // 键盘事件处理
 void TerminalWidget::keyPressEvent(QKeyEvent *event)
 {
+    qDebug() << "[TerminalWidget] keyPressEvent - 按键:" << event->key() 
+             << "文本:" << event->text() << "修饰符:" << event->modifiers()
+             << "连接状态:" << m_isConnected;
+    
     // 首先处理终端相关的快捷键
     if (event->modifiers() & Qt::ControlModifier) {
         switch (event->key()) {
@@ -518,13 +529,16 @@ void TerminalWidget::keyPressEvent(QKeyEvent *event)
         }
     }
     
-    if (!m_isConnected) {
+    if (!m_isConnected && event->key() != Qt::Key_Tab && event->key() != Qt::Key_Backtab) {
+        qDebug() << "[TerminalWidget] 未连接且非Tab键，调用父类处理";
         QAbstractScrollArea::keyPressEvent(event);
         return;
     }
+    qDebug() << "[TerminalWidget] 通过连接检查，继续处理按键";
     
     QString text = event->text();
     if (!text.isEmpty()) {
+        qDebug() << "[TerminalWidget] 发送文本:" << text << "长度:" << text.length();
         // 发送输入的字符到连接
         sendText(text);
         
@@ -541,7 +555,14 @@ void TerminalWidget::keyPressEvent(QKeyEvent *event)
                 sendData(QByteArray("\x08", 1));
                 break;
             case Qt::Key_Tab:
-                sendData(QByteArray("\t", 1));
+            case Qt::Key_Backtab:
+                qDebug() << "[TerminalWidget] 处理Tab/Backtab键，连接状态:" << m_isConnected;
+                if (m_isConnected) {
+                    qDebug() << "[TerminalWidget] 发送制表符到连接";
+                    sendData(QByteArray("\t", 1));
+                } else {
+                    qDebug() << "[TerminalWidget] 未连接，Tab键被忽略";
+                }
                 break;
             case Qt::Key_Escape:
                 sendData(QByteArray("\x1b", 1));
@@ -571,7 +592,12 @@ void TerminalWidget::connectVT100ParserSignals()
     connect(m_vt100Parser, &VT100Parser::carriageReturn, this, &TerminalWidget::onCarriageReturn);
     connect(m_vt100Parser, &VT100Parser::lineFeed, this, &TerminalWidget::onLineFeed);
     connect(m_vt100Parser, &VT100Parser::clearScreen, this, &TerminalWidget::onClearScreen);
+    connect(m_vt100Parser, &VT100Parser::eraseDown, this, &TerminalWidget::onEraseDown);
+    connect(m_vt100Parser, &VT100Parser::eraseUp, this, &TerminalWidget::onEraseUp);
     connect(m_vt100Parser, &VT100Parser::clearLine, this, &TerminalWidget::onClearLine);
+    connect(m_vt100Parser, &VT100Parser::eraseEndOfLine, this, &TerminalWidget::onEraseEndOfLine);
+    connect(m_vt100Parser, &VT100Parser::eraseStartOfLine, this, &TerminalWidget::onEraseStartOfLine);
+    connect(m_vt100Parser, &VT100Parser::backspace, this, &TerminalWidget::onBackspace);
 }
 
 void TerminalWidget::onSetAttributes(const QVector<int> &params)
@@ -776,36 +802,64 @@ bool TerminalWidget::isConnected() const
 
 void TerminalWidget::sendData(const QByteArray &data)
 {
+    qDebug() << "[TerminalWidget] sendData - 数据大小:" << data.size() 
+             << "内容:" << data.toHex() << "连接状态:" << m_isConnected
+             << "连接类型:" << m_connectionSettings.type;
+    
     if (!m_isConnected) {
+        qDebug() << "[TerminalWidget] sendData失败：未连接";
         emit connectionError("未连接");
         return;
     }
     
     switch (m_connectionSettings.type) {
         case ConnectionDialog::Serial:
+            qDebug() << "[TerminalWidget] 通过串口发送数据，串口状态:" 
+                     << (m_serialPort ? "存在" : "null") 
+                     << (m_serialPort && m_serialPort->isOpen() ? "已打开" : "未打开");
             if (m_serialPort && m_serialPort->isOpen()) {
                 qint64 bytesWritten = m_serialPort->write(data);
+                qDebug() << "[TerminalWidget] 串口写入字节数:" << bytesWritten << "期望:" << data.size();
                 if (bytesWritten == data.size()) {
+                    qDebug() << "[TerminalWidget] 串口发送成功";
                     emit dataSent(data);
                 } else {
+                    qDebug() << "[TerminalWidget] 串口发送失败";
                     emit connectionError("串口发送失败");
                 }
+            } else {
+                qDebug() << "[TerminalWidget] 串口不可用，无法发送数据";
             }
             break;
         case ConnectionDialog::Telnet:
+            qDebug() << "[TerminalWidget] 通过Telnet发送数据，Socket状态:" 
+                     << (m_tcpSocket ? "存在" : "null")
+                     << (m_tcpSocket ? m_tcpSocket->state() : QAbstractSocket::UnconnectedState);
             if (m_tcpSocket && m_tcpSocket->state() == QAbstractSocket::ConnectedState) {
                 qint64 bytesWritten = m_tcpSocket->write(data);
+                qDebug() << "[TerminalWidget] Telnet写入字节数:" << bytesWritten << "期望:" << data.size();
                 if (bytesWritten == data.size()) {
+                    qDebug() << "[TerminalWidget] Telnet发送成功";
                     emit dataSent(data);
                 } else {
+                    qDebug() << "[TerminalWidget] Telnet发送失败";
                     emit connectionError("网络发送失败");
                 }
+            } else {
+                qDebug() << "[TerminalWidget] Telnet连接不可用，无法发送数据";
             }
             break;
         case ConnectionDialog::SSH:
+            qDebug() << "[TerminalWidget] 通过SSH发送数据，进程状态:" 
+                     << (m_sshProcess ? "存在" : "null")
+                     << (m_sshProcess ? m_sshProcess->state() : QProcess::NotRunning);
             if (m_sshProcess && m_sshProcess->state() == QProcess::Running) {
+                qDebug() << "[TerminalWidget] SSH写入数据，大小:" << data.size();
                 m_sshProcess->write(data);
+                qDebug() << "[TerminalWidget] SSH发送完成";
                 emit dataSent(data);
+            } else {
+                qDebug() << "[TerminalWidget] SSH进程不可用，无法发送数据";
             }
             break;
     }
@@ -813,6 +867,7 @@ void TerminalWidget::sendData(const QByteArray &data)
 
 void TerminalWidget::sendText(const QString &text)
 {
+    qDebug() << "[TerminalWidget] sendText - 文本:" << text << "UTF-8长度:" << text.toUtf8().size();
     sendData(text.toUtf8());
 }
 
@@ -975,6 +1030,7 @@ void TerminalWidget::onSshProcessReadyRead()
 {
     if (m_sshProcess && m_sshProcess->state() == QProcess::Running) {
         QByteArray data = m_sshProcess->readAll();
+        qDebug() << "[TerminalWidget] SSH收到数据，大小:" << data.size() << "内容:" << data.toHex();
         processReceivedData(data);
     }
 }
@@ -995,6 +1051,7 @@ void TerminalWidget::onSerialDataReady()
 {
     if (m_serialPort && m_serialPort->isOpen()) {
         QByteArray data = m_serialPort->readAll();
+        qDebug() << "[TerminalWidget] 串口收到数据，大小:" << data.size() << "内容:" << data.toHex();
         processReceivedData(data);
     }
 }
@@ -1003,12 +1060,16 @@ void TerminalWidget::onTcpDataReady()
 {
     if (m_tcpSocket && m_tcpSocket->state() == QAbstractSocket::ConnectedState) {
         QByteArray data = m_tcpSocket->readAll();
+        qDebug() << "[TerminalWidget] Telnet收到数据，大小:" << data.size() << "内容:" << data.toHex();
         processReceivedData(data);
     }
 }
 
 void TerminalWidget::processReceivedData(const QByteArray &data)
 {
+    qDebug() << "[TerminalWidget] processReceivedData - 数据大小:" << data.size() 
+             << "内容:" << data.toHex() << "ASCII:" << QString(data).left(100);
+    
     emit dataReceived(data);
     
     if (m_vt100Parser) {
@@ -1045,6 +1106,7 @@ void TerminalWidget::onTcpError(QAbstractSocket::SocketError error)
 // VT100解析器信号处理
 void TerminalWidget::onTextReceived(const QString &text)
 {
+    qDebug() << "[TerminalWidget] onTextReceived - 接收文本:" << text << "长度:" << text.length();
     writeText(text);
 }
 
@@ -1088,9 +1150,32 @@ void TerminalWidget::onCursorHome()
     setCursor(0, 0);
 }
 
+void TerminalWidget::onBackspace()
+{
+    qDebug() << "[TerminalWidget] onBackspace - 当前光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
+    if (m_cursorColumn > 0) {
+        m_cursorColumn--;
+        // 可选：清除退格位置的字符
+        if (m_cursorRow >= 0 && m_cursorRow < m_terminalRows &&
+            m_cursorColumn >= 0 && m_cursorColumn < m_columns) {
+            Cell &cell = m_terminalBuffer[m_cursorRow][m_cursorColumn];
+            cell.character = QChar(' ');
+            cell.foreground = m_defaultForeground;
+            cell.background = m_defaultBackground;
+            cell.attributes = Normal;
+        }
+        ensureCursorVisible();
+        viewport()->update();
+        qDebug() << "[TerminalWidget] onBackspace - 退格后光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
+    }
+}
+
 void TerminalWidget::onCarriageReturn()
 {
+    qDebug() << "[TerminalWidget] onCarriageReturn - 当前光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
     carriageReturn();
+    qDebug() << "[TerminalWidget] onCarriageReturn - 回车后光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
+    ensureCursorVisible();
 }
 
 void TerminalWidget::onLineFeed()
@@ -1100,7 +1185,71 @@ void TerminalWidget::onLineFeed()
 
 void TerminalWidget::onClearScreen()
 {
+    qDebug() << "[TerminalWidget] onClearScreen - 清除整个屏幕";
     clearScreen();
+}
+
+void TerminalWidget::onEraseDown()
+{
+    qDebug() << "[TerminalWidget] onEraseDown - 清除从光标到屏幕末尾，光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
+    // 清除从当前行到terminal buffer末尾的所有行
+    for (int row = m_cursorRow; row < m_terminalRows; ++row) {
+        for (int col = (row == m_cursorRow ? m_cursorColumn : 0); col < m_columns; ++col) {
+            Cell &cell = m_terminalBuffer[row][col];
+            cell.character = QChar(' ');
+            cell.foreground = m_defaultForeground;
+            cell.background = m_defaultBackground;
+            cell.attributes = Normal;
+        }
+    }
+    viewport()->update();
+}
+
+void TerminalWidget::onEraseUp()
+{
+    qDebug() << "[TerminalWidget] onEraseUp - 清除从屏幕开始到光标，光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
+    // 清除从terminal buffer开始到当前行的所有行
+    for (int row = 0; row <= m_cursorRow; ++row) {
+        int endCol = (row == m_cursorRow ? m_cursorColumn + 1 : m_columns);
+        for (int col = 0; col < endCol; ++col) {
+            Cell &cell = m_terminalBuffer[row][col];
+            cell.character = QChar(' ');
+            cell.foreground = m_defaultForeground;
+            cell.background = m_defaultBackground;
+            cell.attributes = Normal;
+        }
+    }
+    viewport()->update();
+}
+
+void TerminalWidget::onEraseEndOfLine()
+{
+    qDebug() << "[TerminalWidget] onEraseEndOfLine - 清除从光标到行尾，光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
+    if (m_cursorRow >= 0 && m_cursorRow < m_terminalRows) {
+        for (int col = m_cursorColumn; col < m_columns; ++col) {
+            Cell &cell = m_terminalBuffer[m_cursorRow][col];
+            cell.character = QChar(' ');
+            cell.foreground = m_defaultForeground;
+            cell.background = m_defaultBackground;
+            cell.attributes = Normal;
+        }
+    }
+    viewport()->update();
+}
+
+void TerminalWidget::onEraseStartOfLine()
+{
+    qDebug() << "[TerminalWidget] onEraseStartOfLine - 清除从行首到光标，光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
+    if (m_cursorRow >= 0 && m_cursorRow < m_terminalRows) {
+        for (int col = 0; col <= m_cursorColumn; ++col) {
+            Cell &cell = m_terminalBuffer[m_cursorRow][col];
+            cell.character = QChar(' ');
+            cell.foreground = m_defaultForeground;
+            cell.background = m_defaultBackground;
+            cell.attributes = Normal;
+        }
+    }
+    viewport()->update();
 }
 
 void TerminalWidget::onClearLine()
@@ -1427,4 +1576,11 @@ void TerminalWidget::focusOutEvent(QFocusEvent *event)
     
     QAbstractScrollArea::focusOutEvent(event);
     // qDebug() << "[TerminalWidget] focusOutEvent 处理完成";
+}
+
+bool TerminalWidget::focusNextPrevChild(bool next)
+{
+    qDebug() << "[TerminalWidget] focusNextPrevChild - 方向:" << (next ? "下一个" : "上一个") << "返回false阻止焦点转移";
+    Q_UNUSED(next);
+    return false;
 }

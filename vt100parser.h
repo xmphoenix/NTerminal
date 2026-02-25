@@ -55,7 +55,11 @@ signals:
     
     // 编辑操作
     void clearScreen();
+    void eraseDown();
+    void eraseUp();
     void clearLine();
+    void eraseEndOfLine();
+    void eraseStartOfLine();
     void deleteChars(int count = 1);
     void eraseChars(int count = 1);
     void insertChars(int count = 1);

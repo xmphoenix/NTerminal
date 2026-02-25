@@ -94,6 +94,7 @@ protected:
     void contextMenuEvent(QContextMenuEvent *event) override;
     void focusInEvent(QFocusEvent *event) override;
     void focusOutEvent(QFocusEvent *event) override;
+    bool focusNextPrevChild(bool next) override;
 
 private:
     void updateScrollBars();
@@ -177,9 +178,14 @@ private slots:
     void onCursorBackward(int count);
     void onCursorPosition(int row, int column);
     void onCursorHome();
+    void onBackspace();
     void onCarriageReturn();
     void onLineFeed();
     void onClearScreen();
+    void onEraseDown();
+    void onEraseUp();
+    void onEraseEndOfLine();
+    void onEraseStartOfLine();
     void onClearLine();
 };
 
