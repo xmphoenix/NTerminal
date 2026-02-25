@@ -161,7 +161,9 @@ void TerminalWidget::setCursor(int column, int row)
 
 void TerminalWidget::clearScreen()
 {
-    qDebug() << "[TerminalWidget] clearScreen - 开始清除屏幕，当前光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
+    qDebug() << "[TerminalWidget] clearScreen - 开始清除屏幕，当前光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")"
+             << "历史大小:" << m_historySize << "历史起始:" << m_historyStart
+             << "滚动位置:" << verticalScrollBar()->value();
     // 1. 清空terminal buffer数据
     for (int row = 0; row < m_terminalRows; ++row) {
         for (int col = 0; col < m_columns; ++col) {
@@ -195,6 +197,10 @@ void TerminalWidget::clearScreen()
     
     // 8. 更新视图
     viewport()->update();
+    
+    qDebug() << "[TerminalWidget] clearScreen - 清除完成，最终光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")"
+             << "历史大小:" << m_historySize << "历史起始:" << m_historyStart
+             << "滚动位置:" << verticalScrollBar()->value();
 }
 
 void TerminalWidget::clearLine()
@@ -246,6 +252,9 @@ void TerminalWidget::updateScrollBars()
 {
     int totalLines = m_historySize + m_terminalRows;
     
+    qDebug() << "[TerminalWidget] updateScrollBars - 历史大小:" << m_historySize 
+             << "终端行数:" << m_terminalRows << "总行数:" << totalLines;
+    
     // 计算实际可视行数（向下取整，确保只显示完整行）
     int charHeight = m_charHeight > 0 ? m_charHeight : 20;
     int visibleLines = viewport()->height() / charHeight; // 向下取整，只计算完整行
@@ -262,10 +271,18 @@ void TerminalWidget::updateScrollBars()
     horizontalScrollBar()->setRange(0, qMax(0, m_columns - visibleColumns));
     horizontalScrollBar()->setPageStep(visibleColumns);
     horizontalScrollBar()->setSingleStep(1);
+    
+    qDebug() << "[TerminalWidget] updateScrollBars - 可见行数:" << visibleLines 
+             << "垂直范围: 0 -" << qMax(0, totalLines - visibleLines)
+             << "当前值:" << verticalScrollBar()->value()
+             << "光标绝对行:" << (m_historySize + m_cursorRow)
+             << "光标行:" << m_cursorRow << "光标列:" << m_cursorColumn;
 }
 
 void TerminalWidget::ensureCursorVisible()
 {
+    qDebug() << "[TerminalWidget] ensureCursorVisible - 开始，历史大小:" << m_historySize
+             << "光标行:" << m_cursorRow << "光标列:" << m_cursorColumn;
     int cursorGlobalLine = m_historySize + m_cursorRow;
     int topLine = verticalScrollBar()->value();
     
@@ -285,6 +302,11 @@ void TerminalWidget::ensureCursorVisible()
         int newTopLine = cursorGlobalLine - visibleLines + 1;
         verticalScrollBar()->setValue(qMin(newTopLine, maxScroll));
     }
+    
+    qDebug() << "[TerminalWidget] ensureCursorVisible - 结束，光标绝对行:" << cursorGlobalLine
+             << "topLine:" << topLine << "新topLine:" << verticalScrollBar()->value()
+             << "可见行数:" << visibleLines << "最大滚动:" << maxScroll
+             << "调整:" << (cursorGlobalLine < topLine ? "向上滚动" : (cursorGlobalLine >= topLine + visibleLines ? "向下滚动" : "无需调整"));
 }
 
 void TerminalWidget::scrollUpIfNeeded()
@@ -310,11 +332,17 @@ void TerminalWidget::shiftLinesUp(int count)
 
 void TerminalWidget::appendHistoryLine()
 {
+    qDebug() << "[TerminalWidget] appendHistoryLine - 开始，历史大小:" << m_historySize 
+             << "历史起始:" << m_historyStart << "历史最大行数:" << m_historyLines;
+    
     if (m_historySize < m_historyLines) {
         m_historySize++;
     } else {
         m_historyStart = (m_historyStart + 1) % m_historyLines;
     }
+    
+    qDebug() << "[TerminalWidget] appendHistoryLine - 更新后，历史大小:" << m_historySize 
+             << "历史起始:" << m_historyStart;
     
     int idx = historyIndex(m_historySize - 1);
     if (idx >= 0) {
@@ -364,6 +392,14 @@ void TerminalWidget::paintEvent(QPaintEvent *event)
     int leftColumn = horizontalScrollBar()->value() / m_charWidth;
     int visibleColumns = viewport()->width() / m_charWidth; // 向下取整，只计算完整列
     int visibleLines = viewport()->height() / m_charHeight; // 向下取整，只计算完整行
+    
+    qDebug() << "[TerminalWidget] paintEvent - topLine:" << topLine << "leftColumn:" << leftColumn
+             << "visibleLines:" << visibleLines << "visibleColumns:" << visibleColumns
+             << "历史大小:" << m_historySize << "终端行数:" << m_terminalRows
+             << "光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")"
+             << "总行数:" << (m_historySize + m_terminalRows)
+             << "空白行数:" << topLine
+             << "显示范围: 行" << topLine << "-" << (topLine + visibleLines - 1);
     
     // 确保至少显示一行和一列
     if (visibleColumns <= 0) visibleColumns = 1;
@@ -1192,6 +1228,16 @@ void TerminalWidget::onClearScreen()
 void TerminalWidget::onEraseDown()
 {
     qDebug() << "[TerminalWidget] onEraseDown - 清除从光标到屏幕末尾，光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
+    
+    // 如果光标在屏幕顶部，清空历史缓冲区以便新输出从视口顶部开始
+    if (m_cursorRow == 0) {
+        qDebug() << "[TerminalWidget] onEraseDown - 光标在屏幕顶部，清空历史缓冲区";
+        m_historyStart = 0;
+        m_historySize = 0;
+        updateScrollBars();
+        verticalScrollBar()->setValue(0);
+    }
+    
     // 清除从当前行到terminal buffer末尾的所有行
     for (int row = m_cursorRow; row < m_terminalRows; ++row) {
         for (int col = (row == m_cursorRow ? m_cursorColumn : 0); col < m_columns; ++col) {
