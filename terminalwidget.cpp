@@ -39,9 +39,11 @@ TerminalWidget::TerminalWidget(QWidget *parent)
     , m_serialPort(nullptr)
     , m_tcpSocket(nullptr)
     , m_sshProcess(nullptr)
+    , m_sshClient(nullptr)
     , m_vt100Parser(nullptr)
     , m_isConnected(false)
     , m_telnetLoginState(TelnetLoginNone)
+    , m_sshLoginState(SshLoginNone)
 {
     qDebug() << "[TerminalWidget] 构造函数 - 初始列数:" << m_columns;
     setFocusPolicy(Qt::StrongFocus);
@@ -579,6 +581,15 @@ void TerminalWidget::resizeEvent(QResizeEvent *event)
     QAbstractScrollArea::resizeEvent(event);
     updateScrollBars();
     viewport()->update();
+    
+    // 更新SSH终端尺寸
+    if (m_sshClient && m_sshClient->state() == SshClient::Ready) {
+        int cols = viewport()->width() / (m_charWidth > 0 ? m_charWidth : 10);
+        int rows = viewport()->height() / (m_charHeight > 0 ? m_charHeight : 20);
+        if (cols > 0 && rows > 0) {
+            m_sshClient->setTerminalSize(cols, rows);
+        }
+    }
 }
 
 void TerminalWidget::scrollContentsBy(int dx, int dy)
@@ -1025,16 +1036,24 @@ void TerminalWidget::sendData(const QByteArray &data)
             }
             break;
         case ConnectionDialog::SSH:
-            qDebug() << "[TerminalWidget] 通过SSH发送数据，进程状态:" 
-                     << (m_sshProcess ? "存在" : "null")
-                     << (m_sshProcess ? m_sshProcess->state() : QProcess::NotRunning);
-            if (m_sshProcess && m_sshProcess->state() == QProcess::Running) {
-                qDebug() << "[TerminalWidget] SSH写入数据，大小:" << data.size();
+            // 优先使用libssh客户端
+            if (m_sshClient && m_sshClient->state() == SshClient::Ready) {
+                qDebug() << "[TerminalWidget] 通过libssh发送数据，大小:" << data.size();
+                qint64 bytesWritten = m_sshClient->write(data);
+                if (bytesWritten > 0) {
+                    qDebug() << "[TerminalWidget] libssh发送成功";
+                    emit dataSent(data);
+                } else {
+                    qDebug() << "[TerminalWidget] libssh发送失败:" << m_sshClient->lastError();
+                }
+            }
+            // 备选：使用QProcess
+            else if (m_sshProcess && m_sshProcess->state() == QProcess::Running) {
+                qDebug() << "[TerminalWidget] 通过SSH进程发送数据，大小:" << data.size();
                 m_sshProcess->write(data);
-                qDebug() << "[TerminalWidget] SSH发送完成";
                 emit dataSent(data);
             } else {
-                qDebug() << "[TerminalWidget] SSH进程不可用，无法发送数据";
+                qDebug() << "[TerminalWidget] SSH连接不可用，无法发送数据";
             }
             break;
     }
@@ -1167,57 +1186,118 @@ void TerminalWidget::closeTelnetConnection()
 
 bool TerminalWidget::openSshConnection()
 {
+    qDebug() << "[TerminalWidget] openSshConnection - 开始SSH连接(libssh)"
+             << m_connectionSettings.host << ":" << m_connectionSettings.port
+             << "用户名:" << m_connectionSettings.username;
+    
+    // 清理旧连接
+    if (m_sshClient) {
+        qDebug() << "[TerminalWidget] openSshConnection - 删除旧SSH客户端";
+        delete m_sshClient;
+        m_sshClient = nullptr;
+    }
     if (m_sshProcess) {
         delete m_sshProcess;
         m_sshProcess = nullptr;
     }
     
-    m_sshProcess = new QProcess(this);
-    m_sshProcess->setProcessChannelMode(QProcess::MergedChannels);
+    // 重置自动登录状态
+    m_sshLoginState = SshLoginNone;
+    m_sshReceivedBuffer.clear();
     
-    connect(m_sshProcess, &QProcess::readyRead, this, &TerminalWidget::onSshProcessReadyRead);
-    connect(m_sshProcess, &QProcess::errorOccurred, this, &TerminalWidget::onSshProcessErrorOccurred);
-    connect(m_sshProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, [this](int exitCode, QProcess::ExitStatus exitStatus) {
-                if (exitStatus == QProcess::CrashExit || exitCode != 0) {
-                    emit connectionError(QString("SSH进程异常退出，代码: %1").arg(exitCode));
+    // 创建SSH客户端
+    m_sshClient = new SshClient(this);
+    
+    // 连接信号
+    connect(m_sshClient, &SshClient::connected, this, [this]() {
+        qDebug() << "[TerminalWidget] SSH已连接，开始认证";
+        if (!m_sshClient->authenticate()) {
+            qDebug() << "[TerminalWidget] SSH认证失败";
+        }
+    });
+    
+    connect(m_sshClient, &SshClient::authenticated, this, [this]() {
+        qDebug() << "[TerminalWidget] SSH认证成功，打开通道";
+        if (m_sshClient->openChannel()) {
+            // 请求PTY，使用当前终端尺寸
+            int cols = viewport()->width() / (m_charWidth > 0 ? m_charWidth : 10);
+            int rows = viewport()->height() / (m_charHeight > 0 ? m_charHeight : 20);
+            if (cols <= 0) cols = 80;
+            if (rows <= 0) rows = 24;
+            
+            if (m_sshClient->requestPty("xterm-256color", cols, rows)) {
+                if (m_sshClient->requestShell()) {
+                    qDebug() << "[TerminalWidget] SSH Shell已启动";
+                    m_isConnected = true;
+                    emit connectionOpened();
                 }
-                closeConnection();
-            });
+            }
+        }
+    });
     
-    QString program = "ssh";
-    QStringList arguments;
-    
-    arguments << "-o" << "StrictHostKeyChecking=no"
-              << "-o" << "LogLevel=ERROR";
-    
-    if (!m_connectionSettings.username.isEmpty()) {
-        arguments << QString("%1@%2").arg(m_connectionSettings.username, m_connectionSettings.host);
-    } else {
-        arguments << m_connectionSettings.host;
-    }
-    
-    arguments << "-p" << QString::number(m_connectionSettings.port);
-    
-    if (m_connectionSettings.useSshKey && !m_connectionSettings.sshKeyPath.isEmpty()) {
-        arguments << "-i" << m_connectionSettings.sshKeyPath;
-    }
-    
-    m_sshProcess->start(program, arguments);
-    
-    if (m_sshProcess->waitForStarted(5000)) {
-        return true;
-    } else {
-        QString error = QString("无法启动SSH进程: %1").arg(m_sshProcess->errorString());
+    connect(m_sshClient, &SshClient::authenticationFailed, this, [this](const QString &error) {
+        qDebug() << "[TerminalWidget] SSH认证失败:" << error;
         emit connectionError(error);
-        delete m_sshProcess;
-        m_sshProcess = nullptr;
+        closeConnection();
+    });
+    
+    connect(m_sshClient, &SshClient::ready, this, [this]() {
+        qDebug() << "[TerminalWidget] SSH连接就绪";
+    });
+    
+    connect(m_sshClient, &SshClient::dataReceived, this, [this](const QByteArray &data) {
+        qDebug() << "[TerminalWidget] SSH收到数据，大小:" << data.size();
+        processReceivedData(data);
+    });
+    
+    connect(m_sshClient, &SshClient::errorOccurred, this, [this](const QString &error) {
+        qDebug() << "[TerminalWidget] SSH错误:" << error;
+        emit connectionError(error);
+    });
+    
+    connect(m_sshClient, &SshClient::disconnected, this, [this]() {
+        qDebug() << "[TerminalWidget] SSH连接断开";
+        m_isConnected = false;
+        emit connectionClosed();
+    });
+    
+    // 配置SSH连接参数
+    SshClient::SshSettings settings;
+    settings.host = m_connectionSettings.host;
+    settings.port = m_connectionSettings.port;
+    settings.username = m_connectionSettings.username;
+    settings.password = m_connectionSettings.password;
+    settings.usePrivateKey = m_connectionSettings.useSshKey;
+    settings.privateKeyPath = m_connectionSettings.sshKeyPath;
+    settings.privateKeyPassphrase = m_connectionSettings.password; // 使用密码作为密钥密码
+    settings.verifyHostKey = false;
+    settings.timeout = 30;
+    
+    // 开始连接
+    if (!m_sshClient->connect(settings)) {
+        QString error = QString("SSH连接失败: %1").arg(m_sshClient->lastError());
+        qDebug() << "[TerminalWidget] SSH连接失败:" << error;
+        emit connectionError(error);
+        delete m_sshClient;
+        m_sshClient = nullptr;
         return false;
     }
+    
+    return true;
 }
 
 void TerminalWidget::closeSshConnection()
 {
+    qDebug() << "[TerminalWidget] closeSshConnection - 关闭SSH连接";
+    
+    // 关闭libssh客户端
+    if (m_sshClient) {
+        m_sshClient->disconnect();
+        delete m_sshClient;
+        m_sshClient = nullptr;
+    }
+    
+    // 关闭QProcess（备选方案）
     if (m_sshProcess) {
         if (m_sshProcess->state() == QProcess::Running) {
             m_sshProcess->terminate();
@@ -1236,19 +1316,57 @@ void TerminalWidget::onSshProcessReadyRead()
 {
     if (m_sshProcess && m_sshProcess->state() == QProcess::Running) {
         QByteArray data = m_sshProcess->readAll();
-        qDebug() << "[TerminalWidget] SSH收到数据，大小:" << data.size() << "内容:" << data.toHex();
+        qDebug() << "[TerminalWidget] SSH收到数据，大小:" << data.size();
+        
+        // 如果正在自动登录流程中，检测登录提示
+        if (m_sshLoginState != SshLoginNone && m_sshLoginState != SshLoginDone) {
+            qDebug() << "[TerminalWidget] onSshProcessReadyRead - 自动登录状态:" << m_sshLoginState
+                     << "密码:" << (m_connectionSettings.password.isEmpty() ? "空" : "已设置");
+            m_sshReceivedBuffer += QString::fromUtf8(data);
+            checkSshLoginPrompt(m_sshReceivedBuffer);
+        }
+        
         processReceivedData(data);
     }
 }
 
 void TerminalWidget::onSshProcessErrorOccurred(QProcess::ProcessError error)
 {
-    if (error == QProcess::UnknownError) return;
+    qDebug() << "[TerminalWidget] onSshProcessErrorOccurred - 错误:" << error;
     
-    QString errorMsg = QString("SSH进程错误: %1").arg(m_sshProcess ? m_sshProcess->errorString() : "未知错误");
+    if (error == QProcess::UnknownError) {
+        qDebug() << "[TerminalWidget] onSshProcessErrorOccurred - 忽略UnknownError";
+        return;
+    }
+    
+    QString errorMsg;
+    switch (error) {
+        case QProcess::FailedToStart:
+            errorMsg = "SSH进程启动失败：找不到ssh命令或权限不足。\n\n请确保系统已安装OpenSSH客户端。\n - Windows: 设置 > 应用 > 可选功能 > 添加OpenSSH客户端\n - Linux: sudo apt install openssh-client";
+            break;
+        case QProcess::Crashed:
+            errorMsg = "SSH进程崩溃";
+            break;
+        case QProcess::Timedout:
+            errorMsg = "SSH连接超时";
+            break;
+        case QProcess::WriteError:
+            errorMsg = "SSH写入错误";
+            break;
+        case QProcess::ReadError:
+            errorMsg = "SSH读取错误";
+            break;
+        default:
+            errorMsg = QString("SSH未知错误: %1").arg(
+                m_sshProcess ? m_sshProcess->errorString() : "未知");
+            break;
+    }
+    
+    qDebug() << "[TerminalWidget] onSshProcessErrorOccurred - 错误详情:" << errorMsg;
     emit connectionError(errorMsg);
     
     if (error == QProcess::FailedToStart || error == QProcess::Crashed) {
+        m_sshLoginState = SshLoginNone;
         closeConnection();
     }
 }
@@ -1606,6 +1724,102 @@ void TerminalWidget::sendTelnetCredentials()
             qDebug() << "[TerminalWidget] sendTelnetCredentials - 发送密码";
             m_tcpSocket->write((m_connectionSettings.password + "\r\n").toUtf8());
             m_telnetLoginState = TelnetLoginSentPassword;
+            break;
+            
+        default:
+            break;
+    }
+}
+
+void TerminalWidget::checkSshLoginPrompt(const QString &text)
+{
+    QString lowerText = text.toLower();
+    
+    switch (m_sshLoginState) {
+        case SshLoginWaitPrompt:
+            // 检测密码提示
+            if (lowerText.contains("password:") || lowerText.contains("密码:")) {
+                qDebug() << "[TerminalWidget] checkSshLoginPrompt - 检测到密码提示";
+                m_sshLoginState = SshLoginWaitPassword;
+                QTimer::singleShot(200, this, &TerminalWidget::sendSshCredentials);
+                m_sshReceivedBuffer.clear();
+            }
+            // 检测密钥密码短语提示
+            else if (lowerText.contains("enter passphrase for key") || 
+                     lowerText.contains("passphrase:")) {
+                qDebug() << "[TerminalWidget] checkSshLoginPrompt - 检测到密钥密码短语提示";
+                m_sshLoginState = SshLoginWaitPassphrase;
+                QTimer::singleShot(200, this, &TerminalWidget::sendSshCredentials);
+                m_sshReceivedBuffer.clear();
+            }
+            // 检测权限拒绝错误
+            else if (lowerText.contains("permission denied") || 
+                     lowerText.contains("access denied")) {
+                qDebug() << "[TerminalWidget] checkSshLoginPrompt - 认证失败";
+                emit connectionError("SSH认证失败：用户名或密码错误");
+                m_sshLoginState = SshLoginNone;
+                closeConnection();
+            }
+            // 检测连接成功（出现 shell 提示符）
+            else if (lowerText.contains("$") || lowerText.contains("#") || 
+                     lowerText.contains(">") || lowerText.contains("~") ||
+                     lowerText.contains("welcome") || lowerText.contains("last login")) {
+                qDebug() << "[TerminalWidget] checkSshLoginPrompt - SSH登录成功";
+                m_sshLoginState = SshLoginDone;
+                m_sshReceivedBuffer.clear();
+            }
+            break;
+            
+        case SshLoginSentPassword:
+        case SshLoginSentPassphrase:
+            // 已发送凭据，等待结果
+            if (lowerText.contains("permission denied") || 
+                lowerText.contains("access denied")) {
+                qDebug() << "[TerminalWidget] checkSshLoginPrompt - 认证失败";
+                emit connectionError("SSH认证失败：用户名或密码错误");
+                m_sshLoginState = SshLoginNone;
+                closeConnection();
+            }
+            // 检测连接成功
+            else if (lowerText.contains("$") || lowerText.contains("#") || 
+                     lowerText.contains(">") || lowerText.contains("~") ||
+                     lowerText.contains("welcome") || lowerText.contains("last login")) {
+                qDebug() << "[TerminalWidget] checkSshLoginPrompt - SSH登录成功";
+                m_sshLoginState = SshLoginDone;
+                m_sshReceivedBuffer.clear();
+            }
+            break;
+            
+        default:
+            break;
+    }
+    
+    // 限制缓冲区大小
+    if (m_sshReceivedBuffer.size() > 8192) {
+        m_sshReceivedBuffer = m_sshReceivedBuffer.right(4096);
+    }
+}
+
+void TerminalWidget::sendSshCredentials()
+{
+    if (!m_sshProcess || m_sshProcess->state() != QProcess::Running) {
+        qDebug() << "[TerminalWidget] sendSshCredentials - SSH进程未运行";
+        return;
+    }
+    
+    switch (m_sshLoginState) {
+        case SshLoginWaitPassword:
+            // 发送密码
+            qDebug() << "[TerminalWidget] sendSshCredentials - 发送密码";
+            m_sshProcess->write((m_connectionSettings.password + "\n").toUtf8());
+            m_sshLoginState = SshLoginSentPassword;
+            break;
+            
+        case SshLoginWaitPassphrase:
+            // 发送密钥密码短语（使用密码作为密钥密码短语）
+            qDebug() << "[TerminalWidget] sendSshCredentials - 发送密钥密码短语";
+            m_sshProcess->write((m_connectionSettings.password + "\n").toUtf8());
+            m_sshLoginState = SshLoginSentPassphrase;
             break;
             
         default:

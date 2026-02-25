@@ -9,6 +9,7 @@
 #include <QProcess>
 #include "connectiondialog.h"
 #include "vt100parser.h"
+#include "sshclient.h"
 
 class TerminalWidget : public QAbstractScrollArea
 {
@@ -168,7 +169,8 @@ private:
     ConnectionDialog::ConnectionSettings m_connectionSettings;
     QSerialPort *m_serialPort;
     QTcpSocket *m_tcpSocket;
-    QProcess *m_sshProcess;
+    QProcess *m_sshProcess;      // 使用系统ssh命令（备选方案）
+    SshClient *m_sshClient;      // 使用libssh（推荐方案）
     VT100Parser *m_vt100Parser;
     bool m_isConnected;
     
@@ -183,6 +185,19 @@ private:
     };
     TelnetLoginState m_telnetLoginState;
     QString m_receivedBuffer;   // 用于检测登录提示的缓冲区
+    
+    // SSH自动登录状态
+    enum SshLoginState {
+        SshLoginNone,           // 未开始登录
+        SshLoginWaitPrompt,     // 等待登录提示
+        SshLoginWaitPassword,   // 等待密码提示
+        SshLoginSentPassword,   // 已发送密码
+        SshLoginWaitPassphrase, // 等待密钥密码短语
+        SshLoginSentPassphrase, // 已发送密钥密码短语
+        SshLoginDone            // 登录完成
+    };
+    SshLoginState m_sshLoginState;
+    QString m_sshReceivedBuffer;
     
 private slots:
     void onSerialDataReady();
@@ -222,6 +237,10 @@ private slots:
     // Telnet自动登录
     void sendTelnetCredentials();
     void checkLoginPrompt(const QString &text);
+    
+    // SSH自动登录
+    void sendSshCredentials();
+    void checkSshLoginPrompt(const QString &text);
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(TerminalWidget::Attributes)
