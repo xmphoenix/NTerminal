@@ -75,8 +75,10 @@ signals:
     void resetMode(int param);
     
     // 键盘和终端状态
-    void deviceStatusReport();
+    void deviceStatusReport();           // ESC [ 5 n - 设备状态报告请求
+    void cursorPositionReportRequest();  // ESC [ 6 n - 光标位置报告请求
     void cursorPositionReport(int row, int column);
+    void primaryDeviceAttributes();      // ESC [ c - 主设备属性查询
     
     // 窗口标题和颜色
     void setWindowTitle(const QString &title);

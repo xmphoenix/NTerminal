@@ -20,12 +20,15 @@ void VT100Parser::processByte(unsigned char ch)
     
     if (ch <= 0x1F || ch == 0x7F) {
         // 控制字符处理
-        qDebug() << "[VT100Parser] 处理控制字符:" << ch;
+        qDebug() << "[VT100Parser] 处理控制字符:" << ch << "(" << (ch == 0x0D ? "CR" : ch == 0x0A ? "LF" : "其他") << ")";
         switch (ch) {
             case 0x07: emit bell(); return;
             case 0x08: emit backspace(); return;
             case 0x09: emit horizontalTab(); return;
-            case 0x0A: emit lineFeed(); return;
+            case 0x0A: 
+                qDebug() << "[VT100Parser] 发出lineFeed信号";
+                emit lineFeed(); 
+                return;
             case 0x0B: emit verticalTab(); return;
             case 0x0C: emit formFeed(); return;
             case 0x0D: 
@@ -272,7 +275,17 @@ void VT100Parser::processCsiCommand(unsigned char ch)
         case 'h': emit setMode(param1); break;
         case 'l': emit resetMode(param1); break;
         case 'n': 
-            if (param1 == 6) emit deviceStatusReport();
+            // ESC [ 5 n - 设备状态报告请求
+            // ESC [ 6 n - 光标位置报告请求
+            if (param1 == 5) {
+                emit deviceStatusReport();
+            } else if (param1 == 6) {
+                emit cursorPositionReportRequest();
+            }
+            break;
+        case 'c':
+            // ESC [ c - 主设备属性查询
+            emit primaryDeviceAttributes();
             break;
         case 'R': emit cursorPositionReport(param1, param2); break;
         default:

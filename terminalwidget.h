@@ -200,6 +200,11 @@ private slots:
     void onClearLine();
     void onSetMode(int param);
     void onResetMode(int param);
+    
+    // 终端能力查询响应
+    void onDeviceStatusReport();
+    void onCursorPositionReportRequest();
+    void onPrimaryDeviceAttributes();
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(TerminalWidget::Attributes)

@@ -16,7 +16,7 @@ static QColor ansi256ColorToQColor(int code);
 
 TerminalWidget::TerminalWidget(QWidget *parent)
     : QAbstractScrollArea(parent)
-    , m_columns(80)
+    , m_columns(200)  // 默认200列，足够显示长行
     , m_terminalRows(24)
     , m_historyLines(1000)
     , m_viewportLines(50)
@@ -41,6 +41,7 @@ TerminalWidget::TerminalWidget(QWidget *parent)
     , m_vt100Parser(nullptr)
     , m_isConnected(false)
 {
+    qDebug() << "[TerminalWidget] 构造函数 - 初始列数:" << m_columns;
     setFocusPolicy(Qt::StrongFocus);
     setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -106,9 +107,17 @@ void TerminalWidget::writeText(const QString &text)
 
 void TerminalWidget::writeChar(QChar ch)
 {
-    qDebug() << "[TerminalWidget] writeChar - 字符:" << ch << "光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
+    qDebug() << "[TerminalWidget] writeChar - 字符:" << ch << "光标位置: (" << m_cursorRow << "," << m_cursorColumn << ") 当前列数:" << m_columns;
+    
+    // 检查是否需要调整列数以容纳当前光标位置
+    // 当光标接近列边界时提前调整，避免不必要的换行
+    if (m_cursorColumn >= m_columns - 1) {
+        qDebug() << "[TerminalWidget] writeChar - 光标接近列边界，当前列:" << m_cursorColumn << "最大列:" << m_columns;
+        updateScrollBars(); // 可能会调整列数
+    }
     
     if (m_cursorColumn >= m_columns) {
+        qDebug() << "[TerminalWidget] writeChar - 光标超过列边界，自动换行: 列" << m_cursorColumn << ">=" << m_columns;
         m_cursorColumn = 0;
         m_cursorRow++;
     }
@@ -230,10 +239,27 @@ void TerminalWidget::setInsertMode(bool insert)
 // 缓冲区管理
 void TerminalWidget::allocateBuffers()
 {
+    qDebug() << "[TerminalWidget] allocateBuffers - 分配缓冲区，列数:" << m_columns 
+             << "历史行数:" << m_historyLines << "终端行数:" << m_terminalRows;
+    
+    // 保存旧的历史缓冲区数据
+    QVector<QVector<Cell>> oldHistoryBuffer = m_historyBuffer;
+    int oldColumns = m_historyBuffer.isEmpty() ? 0 : m_historyBuffer[0].size();
+    
     m_historyBuffer.resize(m_historyLines);
     for (int i = 0; i < m_historyLines; ++i) {
+        int oldSize = m_historyBuffer[i].size();
         m_historyBuffer[i].resize(m_columns);
-        for (int j = 0; j < m_columns; ++j) {
+        
+        // 如果是扩展列数，保留旧数据
+        if (i < oldHistoryBuffer.size() && oldColumns > 0) {
+            for (int j = 0; j < oldColumns && j < m_columns; ++j) {
+                m_historyBuffer[i][j] = oldHistoryBuffer[i][j];
+            }
+        }
+        
+        // 初始化新增的列
+        for (int j = oldSize; j < m_columns; ++j) {
             m_historyBuffer[i][j].character = QChar(' ');
             m_historyBuffer[i][j].foreground = m_defaultForeground;
             m_historyBuffer[i][j].background = m_defaultBackground;
@@ -241,24 +267,40 @@ void TerminalWidget::allocateBuffers()
         }
     }
     
+    // 保存旧的终端缓冲区数据
+    QVector<QVector<Cell>> oldTerminalBuffer = m_terminalBuffer;
+    oldColumns = m_terminalBuffer.isEmpty() ? 0 : m_terminalBuffer[0].size();
+    
     m_terminalBuffer.resize(m_terminalRows);
     for (int i = 0; i < m_terminalRows; ++i) {
+        int oldSize = m_terminalBuffer[i].size();
         m_terminalBuffer[i].resize(m_columns);
-        for (int j = 0; j < m_columns; ++j) {
+        
+        // 如果是扩展列数，保留旧数据
+        if (i < oldTerminalBuffer.size() && oldColumns > 0) {
+            for (int j = 0; j < oldColumns && j < m_columns; ++j) {
+                m_terminalBuffer[i][j] = oldTerminalBuffer[i][j];
+            }
+        }
+        
+        // 初始化新增的列
+        for (int j = oldSize; j < m_columns; ++j) {
             m_terminalBuffer[i][j].character = QChar(' ');
             m_terminalBuffer[i][j].foreground = m_defaultForeground;
             m_terminalBuffer[i][j].background = m_defaultBackground;
             m_terminalBuffer[i][j].attributes = Normal;
         }
     }
+    
+    qDebug() << "[TerminalWidget] allocateBuffers - 完成，缓冲区大小: 历史" << m_historyBuffer.size() 
+             << "x" << (m_historyBuffer.isEmpty() ? 0 : m_historyBuffer[0].size())
+             << "终端" << m_terminalBuffer.size() 
+             << "x" << (m_terminalBuffer.isEmpty() ? 0 : m_terminalBuffer[0].size());
 }
 
 void TerminalWidget::updateScrollBars()
 {
     int totalLines = m_historySize + m_terminalRows;
-    
-    qDebug() << "[TerminalWidget] updateScrollBars - 历史大小:" << m_historySize 
-             << "终端行数:" << m_terminalRows << "总行数:" << totalLines;
     
     // 计算实际可视行数（向下取整，确保只显示完整行）
     int charHeight = m_charHeight > 0 ? m_charHeight : 20;
@@ -273,15 +315,27 @@ void TerminalWidget::updateScrollBars()
     int visibleColumns = viewport()->width() / charWidth;
     if (visibleColumns <= 0) visibleColumns = 1;
     
+    // 动态调整列数：如果光标位置超过当前列数，扩展列数
+    int requiredColumns = qMax(m_cursorColumn + 1, visibleColumns);
+    if (requiredColumns > m_columns) {
+        int newColumns = qMax(requiredColumns, m_columns + 50); // 至少增加50列
+        qDebug() << "[TerminalWidget] updateScrollBars - 动态扩展列数从" << m_columns << "到" << newColumns 
+                 << "（光标列:" << m_cursorColumn << "可见列:" << visibleColumns << "）";
+        m_columns = newColumns;
+        allocateBuffers(); // 重新分配缓冲区以容纳新列数
+    }
+    
     horizontalScrollBar()->setRange(0, qMax(0, m_columns - visibleColumns));
     horizontalScrollBar()->setPageStep(visibleColumns);
     horizontalScrollBar()->setSingleStep(1);
     
-    qDebug() << "[TerminalWidget] updateScrollBars - 可见行数:" << visibleLines 
+    qDebug() << "[TerminalWidget] updateScrollBars - 历史大小:" << m_historySize 
+             << "终端行数:" << m_terminalRows << "总行数:" << totalLines
+             << "可见行数:" << visibleLines << "可见列数:" << visibleColumns 
+             << "当前列数:" << m_columns 
              << "垂直范围: 0 -" << qMax(0, totalLines - visibleLines)
-             << "当前值:" << verticalScrollBar()->value()
-             << "光标绝对行:" << (m_historySize + m_cursorRow)
-             << "光标行:" << m_cursorRow << "光标列:" << m_cursorColumn;
+             << "水平范围: 0 -" << qMax(0, m_columns - visibleColumns)
+             << "光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
 }
 
 void TerminalWidget::ensureCursorVisible()
@@ -709,6 +763,11 @@ void TerminalWidget::connectVT100ParserSignals()
     connect(m_vt100Parser, &VT100Parser::backspace, this, &TerminalWidget::onBackspace);
     connect(m_vt100Parser, &VT100Parser::setMode, this, &TerminalWidget::onSetMode);
     connect(m_vt100Parser, &VT100Parser::resetMode, this, &TerminalWidget::onResetMode);
+    
+    // 终端能力查询响应
+    connect(m_vt100Parser, &VT100Parser::deviceStatusReport, this, &TerminalWidget::onDeviceStatusReport);
+    connect(m_vt100Parser, &VT100Parser::cursorPositionReportRequest, this, &TerminalWidget::onCursorPositionReportRequest);
+    connect(m_vt100Parser, &VT100Parser::primaryDeviceAttributes, this, &TerminalWidget::onPrimaryDeviceAttributes);
 }
 
 void TerminalWidget::onSetAttributes(const QVector<int> &params)
@@ -1251,9 +1310,25 @@ void TerminalWidget::onCursorBackward(int count)
 
 void TerminalWidget::onCursorPosition(int row, int column)
 {
+    // 转换为0-based坐标
     int actualRow = qMax(0, row - 1);
     int actualCol = qMax(0, column - 1);
-    setCursor(actualCol, actualRow);
+    
+    // 如果请求的位置超出边界，限制在边界内
+    // 这样vi可以通过 ESC [ 999 ; 999 H 来查询终端尺寸
+    if (actualRow >= m_terminalRows) {
+        actualRow = m_terminalRows - 1;
+    }
+    if (actualCol >= m_columns) {
+        actualCol = m_columns - 1;
+    }
+    
+    qDebug() << "[TerminalWidget] onCursorPosition - 请求位置: (" << row << "," << column << ") "
+             << "实际位置: (" << actualRow << "," << actualCol << ")";
+    
+    m_cursorColumn = actualCol;
+    m_cursorRow = actualRow;
+    viewport()->update();
 }
 
 void TerminalWidget::onCursorHome()
@@ -1301,9 +1376,49 @@ void TerminalWidget::onResetMode(int param)
     }
 }
 
+// 终端能力查询响应
+void TerminalWidget::onDeviceStatusReport()
+{
+    qDebug() << "[TerminalWidget] onDeviceStatusReport - 响应设备状态报告请求";
+    // 响应 ESC [ 0 n 表示设备正常
+    QByteArray response = "\x1b[0n";
+    qDebug() << "[TerminalWidget] onDeviceStatusReport - 发送响应:" << response.toHex();
+    sendData(response);
+}
+
+void TerminalWidget::onCursorPositionReportRequest()
+{
+    qDebug() << "[TerminalWidget] onCursorPositionReportRequest - 响应光标位置报告请求";
+    // 响应 ESC [<行>;<列>R
+    // 注意：行和列是从1开始的，而我们的内部坐标是从0开始的
+    int row = m_cursorRow + 1; // 转换为1-based
+    int column = m_cursorColumn + 1; // 转换为1-based
+    QByteArray response = QString("\x1b[%1;%2R").arg(row).arg(column).toUtf8();
+    qDebug() << "[TerminalWidget] onCursorPositionReportRequest - 发送响应:" << response.toHex() 
+             << "光标位置: (" << row << "," << column << ")";
+    sendData(response);
+}
+
+void TerminalWidget::onPrimaryDeviceAttributes()
+{
+    qDebug() << "[TerminalWidget] onPrimaryDeviceAttributes - 响应主设备属性查询";
+    // 根据VT100标准，响应 ESC [?6c 表示VT100兼容终端
+    QByteArray response = "\x1b[?6c";
+    qDebug() << "[TerminalWidget] onPrimaryDeviceAttributes - 发送响应:" << response.toHex();
+    sendData(response);
+}
+
 void TerminalWidget::onCarriageReturn()
 {
     qDebug() << "[TerminalWidget] onCarriageReturn - 当前光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
+    
+    // 检测是否为80列边界处的自动回车（数据源假设终端宽度为80列）
+    // 如果光标在80列位置，说明这是数据源自动添加的回车符，应该忽略
+    if (m_cursorColumn == 80) {
+        qDebug() << "[TerminalWidget] onCarriageReturn - 检测到80列边界处的自动回车，忽略（光标列:" << m_cursorColumn << "）";
+        return;
+    }
+    
     carriageReturn();
     qDebug() << "[TerminalWidget] onCarriageReturn - 回车后光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
     ensureCursorVisible();
@@ -1311,6 +1426,15 @@ void TerminalWidget::onCarriageReturn()
 
 void TerminalWidget::onLineFeed()
 {
+    qDebug() << "[TerminalWidget] onLineFeed - 当前光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
+    
+    // 检测是否为80列边界处的自动换行（数据源假设终端宽度为80列）
+    // 如果光标在80列位置，说明这是数据源自动添加的换行符，应该忽略
+    if (m_cursorColumn == 80) {
+        qDebug() << "[TerminalWidget] onLineFeed - 检测到80列边界处的自动换行，忽略（光标列:" << m_cursorColumn << "）";
+        return;
+    }
+    
     newLine();
 }
 
