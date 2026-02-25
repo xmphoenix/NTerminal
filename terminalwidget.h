@@ -59,6 +59,8 @@ public:
 
     void setInsertMode(bool insert);
     void setOverwriteMode(bool overwrite) { setInsertMode(!overwrite); }
+    void setApplicationCursorKeys(bool enabled);
+    bool applicationCursorKeys() const { return m_applicationCursorKeys; }
 
     // 连接管理
     void setConnectionSettings(const ConnectionDialog::ConnectionSettings &settings);
@@ -106,6 +108,14 @@ private:
     void appendHistoryLine();
     void scrollTerminalUp();
     
+    // 键盘处理辅助函数
+    void handleArrowKey(int key, Qt::KeyboardModifiers modifiers);
+    void handleHomeKey(Qt::KeyboardModifiers modifiers);
+    void handleEndKey(Qt::KeyboardModifiers modifiers);
+    QByteArray getArrowSequence(int key, Qt::KeyboardModifiers modifiers) const;
+    QByteArray getHomeSequence(Qt::KeyboardModifiers modifiers) const;
+    QByteArray getEndSequence(Qt::KeyboardModifiers modifiers) const;
+    
     // 选择相关私有方法
     SelectionPoint viewportToBuffer(const QPoint &pos) const;
     void updateSelection(const QPoint &pos);
@@ -131,6 +141,7 @@ private:
     int m_cursorRow;
 
     bool m_insertMode;
+    bool m_applicationCursorKeys;
 
     QVector<QVector<Cell>> m_historyBuffer;
     QVector<QVector<Cell>> m_terminalBuffer;

@@ -23,6 +23,7 @@ TerminalWidget::TerminalWidget(QWidget *parent)
     , m_cursorColumn(0)
     , m_cursorRow(0)
     , m_insertMode(false)
+    , m_applicationCursorKeys(false)  // 默认使用普通模式
     , m_historyStart(0)
     , m_historySize(0)
     , m_defaultForeground(Qt::white)
@@ -616,27 +617,63 @@ void TerminalWidget::keyPressEvent(QKeyEvent *event)
                 sendData(QByteArray("\x1b", 1));
                 break;
             case Qt::Key_Up:
-                qDebug() << "[TerminalWidget] 处理上箭头键";
+                qDebug() << "[TerminalWidget] 处理上箭头键，修饰符:" << event->modifiers();
                 if (m_isConnected) {
-                    sendData(QByteArray("\x1b[A", 3)); // ESC [ A
+                    handleArrowKey(event->key(), event->modifiers());
                 }
                 break;
             case Qt::Key_Down:
-                qDebug() << "[TerminalWidget] 处理下箭头键";
+                qDebug() << "[TerminalWidget] 处理下箭头键，修饰符:" << event->modifiers();
                 if (m_isConnected) {
-                    sendData(QByteArray("\x1b[B", 3)); // ESC [ B
+                    handleArrowKey(event->key(), event->modifiers());
                 }
                 break;
             case Qt::Key_Right:
-                qDebug() << "[TerminalWidget] 处理右箭头键";
+                qDebug() << "[TerminalWidget] 处理右箭头键，修饰符:" << event->modifiers();
                 if (m_isConnected) {
-                    sendData(QByteArray("\x1b[C", 3)); // ESC [ C
+                    handleArrowKey(event->key(), event->modifiers());
                 }
                 break;
             case Qt::Key_Left:
-                qDebug() << "[TerminalWidget] 处理左箭头键";
+                qDebug() << "[TerminalWidget] 处理左箭头键，修饰符:" << event->modifiers();
                 if (m_isConnected) {
-                    sendData(QByteArray("\x1b[D", 3)); // ESC [ D
+                    handleArrowKey(event->key(), event->modifiers());
+                }
+                break;
+            case Qt::Key_Home:
+                qDebug() << "[TerminalWidget] 处理Home键，修饰符:" << event->modifiers();
+                if (m_isConnected) {
+                    handleHomeKey(event->modifiers());
+                }
+                break;
+            case Qt::Key_End:
+                qDebug() << "[TerminalWidget] 处理End键，修饰符:" << event->modifiers();
+                if (m_isConnected) {
+                    handleEndKey(event->modifiers());
+                }
+                break;
+            case Qt::Key_PageUp:
+                qDebug() << "[TerminalWidget] 处理PageUp键";
+                if (m_isConnected) {
+                    sendData(QByteArray("\x1b[5~", 4)); // ESC [ 5 ~
+                }
+                break;
+            case Qt::Key_PageDown:
+                qDebug() << "[TerminalWidget] 处理PageDown键";
+                if (m_isConnected) {
+                    sendData(QByteArray("\x1b[6~", 4)); // ESC [ 6 ~
+                }
+                break;
+            case Qt::Key_Insert:
+                qDebug() << "[TerminalWidget] 处理Insert键";
+                if (m_isConnected) {
+                    sendData(QByteArray("\x1b[2~", 4)); // ESC [ 2 ~
+                }
+                break;
+            case Qt::Key_Delete:
+                qDebug() << "[TerminalWidget] 处理Delete键";
+                if (m_isConnected) {
+                    sendData(QByteArray("\x1b[3~", 4)); // ESC [ 3 ~
                 }
                 break;
             default:
@@ -1687,4 +1724,118 @@ bool TerminalWidget::focusNextPrevChild(bool next)
     qDebug() << "[TerminalWidget] focusNextPrevChild - 方向:" << (next ? "下一个" : "上一个") << "返回false阻止焦点转移";
     Q_UNUSED(next);
     return false;
+}
+
+// 键盘处理辅助函数实现
+void TerminalWidget::handleArrowKey(int key, Qt::KeyboardModifiers modifiers)
+{
+    QByteArray sequence = getArrowSequence(key, modifiers);
+    if (!sequence.isEmpty()) {
+        qDebug() << "[TerminalWidget] handleArrowKey - 发送序列:" << sequence.toHex();
+        sendData(sequence);
+    }
+}
+
+void TerminalWidget::handleHomeKey(Qt::KeyboardModifiers modifiers)
+{
+    QByteArray sequence = getHomeSequence(modifiers);
+    if (!sequence.isEmpty()) {
+        qDebug() << "[TerminalWidget] handleHomeKey - 发送序列:" << sequence.toHex();
+        sendData(sequence);
+    }
+}
+
+void TerminalWidget::handleEndKey(Qt::KeyboardModifiers modifiers)
+{
+    QByteArray sequence = getEndSequence(modifiers);
+    if (!sequence.isEmpty()) {
+        qDebug() << "[TerminalWidget] handleEndKey - 发送序列:" << sequence.toHex();
+        sendData(sequence);
+    }
+}
+
+QByteArray TerminalWidget::getArrowSequence(int key, Qt::KeyboardModifiers modifiers) const
+{
+    QByteArray baseSequence;
+    
+    // 确定基础序列（根据应用程序模式）
+    if (m_applicationCursorKeys) {
+        // 应用程序模式：ESC O A/B/C/D
+        switch (key) {
+            case Qt::Key_Up:    baseSequence = "\x1bOA"; break;
+            case Qt::Key_Down:  baseSequence = "\x1bOB"; break;
+            case Qt::Key_Right: baseSequence = "\x1bOC"; break;
+            case Qt::Key_Left:  baseSequence = "\x1bOD"; break;
+            default: return QByteArray();
+        }
+    } else {
+        // 普通模式：ESC [ A/B/C/D
+        switch (key) {
+            case Qt::Key_Up:    baseSequence = "\x1b[A"; break;
+            case Qt::Key_Down:  baseSequence = "\x1b[B"; break;
+            case Qt::Key_Right: baseSequence = "\x1b[C"; break;
+            case Qt::Key_Left:  baseSequence = "\x1b[D"; break;
+            default: return QByteArray();
+        }
+    }
+    
+    // 处理修饰键
+    if (modifiers & Qt::ControlModifier) {
+        // Ctrl+方向键：ESC [ 1;5 A/B/C/D
+        QByteArray ctrlSequence;
+        switch (key) {
+            case Qt::Key_Up:    ctrlSequence = "\x1b[1;5A"; break;
+            case Qt::Key_Down:  ctrlSequence = "\x1b[1;5B"; break;
+            case Qt::Key_Right: ctrlSequence = "\x1b[1;5C"; break;
+            case Qt::Key_Left:  ctrlSequence = "\x1b[1;5D"; break;
+            default: return baseSequence;
+        }
+        qDebug() << "[TerminalWidget] getArrowSequence - Ctrl修饰键，使用序列:" << ctrlSequence.toHex();
+        return ctrlSequence;
+    } else if (modifiers & Qt::ShiftModifier) {
+        // Shift+方向键：ESC [ 1;2 A/B/C/D（用于选择文本）
+        QByteArray shiftSequence;
+        switch (key) {
+            case Qt::Key_Up:    shiftSequence = "\x1b[1;2A"; break;
+            case Qt::Key_Down:  shiftSequence = "\x1b[1;2B"; break;
+            case Qt::Key_Right: shiftSequence = "\x1b[1;2C"; break;
+            case Qt::Key_Left:  shiftSequence = "\x1b[1;2D"; break;
+            default: return baseSequence;
+        }
+        qDebug() << "[TerminalWidget] getArrowSequence - Shift修饰键，使用序列:" << shiftSequence.toHex();
+        return shiftSequence;
+    }
+    
+    return baseSequence;
+}
+
+QByteArray TerminalWidget::getHomeSequence(Qt::KeyboardModifiers modifiers) const
+{
+    if (m_applicationCursorKeys) {
+        // 应用程序模式：ESC O H
+        return "\x1bOH";
+    } else {
+        // 普通模式：ESC [ H
+        return "\x1b[H";
+    }
+}
+
+QByteArray TerminalWidget::getEndSequence(Qt::KeyboardModifiers modifiers) const
+{
+    if (m_applicationCursorKeys) {
+        // 应用程序模式：ESC O F
+        return "\x1bOF";
+    } else {
+        // 普通模式：ESC [ F
+        return "\x1b[F";
+    }
+}
+
+void TerminalWidget::setApplicationCursorKeys(bool enabled)
+{
+    if (m_applicationCursorKeys != enabled) {
+        m_applicationCursorKeys = enabled;
+        qDebug() << "[TerminalWidget] setApplicationCursorKeys - 设置为:" << enabled
+                 << "(" << (enabled ? "应用程序模式" : "普通模式") << ")";
+    }
 }
