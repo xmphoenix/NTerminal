@@ -187,6 +187,8 @@ private slots:
     void onEraseEndOfLine();
     void onEraseStartOfLine();
     void onClearLine();
+    void onSetMode(int param);
+    void onResetMode(int param);
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(TerminalWidget::Attributes)

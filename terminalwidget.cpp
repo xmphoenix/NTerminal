@@ -219,7 +219,11 @@ void TerminalWidget::clearLine()
 
 void TerminalWidget::setInsertMode(bool insert)
 {
-    m_insertMode = insert;
+    if (m_insertMode != insert) {
+        m_insertMode = insert;
+        qDebug() << "[TerminalWidget] setInsertMode - 设置为:" << insert;
+        viewport()->update(); // 更新光标显示
+    }
 }
 
 // 缓冲区管理
@@ -497,10 +501,18 @@ void TerminalWidget::paintEvent(QPaintEvent *event)
         int cursorGlobalLine = m_historySize + m_cursorRow;
         if (cursorGlobalLine >= topLine && cursorGlobalLine < topLine + visibleLines) {
             int cursorLineInView = cursorGlobalLine - topLine;
+            int cursorX = m_cursorColumn * m_charWidth - leftColumn * m_charWidth;
+            int cursorY = cursorLineInView * m_charHeight;
+            
             painter.setPen(Qt::white);
-            painter.drawRect(m_cursorColumn * m_charWidth - leftColumn * m_charWidth,
-                             cursorLineInView * m_charHeight,
-                             m_charWidth, m_charHeight);
+            
+            if (m_insertMode) {
+                // 插入模式：绘制竖线光标（宽度2像素）
+                painter.fillRect(cursorX, cursorY, 2, m_charHeight, Qt::white);
+            } else {
+                // 覆盖模式：绘制块状光标
+                painter.drawRect(cursorX, cursorY, m_charWidth, m_charHeight);
+            }
         }
     }
 }
@@ -603,6 +615,30 @@ void TerminalWidget::keyPressEvent(QKeyEvent *event)
             case Qt::Key_Escape:
                 sendData(QByteArray("\x1b", 1));
                 break;
+            case Qt::Key_Up:
+                qDebug() << "[TerminalWidget] 处理上箭头键";
+                if (m_isConnected) {
+                    sendData(QByteArray("\x1b[A", 3)); // ESC [ A
+                }
+                break;
+            case Qt::Key_Down:
+                qDebug() << "[TerminalWidget] 处理下箭头键";
+                if (m_isConnected) {
+                    sendData(QByteArray("\x1b[B", 3)); // ESC [ B
+                }
+                break;
+            case Qt::Key_Right:
+                qDebug() << "[TerminalWidget] 处理右箭头键";
+                if (m_isConnected) {
+                    sendData(QByteArray("\x1b[C", 3)); // ESC [ C
+                }
+                break;
+            case Qt::Key_Left:
+                qDebug() << "[TerminalWidget] 处理左箭头键";
+                if (m_isConnected) {
+                    sendData(QByteArray("\x1b[D", 3)); // ESC [ D
+                }
+                break;
             default:
                 QAbstractScrollArea::keyPressEvent(event);
                 break;
@@ -634,6 +670,8 @@ void TerminalWidget::connectVT100ParserSignals()
     connect(m_vt100Parser, &VT100Parser::eraseEndOfLine, this, &TerminalWidget::onEraseEndOfLine);
     connect(m_vt100Parser, &VT100Parser::eraseStartOfLine, this, &TerminalWidget::onEraseStartOfLine);
     connect(m_vt100Parser, &VT100Parser::backspace, this, &TerminalWidget::onBackspace);
+    connect(m_vt100Parser, &VT100Parser::setMode, this, &TerminalWidget::onSetMode);
+    connect(m_vt100Parser, &VT100Parser::resetMode, this, &TerminalWidget::onResetMode);
 }
 
 void TerminalWidget::onSetAttributes(const QVector<int> &params)
@@ -1203,6 +1241,26 @@ void TerminalWidget::onBackspace()
         ensureCursorVisible();
         viewport()->update();
         qDebug() << "[TerminalWidget] onBackspace - 退格后光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
+    }
+}
+
+void TerminalWidget::onSetMode(int param)
+{
+    qDebug() << "[TerminalWidget] onSetMode - 参数:" << param;
+    // 根据VT100规范，参数4是插入模式
+    if (param == 4) {
+        setInsertMode(true);
+        qDebug() << "[TerminalWidget] onSetMode - 启用插入模式";
+    }
+}
+
+void TerminalWidget::onResetMode(int param)
+{
+    qDebug() << "[TerminalWidget] onResetMode - 参数:" << param;
+    // 根据VT100规范，参数4是插入模式
+    if (param == 4) {
+        setInsertMode(false);
+        qDebug() << "[TerminalWidget] onResetMode - 禁用插入模式（覆盖模式）";
     }
 }
 
