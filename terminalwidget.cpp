@@ -10,6 +10,7 @@
 #include <QApplication>
 #include <QMenu>
 #include <QDebug>
+#include <QTimer>
 
 static QColor ansiColorToQColor(int code, bool isBright);
 static QColor ansi256ColorToQColor(int code);
@@ -40,6 +41,7 @@ TerminalWidget::TerminalWidget(QWidget *parent)
     , m_sshProcess(nullptr)
     , m_vt100Parser(nullptr)
     , m_isConnected(false)
+    , m_telnetLoginState(TelnetLoginNone)
 {
     qDebug() << "[TerminalWidget] 构造函数 - 初始列数:" << m_columns;
     setFocusPolicy(Qt::StrongFocus);
@@ -107,17 +109,17 @@ void TerminalWidget::writeText(const QString &text)
 
 void TerminalWidget::writeChar(QChar ch)
 {
-    qDebug() << "[TerminalWidget] writeChar - 字符:" << ch << "光标位置: (" << m_cursorRow << "," << m_cursorColumn << ") 当前列数:" << m_columns;
+    // qDebug() << "[TerminalWidget] writeChar - 字符:" << ch << "光标位置: (" << m_cursorRow << "," << m_cursorColumn << ") 当前列数:" << m_columns;
     
     // 检查是否需要调整列数以容纳当前光标位置
     // 当光标接近列边界时提前调整，避免不必要的换行
     if (m_cursorColumn >= m_columns - 1) {
-        qDebug() << "[TerminalWidget] writeChar - 光标接近列边界，当前列:" << m_cursorColumn << "最大列:" << m_columns;
+        // qDebug() << "[TerminalWidget] writeChar - 光标接近列边界，当前列:" << m_cursorColumn << "最大列:" << m_columns;
         updateScrollBars(); // 可能会调整列数
     }
     
     if (m_cursorColumn >= m_columns) {
-        qDebug() << "[TerminalWidget] writeChar - 光标超过列边界，自动换行: 列" << m_cursorColumn << ">=" << m_columns;
+        // qDebug() << "[TerminalWidget] writeChar - 光标超过列边界，自动换行: 列" << m_cursorColumn << ">=" << m_columns;
         m_cursorColumn = 0;
         m_cursorRow++;
     }
@@ -135,7 +137,7 @@ void TerminalWidget::writeChar(QChar ch)
         cell.background = m_currentBackground;
         cell.attributes = m_currentAttributes;
         
-        qDebug() << "[TerminalWidget] writeChar - 写入缓冲区位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
+        // qDebug() << "[TerminalWidget] writeChar - 写入缓冲区位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
         
         m_cursorColumn++;
     }
@@ -913,6 +915,9 @@ static QColor ansi256ColorToQColor(int code)
 void TerminalWidget::setConnectionSettings(const ConnectionDialog::ConnectionSettings &settings)
 {
     m_connectionSettings = settings;
+    qDebug() << "[TerminalWidget] setConnectionSettings - 连接类型:" << settings.type
+             << "主机:" << settings.host << "端口:" << settings.port
+             << "用户名:" << settings.username << "密码:" << (settings.password.isEmpty() ? "空" : "已设置");
 }
 
 bool TerminalWidget::openConnection()
@@ -1089,25 +1094,52 @@ void TerminalWidget::closeSerialConnection()
 
 bool TerminalWidget::openTelnetConnection()
 {
+    qDebug() << "[TerminalWidget] openTelnetConnection - 开始连接Telnet服务器"
+             << m_connectionSettings.host << ":" << m_connectionSettings.port;
+    
     if (m_tcpSocket) {
+        qDebug() << "[TerminalWidget] openTelnetConnection - 删除旧Socket";
         delete m_tcpSocket;
     }
     
     m_tcpSocket = new QTcpSocket(this);
+    
+    // 重置自动登录状态
+    m_telnetLoginState = TelnetLoginNone;
+    m_receivedBuffer.clear();
+    
+    // 连接信号
     connect(m_tcpSocket, &QTcpSocket::readyRead, this, &TerminalWidget::onTcpDataReady);
     connect(m_tcpSocket, &QTcpSocket::errorOccurred, this, &TerminalWidget::onTcpError);
     connect(m_tcpSocket, &QTcpSocket::connected, this, [this]() {
+        qDebug() << "[TerminalWidget] Telnet连接成功 - Socket已连接";
+        // 如果配置了用户名和密码，启动自动登录
+        if (!m_connectionSettings.username.isEmpty() && !m_connectionSettings.password.isEmpty()) {
+            qDebug() << "[TerminalWidget] 启动自动登录流程，用户名:" << m_connectionSettings.username;
+            m_telnetLoginState = TelnetLoginWaitPrompt;
+        }
+    });
+    connect(m_tcpSocket, &QTcpSocket::disconnected, this, [this]() {
+        qDebug() << "[TerminalWidget] Telnet连接断开 - 服务器关闭连接";
+        m_isConnected = false;
+        m_telnetLoginState = TelnetLoginNone;
+        emit connectionClosed();
+    });
+    connect(m_tcpSocket, &QTcpSocket::stateChanged, this, [this](QAbstractSocket::SocketState state) {
+        qDebug() << "[TerminalWidget] Telnet状态变化:" << state;
     });
     
     m_tcpSocket->connectToHost(m_connectionSettings.host, m_connectionSettings.port);
     
     if (m_tcpSocket->waitForConnected(5000)) {
+        qDebug() << "[TerminalWidget] openTelnetConnection - 连接成功";
         return true;
     } else {
         QString error = QString("无法连接到Telnet服务器 %1:%2: %3")
                           .arg(m_connectionSettings.host)
                           .arg(m_connectionSettings.port)
                           .arg(m_tcpSocket->errorString());
+        qDebug() << "[TerminalWidget] openTelnetConnection - 连接失败:" << error;
         emit connectionError(error);
         delete m_tcpSocket;
         m_tcpSocket = nullptr;
@@ -1117,15 +1149,19 @@ bool TerminalWidget::openTelnetConnection()
 
 void TerminalWidget::closeTelnetConnection()
 {
+    qDebug() << "[TerminalWidget] closeTelnetConnection - 关闭Telnet连接";
     if (m_tcpSocket) {
+        qDebug() << "[TerminalWidget] closeTelnetConnection - 当前Socket状态:" << m_tcpSocket->state();
         m_tcpSocket->disconnectFromHost();
         if (m_tcpSocket->state() != QAbstractSocket::UnconnectedState) {
+            qDebug() << "[TerminalWidget] closeTelnetConnection - 等待断开连接...";
             m_tcpSocket->waitForDisconnected(1000);
         }
         disconnect(m_tcpSocket, &QTcpSocket::readyRead, this, &TerminalWidget::onTcpDataReady);
         disconnect(m_tcpSocket, &QTcpSocket::errorOccurred, this, &TerminalWidget::onTcpError);
         delete m_tcpSocket;
         m_tcpSocket = nullptr;
+        qDebug() << "[TerminalWidget] closeTelnetConnection - 连接已关闭";
     }
 }
 
@@ -1231,8 +1267,93 @@ void TerminalWidget::onTcpDataReady()
     if (m_tcpSocket && m_tcpSocket->state() == QAbstractSocket::ConnectedState) {
         QByteArray data = m_tcpSocket->readAll();
         qDebug() << "[TerminalWidget] Telnet收到数据，大小:" << data.size() << "内容:" << data.toHex();
-        processReceivedData(data);
+        
+        // 处理Telnet协议协商
+        QByteArray processedData = processTelnetProtocol(data);
+        
+        if (!processedData.isEmpty()) {
+            // 如果正在自动登录流程中，检测登录提示
+            if (m_telnetLoginState != TelnetLoginNone && m_telnetLoginState != TelnetLoginDone) {
+                qDebug() << "[TerminalWidget] onTcpDataReady - 自动登录状态:" << m_telnetLoginState
+                         << "用户名:" << m_connectionSettings.username 
+                         << "密码:" << (m_connectionSettings.password.isEmpty() ? "空" : "已设置");
+                m_receivedBuffer += QString::fromUtf8(processedData);
+                checkLoginPrompt(m_receivedBuffer);
+            } else {
+                qDebug() << "[TerminalWidget] onTcpDataReady - 未启动自动登录，状态:" << m_telnetLoginState
+                         << "用户名:" << m_connectionSettings.username 
+                         << "密码:" << (m_connectionSettings.password.isEmpty() ? "空" : "已设置");
+            }
+            
+            processReceivedData(processedData);
+        }
     }
+}
+
+QByteArray TerminalWidget::processTelnetProtocol(const QByteArray &data)
+{
+    QByteArray result;
+    result.reserve(data.size());
+    
+    for (int i = 0; i < data.size(); ++i) {
+        unsigned char ch = static_cast<unsigned char>(data[i]);
+        
+        if (ch == 0xFF) {  // IAC (Interpret As Command)
+            if (i + 1 < data.size()) {
+                unsigned char cmd = static_cast<unsigned char>(data[++i]);
+                
+                switch (cmd) {
+                    case 0xFF:  // 双0xFF表示真实的0xFF字符
+                        result.append(static_cast<char>(0xFF));
+                        break;
+                    case 0xFB:  // WILL
+                    case 0xFC:  // WONT
+                    case 0xFD:  // DO
+                    case 0xFE:  // DONT
+                        if (i + 1 < data.size()) {
+                            unsigned char option = static_cast<unsigned char>(data[++i]);
+                            qDebug() << "[TerminalWidget] Telnet协商: IAC" 
+                                     << (cmd == 0xFB ? "WILL" : cmd == 0xFC ? "WONT" 
+                                        : cmd == 0xFD ? "DO" : "DONT")
+                                     << "选项:" << option;
+                            
+                            // 响应Telnet协商：拒绝所有选项
+                            QByteArray response;
+                            response.append(static_cast<char>(0xFF));  // IAC
+                            response.append(static_cast<char>(cmd == 0xFD || cmd == 0xFE ? 0xFC : 0xFE));  // WONT/DONT
+                            response.append(static_cast<char>(option));
+                            
+                            if (m_tcpSocket && m_tcpSocket->state() == QAbstractSocket::ConnectedState) {
+                                m_tcpSocket->write(response);
+                                qDebug() << "[TerminalWidget] Telnet协商响应:" << response.toHex();
+                            }
+                        }
+                        break;
+                    case 0xF0:  // NOP
+                    case 0xF1:  // Data Mark
+                    case 0xF2:  // Break
+                    case 0xF3:  // Interrupt Process
+                    case 0xF4:  // Abort output
+                    case 0xF5:  // Are You There
+                    case 0xF6:  // Erase character
+                    case 0xF7:  // Erase Line
+                    case 0xF8:  // Go ahead
+                    case 0xF9:  // SB (Subnegotiation Begin)
+                    case 0xFA:  // SE (Subnegotiation End)
+                        qDebug() << "[TerminalWidget] Telnet命令:" << QString("0x%1").arg(cmd, 2, 16, QChar('0'));
+                        // 这些命令暂时忽略
+                        break;
+                    default:
+                        qDebug() << "[TerminalWidget] Telnet未知命令:" << QString("0x%1").arg(cmd, 2, 16, QChar('0'));
+                        break;
+                }
+            }
+        } else {
+            result.append(static_cast<char>(ch));
+        }
+    }
+    
+    return result;
 }
 
 void TerminalWidget::processReceivedData(const QByteArray &data)
@@ -1261,14 +1382,24 @@ void TerminalWidget::onSerialError(QSerialPort::SerialPortError error)
 
 void TerminalWidget::onTcpError(QAbstractSocket::SocketError error)
 {
-    if (error == QAbstractSocket::UnknownSocketError) return;
+    qDebug() << "[TerminalWidget] onTcpError - Socket错误:" << error;
+    
+    if (error == QAbstractSocket::UnknownSocketError) {
+        qDebug() << "[TerminalWidget] onTcpError - 忽略UnknownSocketError";
+        return;
+    }
     
     QString errorMsg = QString("网络错误: %1").arg(m_tcpSocket->errorString());
+    qDebug() << "[TerminalWidget] onTcpError - 错误信息:" << errorMsg;
     emit connectionError(errorMsg);
     
+    // 根据错误类型决定是否关闭连接
     if (error == QAbstractSocket::ConnectionRefusedError ||
         error == QAbstractSocket::RemoteHostClosedError ||
-        error == QAbstractSocket::NetworkError) {
+        error == QAbstractSocket::NetworkError ||
+        error == QAbstractSocket::SocketTimeoutError ||
+        error == QAbstractSocket::HostNotFoundError) {
+        qDebug() << "[TerminalWidget] onTcpError - 致命错误，关闭连接";
         closeConnection();
     }
 }
@@ -1406,6 +1537,80 @@ void TerminalWidget::onPrimaryDeviceAttributes()
     QByteArray response = "\x1b[?6c";
     qDebug() << "[TerminalWidget] onPrimaryDeviceAttributes - 发送响应:" << response.toHex();
     sendData(response);
+}
+
+void TerminalWidget::checkLoginPrompt(const QString &text)
+{
+    // 检测登录提示并发送凭据
+    QString lowerText = text.toLower();
+    
+    switch (m_telnetLoginState) {
+        case TelnetLoginWaitPrompt:
+            // 检测用户名提示 (login:, username:, user: 等)
+            if (lowerText.contains("login:") || lowerText.contains("username:") || lowerText.contains("user:")) {
+                qDebug() << "[TerminalWidget] checkLoginPrompt - 检测到用户名提示";
+                m_telnetLoginState = TelnetLoginSentUser;
+                QTimer::singleShot(100, this, &TerminalWidget::sendTelnetCredentials);
+                m_receivedBuffer.clear();
+            }
+            break;
+            
+        case TelnetLoginSentUser:
+            // 已发送用户名，等待密码提示
+            if (lowerText.contains("password:") || lowerText.contains("passwd:")) {
+                qDebug() << "[TerminalWidget] checkLoginPrompt - 检测到密码提示";
+                m_telnetLoginState = TelnetLoginWaitPassword;
+                QTimer::singleShot(100, this, &TerminalWidget::sendTelnetCredentials);
+                m_receivedBuffer.clear();
+            }
+            break;
+            
+        case TelnetLoginWaitPassword:
+            // 已发送密码，等待登录结果
+            // 检测是否登录成功（通常会有 shell 提示符或欢迎信息）
+            if (lowerText.contains("$") || lowerText.contains("#") || 
+                lowerText.contains(">") || lowerText.contains("~") ||
+                lowerText.contains("welcome") || lowerText.contains("last login")) {
+                qDebug() << "[TerminalWidget] checkLoginPrompt - 登录成功";
+                m_telnetLoginState = TelnetLoginDone;
+                m_receivedBuffer.clear();
+            }
+            break;
+            
+        default:
+            break;
+    }
+    
+    // 限制缓冲区大小，避免内存无限增长
+    if (m_receivedBuffer.size() > 4096) {
+        m_receivedBuffer = m_receivedBuffer.right(2048);
+    }
+}
+
+void TerminalWidget::sendTelnetCredentials()
+{
+    if (!m_tcpSocket || m_tcpSocket->state() != QAbstractSocket::ConnectedState) {
+        qDebug() << "[TerminalWidget] sendTelnetCredentials - 连接已断开";
+        return;
+    }
+    
+    switch (m_telnetLoginState) {
+        case TelnetLoginSentUser:
+            // 发送用户名
+            qDebug() << "[TerminalWidget] sendTelnetCredentials - 发送用户名:" << m_connectionSettings.username;
+            m_tcpSocket->write((m_connectionSettings.username + "\r\n").toUtf8());
+            break;
+            
+        case TelnetLoginWaitPassword:
+            // 发送密码
+            qDebug() << "[TerminalWidget] sendTelnetCredentials - 发送密码";
+            m_tcpSocket->write((m_connectionSettings.password + "\r\n").toUtf8());
+            m_telnetLoginState = TelnetLoginSentPassword;
+            break;
+            
+        default:
+            break;
+    }
 }
 
 void TerminalWidget::onCarriageReturn()

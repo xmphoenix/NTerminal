@@ -74,11 +74,17 @@ private:
     QComboBox *m_stopBitsComboBox;
     QComboBox *m_flowControlComboBox;
     
-    // Telnet/SSH settings widgets
-    QLineEdit *m_hostEdit;
-    QSpinBox *m_portSpinBox;
-    QLineEdit *m_usernameEdit;
-    QLineEdit *m_passwordEdit;
+    // Telnet settings widgets
+    QLineEdit *m_telnetHostEdit;
+    QSpinBox *m_telnetPortSpinBox;
+    QLineEdit *m_telnetUsernameEdit;
+    QLineEdit *m_telnetPasswordEdit;
+    
+    // SSH settings widgets
+    QLineEdit *m_sshHostEdit;
+    QSpinBox *m_sshPortSpinBox;
+    QLineEdit *m_sshUsernameEdit;
+    QLineEdit *m_sshPasswordEdit;
     QCheckBox *m_useSshKeyCheckBox;
     QLineEdit *m_sshKeyPathEdit;
     QPushButton *m_browseKeyButton;

@@ -131,6 +131,7 @@ private:
     bool openSshConnection();
     void closeSshConnection();
     void processReceivedData(const QByteArray &data);
+    QByteArray processTelnetProtocol(const QByteArray &data);  // Telnet协议协商处理
 
     int m_columns;
     int m_terminalRows;
@@ -171,6 +172,18 @@ private:
     VT100Parser *m_vt100Parser;
     bool m_isConnected;
     
+    // Telnet自动登录状态
+    enum TelnetLoginState {
+        TelnetLoginNone,        // 未开始登录
+        TelnetLoginWaitPrompt,  // 等待登录提示
+        TelnetLoginSentUser,    // 已发送用户名
+        TelnetLoginWaitPassword,// 等待密码提示
+        TelnetLoginSentPassword,// 已发送密码
+        TelnetLoginDone         // 登录完成
+    };
+    TelnetLoginState m_telnetLoginState;
+    QString m_receivedBuffer;   // 用于检测登录提示的缓冲区
+    
 private slots:
     void onSerialDataReady();
     void onTcpDataReady();
@@ -205,6 +218,10 @@ private slots:
     void onDeviceStatusReport();
     void onCursorPositionReportRequest();
     void onPrimaryDeviceAttributes();
+    
+    // Telnet自动登录
+    void sendTelnetCredentials();
+    void checkLoginPrompt(const QString &text);
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(TerminalWidget::Attributes)

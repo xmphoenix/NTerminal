@@ -26,10 +26,14 @@ ConnectionDialog::ConnectionDialog(QWidget *parent)
     , m_parityComboBox(nullptr)
     , m_stopBitsComboBox(nullptr)
     , m_flowControlComboBox(nullptr)
-    , m_hostEdit(nullptr)
-    , m_portSpinBox(nullptr)
-    , m_usernameEdit(nullptr)
-    , m_passwordEdit(nullptr)
+    , m_telnetHostEdit(nullptr)
+    , m_telnetPortSpinBox(nullptr)
+    , m_telnetUsernameEdit(nullptr)
+    , m_telnetPasswordEdit(nullptr)
+    , m_sshHostEdit(nullptr)
+    , m_sshPortSpinBox(nullptr)
+    , m_sshUsernameEdit(nullptr)
+    , m_sshPasswordEdit(nullptr)
     , m_useSshKeyCheckBox(nullptr)
     , m_sshKeyPathEdit(nullptr)
     , m_browseKeyButton(nullptr)
@@ -179,20 +183,20 @@ void ConnectionDialog::createTelnetSettingsWidget()
     QWidget *widget = new QWidget();
     QFormLayout *layout = new QFormLayout(widget);
     
-    m_hostEdit = new QLineEdit("127.0.0.1");
-    layout->addRow("主机地址:", m_hostEdit);
+    m_telnetHostEdit = new QLineEdit("127.0.0.1");
+    layout->addRow("主机地址:", m_telnetHostEdit);
     
-    m_portSpinBox = new QSpinBox();
-    m_portSpinBox->setRange(1, 65535);
-    m_portSpinBox->setValue(23);
-    layout->addRow("端口:", m_portSpinBox);
+    m_telnetPortSpinBox = new QSpinBox();
+    m_telnetPortSpinBox->setRange(1, 65535);
+    m_telnetPortSpinBox->setValue(23);
+    layout->addRow("端口:", m_telnetPortSpinBox);
     
-    m_usernameEdit = new QLineEdit();
-    layout->addRow("用户名:", m_usernameEdit);
+    m_telnetUsernameEdit = new QLineEdit();
+    layout->addRow("用户名:", m_telnetUsernameEdit);
     
-    m_passwordEdit = new QLineEdit();
-    m_passwordEdit->setEchoMode(QLineEdit::Password);
-    layout->addRow("密码:", m_passwordEdit);
+    m_telnetPasswordEdit = new QLineEdit();
+    m_telnetPasswordEdit->setEchoMode(QLineEdit::Password);
+    layout->addRow("密码:", m_telnetPasswordEdit);
     
     m_settingsStack->addWidget(widget);
 }
@@ -202,20 +206,20 @@ void ConnectionDialog::createSshSettingsWidget()
     QWidget *widget = new QWidget();
     QFormLayout *layout = new QFormLayout(widget);
     
-    m_hostEdit = new QLineEdit("127.0.0.1");
-    layout->addRow("主机地址:", m_hostEdit);
+    m_sshHostEdit = new QLineEdit("127.0.0.1");
+    layout->addRow("主机地址:", m_sshHostEdit);
     
-    m_portSpinBox = new QSpinBox();
-    m_portSpinBox->setRange(1, 65535);
-    m_portSpinBox->setValue(22);
-    layout->addRow("端口:", m_portSpinBox);
+    m_sshPortSpinBox = new QSpinBox();
+    m_sshPortSpinBox->setRange(1, 65535);
+    m_sshPortSpinBox->setValue(22);
+    layout->addRow("端口:", m_sshPortSpinBox);
     
-    m_usernameEdit = new QLineEdit();
-    layout->addRow("用户名:", m_usernameEdit);
+    m_sshUsernameEdit = new QLineEdit();
+    layout->addRow("用户名:", m_sshUsernameEdit);
     
-    m_passwordEdit = new QLineEdit();
-    m_passwordEdit->setEchoMode(QLineEdit::Password);
-    layout->addRow("密码:", m_passwordEdit);
+    m_sshPasswordEdit = new QLineEdit();
+    m_sshPasswordEdit->setEchoMode(QLineEdit::Password);
+    layout->addRow("密码:", m_sshPasswordEdit);
     
     m_useSshKeyCheckBox = new QCheckBox("使用SSH密钥");
     layout->addRow("", m_useSshKeyCheckBox);
@@ -301,15 +305,35 @@ ConnectionDialog::ConnectionSettings ConnectionDialog::getSettings() const
         settings.parity = static_cast<QSerialPort::Parity>(m_parityComboBox->currentData().toInt());
         settings.stopBits = static_cast<QSerialPort::StopBits>(m_stopBitsComboBox->currentData().toInt());
         settings.flowControl = static_cast<QSerialPort::FlowControl>(m_flowControlComboBox->currentData().toInt());
-    } else if (type == Telnet || type == SSH) {
-        settings.host = m_hostEdit->text();
-        settings.port = m_portSpinBox->value();
-        settings.username = m_usernameEdit->text();
-        settings.password = m_passwordEdit->text();
+    } else if (type == Telnet) {
+        settings.host = m_telnetHostEdit->text();
+        settings.port = m_telnetPortSpinBox->value();
+        settings.username = m_telnetUsernameEdit->text();
+        settings.password = m_telnetPasswordEdit->text();
         
-        if (type == SSH) {
-            settings.useSshKey = m_useSshKeyCheckBox->isChecked();
-            settings.sshKeyPath = m_sshKeyPathEdit->text();
+        // 端口验证警告
+        if (settings.port == 22) {
+            QMessageBox::warning(nullptr, "端口警告", 
+                "您选择了 Telnet 连接类型，但端口设置为 22（SSH 默认端口）。\n\n"
+                "Telnet 默认端口是 23。\n\n"
+                "如果目标服务是 SSH，请将连接类型改为 SSH。\n"
+                "如果目标服务是 Telnet，请将端口改为 23。");
+        }
+    } else if (type == SSH) {
+        settings.host = m_sshHostEdit->text();
+        settings.port = m_sshPortSpinBox->value();
+        settings.username = m_sshUsernameEdit->text();
+        settings.password = m_sshPasswordEdit->text();
+        settings.useSshKey = m_useSshKeyCheckBox->isChecked();
+        settings.sshKeyPath = m_sshKeyPathEdit->text();
+        
+        // 端口验证警告
+        if (settings.port == 23) {
+            QMessageBox::warning(nullptr, "端口警告", 
+                "您选择了 SSH 连接类型，但端口设置为 23（Telnet 默认端口）。\n\n"
+                "SSH 默认端口是 22。\n\n"
+                "如果目标服务是 Telnet，请将连接类型改为 Telnet。\n"
+                "如果目标服务是 SSH，请将端口改为 22。");
         }
     }
     
