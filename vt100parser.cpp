@@ -5,6 +5,7 @@ VT100Parser::VT100Parser(QObject *parent)
     : QObject(parent)
     , m_state(StateGround)
     , m_utf8Remaining(0)
+    , m_privateMode(false)
 {
     resetCsi();
     resetOsc();
@@ -125,6 +126,12 @@ void VT100Parser::escapeState(unsigned char ch)
 
 void VT100Parser::csiEntryState(unsigned char ch)
 {
+    if (ch == '?') {
+        m_privateMode = true;
+        m_state = StateCsiParam;
+        return;
+    }
+    
     if (ch >= 0x30 && ch <= 0x3F) {
         m_state = StateCsiParam;
         csiParamState(ch);
@@ -209,6 +216,11 @@ void VT100Parser::oscStringState(unsigned char ch)
 
 void VT100Parser::processCsiCommand(unsigned char ch)
 {
+    if (m_privateMode) {
+        processPrivateCsiCommand(ch);
+        return;
+    }
+    
     int param1 = m_csiParams.isEmpty() ? 0 : m_csiParams[0];
     int param2 = m_csiParams.size() > 1 ? m_csiParams[1] : 0;
     
@@ -256,6 +268,25 @@ void VT100Parser::processCsiCommand(unsigned char ch)
         default:
             // 未实现的CSI命令
             qDebug() << "Unimplemented CSI command:" << ch << "params:" << m_csiParams;
+            break;
+    }
+}
+
+void VT100Parser::processPrivateCsiCommand(unsigned char ch)
+{
+    int param1 = m_csiParams.isEmpty() ? 0 : m_csiParams[0];
+    
+    switch (ch) {
+        case 'h':
+            qDebug() << "[VT100Parser] 私有模式设置 (SM ?) 参数:" << param1;
+            emit setPrivateMode(param1);
+            break;
+        case 'l':
+            qDebug() << "[VT100Parser] 私有模式重置 (RM ?) 参数:" << param1;
+            emit resetPrivateMode(param1);
+            break;
+        default:
+            qDebug() << "[VT100Parser] 未实现的私有CSI命令:" << ch << "params:" << m_csiParams;
             break;
     }
 }
@@ -313,6 +344,7 @@ void VT100Parser::resetCsi()
 {
     m_csiParams.clear();
     m_csiIntermediate.clear();
+    m_privateMode = false;
     // 添加默认参数0
     m_csiParams.append(0);
 }

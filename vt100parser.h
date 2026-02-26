@@ -73,6 +73,8 @@ signals:
     // 模式设置
     void setMode(int param);
     void resetMode(int param);
+    void setPrivateMode(int param);
+    void resetPrivateMode(int param);
     
     // 键盘和终端状态
     void deviceStatusReport();           // ESC [ 5 n - 设备状态报告请求
@@ -99,6 +101,7 @@ private:
     void oscStringState(unsigned char ch);
     
     void processCsiCommand(unsigned char ch);
+    void processPrivateCsiCommand(unsigned char ch);
     void processEscapeCommand(unsigned char ch);
     void processOscCommand();
     
@@ -111,6 +114,7 @@ private:
     QString m_oscBuffer;
     QByteArray m_utf8Buffer;
     int m_utf8Remaining;
+    bool m_privateMode;
 };
 
 #endif // VT100PARSER_H

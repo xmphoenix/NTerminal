@@ -110,6 +110,8 @@ private slots:
     void onParserBackspace();
     void onParserSetMode(int param);
     void onParserResetMode(int param);
+    void onParserSetPrivateMode(int param);
+    void onParserResetPrivateMode(int param);
     void onParserSetAttributes(const QVector<int> &params);
     void onParserResetAttributes();
     
@@ -157,8 +159,15 @@ private:
     
     QVector<QVector<Cell>> m_historyBuffer;
     QVector<QVector<Cell>> m_terminalBuffer;
+    QVector<QVector<Cell>> m_alternateBuffer;
     int m_historyStart;
     int m_historySize;
+    
+    bool m_useAlternateScreen;
+    int m_savedCursorColumn;
+    int m_savedCursorRow;
+    int m_savedHistorySize;
+    int m_savedHistoryStart;
     
     QColor m_defaultForeground;
     QColor m_defaultBackground;
