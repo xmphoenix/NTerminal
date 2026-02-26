@@ -171,6 +171,7 @@ void ConnectionDialog::createSerialSettingsWidget()
     
     // Connect refresh button
     connect(refreshButton, &QPushButton::clicked, this, &ConnectionDialog::refreshSerialPorts);
+    connect(m_portComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ConnectionDialog::onSerialPortChanged);
     
     // Initial port refresh
     refreshSerialPorts();
@@ -197,6 +198,8 @@ void ConnectionDialog::createTelnetSettingsWidget()
     m_telnetPasswordEdit = new QLineEdit();
     m_telnetPasswordEdit->setEchoMode(QLineEdit::Password);
     layout->addRow("密码:", m_telnetPasswordEdit);
+    
+    connect(m_telnetHostEdit, &QLineEdit::textChanged, this, &ConnectionDialog::onTelnetHostChanged);
     
     m_settingsStack->addWidget(widget);
 }
@@ -237,6 +240,7 @@ void ConnectionDialog::createSshSettingsWidget()
     connect(m_useSshKeyCheckBox, &QCheckBox::toggled, m_sshKeyPathEdit, &QLineEdit::setEnabled);
     connect(m_useSshKeyCheckBox, &QCheckBox::toggled, m_browseKeyButton, &QPushButton::setEnabled);
     connect(m_browseKeyButton, &QPushButton::clicked, this, &ConnectionDialog::browseSshKey);
+    connect(m_sshHostEdit, &QLineEdit::textChanged, this, &ConnectionDialog::onSshHostChanged);
     
     m_settingsStack->addWidget(widget);
 }
@@ -249,12 +253,19 @@ void ConnectionDialog::onConnectionTypeChanged(int index)
     switch (type) {
     case Serial:
         m_settingsStack->setCurrentIndex(0);
+        if (m_portComboBox->isEnabled() && m_portComboBox->currentIndex() >= 0) {
+            m_sessionNameEdit->setText(m_portComboBox->currentData().toString());
+        } else {
+            m_sessionNameEdit->setText("新建串口连接");
+        }
         break;
     case Telnet:
         m_settingsStack->setCurrentIndex(1);
+        m_sessionNameEdit->setText(m_telnetHostEdit->text());
         break;
     case SSH:
         m_settingsStack->setCurrentIndex(2);
+        m_sessionNameEdit->setText(m_sshHostEdit->text());
         break;
     }
 }
@@ -284,6 +295,31 @@ void ConnectionDialog::browseSshKey()
     QString fileName = QFileDialog::getOpenFileName(this, "选择SSH密钥文件", "", "All Files (*)");
     if (!fileName.isEmpty()) {
         m_sshKeyPathEdit->setText(fileName);
+    }
+}
+
+void ConnectionDialog::onSerialPortChanged(int index)
+{
+    Q_UNUSED(index);
+    ConnectionType type = static_cast<ConnectionType>(m_typeComboBox->currentData().toInt());
+    if (type == Serial && m_portComboBox->isEnabled() && m_portComboBox->currentIndex() >= 0) {
+        m_sessionNameEdit->setText(m_portComboBox->currentData().toString());
+    }
+}
+
+void ConnectionDialog::onTelnetHostChanged(const QString &text)
+{
+    ConnectionType type = static_cast<ConnectionType>(m_typeComboBox->currentData().toInt());
+    if (type == Telnet) {
+        m_sessionNameEdit->setText(text);
+    }
+}
+
+void ConnectionDialog::onSshHostChanged(const QString &text)
+{
+    ConnectionType type = static_cast<ConnectionType>(m_typeComboBox->currentData().toInt());
+    if (type == SSH) {
+        m_sessionNameEdit->setText(text);
     }
 }
 

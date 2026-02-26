@@ -54,6 +54,9 @@ private slots:
     void onConnectionTypeChanged(int index);
     void refreshSerialPorts();
     void browseSshKey();
+    void onSerialPortChanged(int index);
+    void onTelnetHostChanged(const QString &text);
+    void onSshHostChanged(const QString &text);
 
 private:
     void setupUi();
