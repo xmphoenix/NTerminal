@@ -16,7 +16,20 @@
 #include <QRandomGenerator>
 
 static QColor ansiColorToQColor(int code, bool isBright);
-static QColor ansi256ColorToQColor(int code);
+[[maybe_unused]] static QColor ansi256ColorToQColor(int code);
+
+static bool isWideCharacter(const QChar &ch)
+{
+    uint unicode = ch.unicode();
+    if (unicode >= 0x4E00 && unicode <= 0x9FFF) return true;
+    if (unicode >= 0x3400 && unicode <= 0x4DBF) return true;
+    if (unicode >= 0x3000 && unicode <= 0x303F) return true;
+    if (unicode >= 0xFF00 && unicode <= 0xFFEF) return true;
+    if (unicode >= 0xAC00 && unicode <= 0xD7AF) return true;
+    if (unicode >= 0x3040 && unicode <= 0x309F) return true;
+    if (unicode >= 0x30A0 && unicode <= 0x30FF) return true;
+    return false;
+}
 
 TerminalProxy::TerminalProxy(QWidget *parent)
     : QAbstractScrollArea(parent)
@@ -252,7 +265,7 @@ void TerminalProxy::paintEvent(QPaintEvent *event)
     QPainter painter(viewport());
     painter.fillRect(viewport()->rect(), m_defaultBackground);
     
-    QFont font("Consolas", 10);
+    QFont font("Microsoft YaHei Mono", 10);
     font.setStyleHint(QFont::Monospace);
     painter.setFont(font);
     
@@ -303,6 +316,10 @@ void TerminalProxy::paintEvent(QPaintEvent *event)
             if (lineData && col < lineData->size()) {
                 const Cell &cell = (*lineData)[col];
                 
+                if (cell.character == QChar(0)) {
+                    continue;
+                }
+                
                 QColor bg = cell.background;
                 QColor fg = cell.foreground;
                 
@@ -310,12 +327,19 @@ void TerminalProxy::paintEvent(QPaintEvent *event)
                     std::swap(fg, bg);
                 }
                 
+                int cellWidth = cell.isWide ? 2 : 1;
+                int pixelWidth = cellWidth * m_charWidth;
+                
                 if (bg != m_defaultBackground) {
-                    painter.fillRect(x, i * m_charHeight, m_charWidth, m_charHeight, bg);
+                    painter.fillRect(x, i * m_charHeight, pixelWidth, m_charHeight, bg);
                 }
                 
                 painter.setPen(fg);
                 painter.drawText(x, y, QString(cell.character));
+                
+                if (cell.isWide) {
+                    j++;
+                }
             }
         }
     }
@@ -483,11 +507,10 @@ void TerminalProxy::onIpcMessageReceived(Ipc::MessageType type, const QByteArray
 void TerminalProxy::onParserTextReceived(const QString &text)
 {
     for (const QChar &ch : text) {
-        if (m_cursorColumn >= m_columns - 1) {
-            updateScrollBars();
-        }
+        bool isWide = isWideCharacter(ch);
+        int charWidth = isWide ? 2 : 1;
         
-        if (m_cursorColumn >= m_columns) {
+        if (m_cursorColumn + charWidth > m_columns) {
             m_cursorColumn = 0;
             m_cursorRow++;
         }
@@ -504,10 +527,22 @@ void TerminalProxy::onParserTextReceived(const QString &text)
             cell.foreground = m_currentForeground;
             cell.background = m_currentBackground;
             cell.attributes = m_currentAttributes;
+            cell.isWide = isWide;
             m_cursorColumn++;
+            
+            if (isWide && m_cursorColumn < m_columns) {
+                Cell &placeholder = m_terminalBuffer[m_cursorRow][m_cursorColumn];
+                placeholder.character = QChar(0);
+                placeholder.foreground = m_currentForeground;
+                placeholder.background = m_currentBackground;
+                placeholder.attributes = m_currentAttributes;
+                placeholder.isWide = false;
+                m_cursorColumn++;
+            }
         }
     }
     
+    updateScrollBars();
     viewport()->update();
     ensureCursorVisible();
 }
@@ -580,6 +615,7 @@ void TerminalProxy::onParserClearScreen()
             m_terminalBuffer[i][j].foreground = m_defaultForeground;
             m_terminalBuffer[i][j].background = m_defaultBackground;
             m_terminalBuffer[i][j].attributes = Normal;
+            m_terminalBuffer[i][j].isWide = false;
         }
     }
     
@@ -620,6 +656,7 @@ void TerminalProxy::onParserEraseDown()
             m_terminalBuffer[row][col].foreground = m_defaultForeground;
             m_terminalBuffer[row][col].background = m_defaultBackground;
             m_terminalBuffer[row][col].attributes = Normal;
+            m_terminalBuffer[row][col].isWide = false;
         }
     }
     
@@ -633,6 +670,7 @@ void TerminalProxy::onParserClearLine()
         m_terminalBuffer[m_cursorRow][j].foreground = m_defaultForeground;
         m_terminalBuffer[m_cursorRow][j].background = m_defaultBackground;
         m_terminalBuffer[m_cursorRow][j].attributes = Normal;
+        m_terminalBuffer[m_cursorRow][j].isWide = false;
     }
     viewport()->update();
 }
@@ -648,6 +686,7 @@ void TerminalProxy::onParserEraseUp()
             m_terminalBuffer[row][col].foreground = m_defaultForeground;
             m_terminalBuffer[row][col].background = m_defaultBackground;
             m_terminalBuffer[row][col].attributes = Normal;
+            m_terminalBuffer[row][col].isWide = false;
         }
     }
     viewport()->update();
@@ -664,6 +703,7 @@ void TerminalProxy::onParserEraseEndOfLine()
             m_terminalBuffer[m_cursorRow][col].foreground = m_defaultForeground;
             m_terminalBuffer[m_cursorRow][col].background = m_defaultBackground;
             m_terminalBuffer[m_cursorRow][col].attributes = Normal;
+            m_terminalBuffer[m_cursorRow][col].isWide = false;
         }
     }
     viewport()->update();
@@ -680,6 +720,7 @@ void TerminalProxy::onParserEraseStartOfLine()
             m_terminalBuffer[m_cursorRow][col].foreground = m_defaultForeground;
             m_terminalBuffer[m_cursorRow][col].background = m_defaultBackground;
             m_terminalBuffer[m_cursorRow][col].attributes = Normal;
+            m_terminalBuffer[m_cursorRow][col].isWide = false;
         }
     }
     viewport()->update();
@@ -698,6 +739,7 @@ void TerminalProxy::onParserBackspace()
             m_terminalBuffer[m_cursorRow][m_cursorColumn].foreground = m_defaultForeground;
             m_terminalBuffer[m_cursorRow][m_cursorColumn].background = m_defaultBackground;
             m_terminalBuffer[m_cursorRow][m_cursorColumn].attributes = Normal;
+            m_terminalBuffer[m_cursorRow][m_cursorColumn].isWide = false;
         }
         viewport()->update();
     }
@@ -1022,6 +1064,7 @@ void TerminalProxy::allocateBuffers()
             m_historyBuffer[i][j].foreground = m_defaultForeground;
             m_historyBuffer[i][j].background = m_defaultBackground;
             m_historyBuffer[i][j].attributes = Normal;
+            m_historyBuffer[i][j].isWide = false;
         }
     }
     
@@ -1044,6 +1087,7 @@ void TerminalProxy::allocateBuffers()
             m_terminalBuffer[i][j].foreground = m_defaultForeground;
             m_terminalBuffer[i][j].background = m_defaultBackground;
             m_terminalBuffer[i][j].attributes = Normal;
+            m_terminalBuffer[i][j].isWide = false;
         }
     }
 }
@@ -1071,7 +1115,7 @@ void TerminalProxy::scrollTerminalUp()
         m_terminalBuffer[i] = m_terminalBuffer[i + 1];
     }
     
-    m_terminalBuffer[m_terminalRows - 1].fill({QChar(' '), m_defaultForeground, m_defaultBackground, Normal});
+    m_terminalBuffer[m_terminalRows - 1].fill({QChar(' '), m_defaultForeground, m_defaultBackground, Normal, false});
     
     updateScrollBars();
     

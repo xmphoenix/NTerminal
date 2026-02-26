@@ -127,25 +127,25 @@ bool SshClient::verifyHostKey()
     if (m_settings.verifyHostKey) {
         qDebug() << "[SshClient] verifyHostKey - 验证主机密钥";
         
-        int state = ssh_is_server_known(m_session);
+        int state = ssh_session_is_known_server(m_session);
         switch (state) {
-            case SSH_SERVER_KNOWN_OK:
+            case SSH_KNOWN_HOSTS_OK:
                 qDebug() << "[SshClient] verifyHostKey - 主机密钥已知且有效";
                 break;
-            case SSH_SERVER_KNOWN_CHANGED:
+            case SSH_KNOWN_HOSTS_CHANGED:
                 setError("主机密钥已更改，可能存在中间人攻击");
                 return false;
-            case SSH_SERVER_FOUND_OTHER:
+            case SSH_KNOWN_HOSTS_OTHER:
                 setError("找到其他类型的主机密钥");
                 return false;
-            case SSH_SERVER_FILE_NOT_FOUND:
-            case SSH_SERVER_NOT_KNOWN:
+            case SSH_KNOWN_HOSTS_NOT_FOUND:
+            case SSH_KNOWN_HOSTS_UNKNOWN:
                 qDebug() << "[SshClient] verifyHostKey - 主机密钥未知，自动接受";
-                if (ssh_write_knownhost(m_session) != SSH_OK) {
+                if (ssh_session_update_known_hosts(m_session) != SSH_OK) {
                     qDebug() << "[SshClient] verifyHostKey - 无法保存主机密钥";
                 }
                 break;
-            case SSH_SERVER_ERROR:
+            case SSH_KNOWN_HOSTS_ERROR:
                 setError(QString("验证主机密钥错误: %1").arg(ssh_get_error(m_session)));
                 return false;
         }
@@ -461,7 +461,7 @@ void SshClient::setupSocketNotifier()
     }
     
     socket_t sock = ssh_get_fd(m_session);
-    if (sock >= 0) {
+    if (sock != INVALID_SOCKET) {
         m_socketNotifier = new QSocketNotifier(sock, QSocketNotifier::Read, this);
         QObject::connect(m_socketNotifier, &QSocketNotifier::activated, 
                 this, &SshClient::onSocketActivated);

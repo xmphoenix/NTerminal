@@ -29,6 +29,7 @@ public:
         QColor foreground;
         QColor background;
         Attributes attributes;
+        bool isWide;
     };
     
     struct SelectionPoint {
