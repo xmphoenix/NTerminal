@@ -16,33 +16,25 @@ VT100Parser::~VT100Parser()
 
 void VT100Parser::processByte(unsigned char ch)
 {
-    qDebug() << "[VT100Parser] processByte - 字符:" << QChar(ch) << "ASCII:" << ch << "状态:" << m_state;
-    
     if (ch <= 0x1F || ch == 0x7F) {
-        // 控制字符处理
-        qDebug() << "[VT100Parser] 处理控制字符:" << ch << "(" << (ch == 0x0D ? "CR" : ch == 0x0A ? "LF" : "其他") << ")";
         switch (ch) {
             case 0x07: emit bell(); return;
             case 0x08: emit backspace(); return;
             case 0x09: emit horizontalTab(); return;
             case 0x0A: 
-                qDebug() << "[VT100Parser] 发出lineFeed信号";
                 emit lineFeed(); 
                 return;
             case 0x0B: emit verticalTab(); return;
             case 0x0C: emit formFeed(); return;
             case 0x0D: 
-                qDebug() << "[VT100Parser] 发出carriageReturn信号";
                 emit carriageReturn(); 
                 return;
             case 0x1B: m_state = StateEscape; return;
-            case 0x7F: return; // DEL，忽略
-            default: return; // 其他控制字符忽略
+            case 0x7F: return;
+            default: return;
         }
     }
     
-    // 状态机处理
-    qDebug() << "[VT100Parser] 状态机处理，当前状态:" << m_state;
     switch (m_state) {
         case StateGround:
             groundState(ch);
@@ -66,7 +58,6 @@ void VT100Parser::processByte(unsigned char ch)
             oscStringState(ch);
             break;
         case StateUtf8:
-            // UTF-8解码（简化实现）
             m_utf8Buffer.append(ch);
             m_utf8Remaining--;
             if (m_utf8Remaining <= 0) {
@@ -77,7 +68,6 @@ void VT100Parser::processByte(unsigned char ch)
             }
             break;
         default:
-            // 其他状态暂时忽略，回到地面状态
             m_state = StateGround;
             groundState(ch);
             break;
@@ -86,7 +76,6 @@ void VT100Parser::processByte(unsigned char ch)
 
 void VT100Parser::processData(const QByteArray &data)
 {
-    qDebug() << "[VT100Parser] processData - 数据大小:" << data.size() << "内容:" << data.toHex();
     for (unsigned char ch : data) {
         processByte(ch);
     }
@@ -95,11 +84,6 @@ void VT100Parser::processData(const QByteArray &data)
 void VT100Parser::groundState(unsigned char ch)
 {
     if (ch >= 0x20 && ch <= 0x7E) {
-        // 可打印ASCII字符
-        if (ch == '#') {
-            qDebug() << "[VT100Parser] groundState - 特殊处理#字符，ASCII码:" << ch;
-        }
-        qDebug() << "[VT100Parser] groundState - 发送字符:" << QChar(ch) << "ASCII码:" << ch;
         emit textReceived(QString(QChar(ch)));
     } else if (ch >= 0xA0) {
         // 可能为UTF-8起始字节（简化处理）
@@ -122,54 +106,35 @@ void VT100Parser::groundState(unsigned char ch)
 
 void VT100Parser::escapeState(unsigned char ch)
 {
-    qDebug() << "[VT100Parser] escapeState - 字符:" << QChar(ch) << "ASCII:" << ch;
-    
     if (ch == '[') {
         m_state = StateCsiEntry;
         resetCsi();
-        qDebug() << "[VT100Parser] 进入CSI入口状态";
     } else if (ch == ']') {
         m_state = StateOscString;
         resetOsc();
-        qDebug() << "[VT100Parser] 进入OSC字符串状态";
     } else if (ch >= 0x40 && ch <= 0x5F) {
-        // 其他转义序列
-        qDebug() << "[VT100Parser] 处理转义命令:" << QChar(ch);
         processEscapeCommand(ch);
         m_state = StateGround;
     } else if (ch >= 0x60 && ch <= 0x7E) {
-        // 两字符转义序列
-        qDebug() << "[VT100Parser] 处理两字符转义命令:" << QChar(ch);
         processEscapeCommand(ch);
         m_state = StateGround;
     } else {
-        // 无效转义，回到地面状态
-        qDebug() << "[VT100Parser] 无效转义，返回地面状态";
         m_state = StateGround;
     }
 }
 
 void VT100Parser::csiEntryState(unsigned char ch)
 {
-    qDebug() << "[VT100Parser] csiEntryState - 字符:" << QChar(ch) << "ASCII:" << ch;
-    
     if (ch >= 0x30 && ch <= 0x3F) {
-        // 参数字符
-        qDebug() << "[VT100Parser] CSI参数字符:" << QChar(ch);
         m_state = StateCsiParam;
         csiParamState(ch);
     } else if (ch >= 0x20 && ch <= 0x2F) {
-        // 中间字符
-        qDebug() << "[VT100Parser] CSI中间字符:" << QChar(ch);
         m_state = StateCsiIntermediate;
         m_csiIntermediate.append(QChar(ch));
     } else if (ch >= 0x40 && ch <= 0x7E) {
-        // 命令字符
-        qDebug() << "[VT100Parser] CSI命令字符:" << QChar(ch);
         processCsiCommand(ch);
         m_state = StateGround;
     } else {
-        // 无效字符，忽略
         m_state = StateCsiIgnore;
     }
 }

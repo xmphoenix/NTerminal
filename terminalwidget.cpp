@@ -101,7 +101,6 @@ void TerminalWidget::setViewportSize(int lines)
 
 void TerminalWidget::writeText(const QString &text)
 {
-    qDebug() << "[TerminalWidget] writeText - 写入文本:" << text << "长度:" << text.length();
     for (const QChar &ch : text) {
         writeChar(ch);
     }
@@ -344,32 +343,21 @@ void TerminalWidget::updateScrollBars()
 
 void TerminalWidget::ensureCursorVisible()
 {
-    qDebug() << "[TerminalWidget] ensureCursorVisible - 开始，历史大小:" << m_historySize
-             << "光标行:" << m_cursorRow << "光标列:" << m_cursorColumn;
     int cursorGlobalLine = m_historySize + m_cursorRow;
     int topLine = verticalScrollBar()->value();
     
-    // 计算实际可视行数（向下取整，确保只显示完整行）
     int charHeight = m_charHeight > 0 ? m_charHeight : 20;
-    int visibleLines = viewport()->height() / charHeight; // 向下取整，只计算完整行
+    int visibleLines = viewport()->height() / charHeight;
     if (visibleLines <= 0) visibleLines = 1;
     
-    // 获取当前滚动条范围以确保不设置超出范围的值
     int maxScroll = verticalScrollBar()->maximum();
     
     if (cursorGlobalLine < topLine) {
-        // 光标在可视区域上方，滚动到光标位置
         verticalScrollBar()->setValue(qMin(cursorGlobalLine, maxScroll));
     } else if (cursorGlobalLine >= topLine + visibleLines) {
-        // 光标在可视区域下方，滚动使光标在底部可见
         int newTopLine = cursorGlobalLine - visibleLines + 1;
         verticalScrollBar()->setValue(qMin(newTopLine, maxScroll));
     }
-    
-    qDebug() << "[TerminalWidget] ensureCursorVisible - 结束，光标绝对行:" << cursorGlobalLine
-             << "topLine:" << topLine << "新topLine:" << verticalScrollBar()->value()
-             << "可见行数:" << visibleLines << "最大滚动:" << maxScroll
-             << "调整:" << (cursorGlobalLine < topLine ? "向上滚动" : (cursorGlobalLine >= topLine + visibleLines ? "向下滚动" : "无需调整"));
 }
 
 void TerminalWidget::scrollUpIfNeeded()
@@ -582,13 +570,11 @@ void TerminalWidget::resizeEvent(QResizeEvent *event)
     updateScrollBars();
     viewport()->update();
     
-    // 更新SSH终端尺寸
+    // 更新SSH终端尺寸 - 使用m_columns而不是视口计算的列数
     if (m_sshClient && m_sshClient->state() == SshClient::Ready) {
-        int cols = viewport()->width() / (m_charWidth > 0 ? m_charWidth : 10);
         int rows = viewport()->height() / (m_charHeight > 0 ? m_charHeight : 20);
-        if (cols > 0 && rows > 0) {
-            m_sshClient->setTerminalSize(cols, rows);
-        }
+        if (rows <= 0) rows = 24;
+        m_sshClient->setTerminalSize(m_columns, rows);
     }
 }
 
@@ -1217,17 +1203,20 @@ bool TerminalWidget::openSshConnection()
     });
     
     connect(m_sshClient, &SshClient::authenticated, this, [this]() {
-        qDebug() << "[TerminalWidget] SSH认证成功，打开通道";
+        qDebug() << "[SSH] 认证成功，打开通道";
         if (m_sshClient->openChannel()) {
-            // 请求PTY，使用当前终端尺寸
             int cols = viewport()->width() / (m_charWidth > 0 ? m_charWidth : 10);
             int rows = viewport()->height() / (m_charHeight > 0 ? m_charHeight : 20);
             if (cols <= 0) cols = 80;
             if (rows <= 0) rows = 24;
             
-            if (m_sshClient->requestPty("xterm-256color", cols, rows)) {
+            int ptyCols = m_columns;
+            
+            qDebug() << "[SSH] PTY请求 - TERM: xterm-256color 列:" << ptyCols << "行:" << rows;
+            
+            if (m_sshClient->requestPty("xterm-256color", ptyCols, rows)) {
                 if (m_sshClient->requestShell()) {
-                    qDebug() << "[TerminalWidget] SSH Shell已启动";
+                    qDebug() << "[SSH] Shell已启动";
                     m_isConnected = true;
                     emit connectionOpened();
                 }
@@ -1236,17 +1225,16 @@ bool TerminalWidget::openSshConnection()
     });
     
     connect(m_sshClient, &SshClient::authenticationFailed, this, [this](const QString &error) {
-        qDebug() << "[TerminalWidget] SSH认证失败:" << error;
+        qDebug() << "[SSH] 认证失败:" << error;
         emit connectionError(error);
         closeConnection();
     });
     
     connect(m_sshClient, &SshClient::ready, this, [this]() {
-        qDebug() << "[TerminalWidget] SSH连接就绪";
+        qDebug() << "[SSH] 连接就绪";
     });
     
     connect(m_sshClient, &SshClient::dataReceived, this, [this](const QByteArray &data) {
-        qDebug() << "[TerminalWidget] SSH收到数据，大小:" << data.size();
         processReceivedData(data);
     });
     
@@ -1525,7 +1513,6 @@ void TerminalWidget::onTcpError(QAbstractSocket::SocketError error)
 // VT100解析器信号处理
 void TerminalWidget::onTextReceived(const QString &text)
 {
-    qDebug() << "[TerminalWidget] onTextReceived - 接收文本:" << text << "长度:" << text.length();
     writeText(text);
 }
 
@@ -1829,31 +1816,12 @@ void TerminalWidget::sendSshCredentials()
 
 void TerminalWidget::onCarriageReturn()
 {
-    qDebug() << "[TerminalWidget] onCarriageReturn - 当前光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
-    
-    // 检测是否为80列边界处的自动回车（数据源假设终端宽度为80列）
-    // 如果光标在80列位置，说明这是数据源自动添加的回车符，应该忽略
-    if (m_cursorColumn == 80) {
-        qDebug() << "[TerminalWidget] onCarriageReturn - 检测到80列边界处的自动回车，忽略（光标列:" << m_cursorColumn << "）";
-        return;
-    }
-    
     carriageReturn();
-    qDebug() << "[TerminalWidget] onCarriageReturn - 回车后光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
     ensureCursorVisible();
 }
 
 void TerminalWidget::onLineFeed()
 {
-    qDebug() << "[TerminalWidget] onLineFeed - 当前光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
-    
-    // 检测是否为80列边界处的自动换行（数据源假设终端宽度为80列）
-    // 如果光标在80列位置，说明这是数据源自动添加的换行符，应该忽略
-    if (m_cursorColumn == 80) {
-        qDebug() << "[TerminalWidget] onLineFeed - 检测到80列边界处的自动换行，忽略（光标列:" << m_cursorColumn << "）";
-        return;
-    }
-    
     newLine();
 }
 
