@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "session/sessionprocess.h"
+#include "thememanager.h"
 
 #include <QApplication>
 #include <QCoreApplication>
@@ -48,6 +49,8 @@ int main(int argc, char *argv[])
         QCoreApplication::setApplicationVersion("2.0.0");
         
         qDebug() << "[GUI] Starting GUI application";
+        
+        ThemeManager::instance()->initialize();
         
         QTranslator translator;
         const QStringList uiLanguages = QLocale::system().uiLanguages();

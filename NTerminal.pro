@@ -26,6 +26,8 @@ SOURCES += \
     logger.cpp \
     scriptrecorder.cpp \
     sshclient.cpp \
+    thememanager.cpp \
+    themesettingsdialog.cpp \
     ipc/ipcprotocol.cpp \
     ipc/ipcclient.cpp \
     ipc/ipcserver.cpp \
@@ -45,6 +47,8 @@ HEADERS += \
     logger.h \
     scriptrecorder.h \
     sshclient.h \
+    thememanager.h \
+    themesettingsdialog.h \
     common/messagetypes.h \
     common/connectionsettings.h \
     ipc/ipcprotocol.h \

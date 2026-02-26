@@ -9,6 +9,7 @@
 #include "common/messagetypes.h"
 #include "ipc/ipcclient.h"
 #include "vt100parser.h"
+#include "thememanager.h"
 
 class TerminalProxy : public QAbstractScrollArea
 {
@@ -51,6 +52,9 @@ public:
     void closeConnection();
     bool isConnected() const;
     Common::ConnectionSettings getConnectionSettings() const;
+    
+    void setTheme(const TerminalTheme &theme);
+    TerminalTheme currentTheme() const { return m_currentTheme; }
     
     void sendText(const QString &text);
     void sendData(const QByteArray &data);
@@ -174,6 +178,8 @@ private:
     QColor m_currentForeground;
     QColor m_currentBackground;
     Attributes m_currentAttributes;
+    
+    TerminalTheme m_currentTheme;
     
     int m_charWidth;
     int m_charHeight;

@@ -92,6 +92,19 @@ TerminalProxy::TerminalProxy(QWidget *parent)
     connect(m_parser, &VT100Parser::cursorPositionReportRequest, this, &TerminalProxy::onCursorPositionReportRequest);
     connect(m_parser, &VT100Parser::primaryDeviceAttributes, this, &TerminalProxy::onPrimaryDeviceAttributes);
     
+    TerminalTheme initialTheme = ThemeManager::instance()->currentTerminalTheme();
+    m_currentTheme = initialTheme;
+    m_defaultForeground = initialTheme.defaultForeground;
+    m_defaultBackground = initialTheme.defaultBackground;
+    m_currentForeground = initialTheme.defaultForeground;
+    m_currentBackground = initialTheme.defaultBackground;
+    
+    viewport()->setAutoFillBackground(true);
+    QPalette pal = viewport()->palette();
+    pal.setColor(QPalette::Window, initialTheme.defaultBackground);
+    pal.setColor(QPalette::Base, initialTheme.defaultBackground);
+    viewport()->setPalette(pal);
+    
     allocateBuffers();
     updateScrollBars();
 }
@@ -1300,33 +1313,13 @@ void TerminalProxy::drawSelectionBackground(QPainter &painter, int line, int lin
 
 static QColor ansiColorToQColor(int code, bool isBright)
 {
-    static const QColor standardColors[] = {
-        QColor(0, 0, 0),
-        QColor(170, 0, 0),
-        QColor(0, 170, 0),
-        QColor(170, 85, 0),
-        QColor(0, 0, 170),
-        QColor(170, 0, 170),
-        QColor(0, 170, 170),
-        QColor(170, 170, 170)
-    };
-    
-    static const QColor brightColors[] = {
-        QColor(85, 85, 85),
-        QColor(255, 85, 85),
-        QColor(85, 255, 85),
-        QColor(255, 255, 85),
-        QColor(85, 85, 255),
-        QColor(255, 85, 255),
-        QColor(85, 255, 255),
-        QColor(255, 255, 255)
-    };
+    TerminalTheme theme = ThemeManager::instance()->currentTerminalTheme();
     
     if (code >= 0 && code < 8) {
-        return isBright ? brightColors[code] : standardColors[code];
+        return isBright ? theme.ansiColors[code + 8] : theme.ansiColors[code];
     }
     
-    return standardColors[0];
+    return theme.defaultForeground;
 }
 
 static QColor ansi256ColorToQColor(int code)
@@ -1345,4 +1338,22 @@ static QColor ansi256ColorToQColor(int code)
         int gray = (code - 232) * 10 + 8;
         return QColor(gray, gray, gray);
     }
+}
+
+void TerminalProxy::setTheme(const TerminalTheme &theme)
+{
+    m_currentTheme = theme;
+    m_defaultForeground = theme.defaultForeground;
+    m_defaultBackground = theme.defaultBackground;
+    m_currentForeground = theme.defaultForeground;
+    m_currentBackground = theme.defaultBackground;
+    
+    viewport()->setAutoFillBackground(true);
+    QPalette pal = viewport()->palette();
+    pal.setColor(QPalette::Window, theme.defaultBackground);
+    pal.setColor(QPalette::Base, theme.defaultBackground);
+    viewport()->setPalette(pal);
+    viewport()->setStyleSheet(QString("background-color: %1;").arg(theme.defaultBackground.name()));
+    
+    viewport()->update();
 }

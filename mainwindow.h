@@ -31,6 +31,8 @@ private:
     void loadSession();
     void manageSessions();
     void populateSessionMenu();
+    void showThemeSettings();
+    void applyTerminalTheme(class TerminalProxy *terminal);
     
     TerminalProxy* createNewTerminalTab(const QString &tabName = QString());
     void closeTerminalTab(int index);
@@ -69,5 +71,6 @@ private:
     QAction *m_saveSessionAction;
     QAction *m_loadSessionAction;
     QAction *m_manageSessionsAction;
+    QAction *m_themeAction;
 };
 #endif // MAINWINDOW_H

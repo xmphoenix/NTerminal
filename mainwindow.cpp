@@ -2,6 +2,8 @@
 #include "terminalproxy.h"
 #include "connectiondialog.h"
 #include "sessionmanager.h"
+#include "thememanager.h"
+#include "themesettingsdialog.h"
 #include <QSplitter>
 #include <QListWidget>
 #include <QTabWidget>
@@ -375,6 +377,10 @@ void MainWindow::initMainWindowMenu()
     m_fileMenu->addSeparator();
     m_exitAction = new QAction("Exit", this);
     m_fileMenu->addAction(m_exitAction);
+    
+    m_themeAction = new QAction("Theme Settings", this);
+    connect(m_themeAction, &QAction::triggered, this, &MainWindow::showThemeSettings);
+    m_optMenu->addAction(m_themeAction);
 
     m_menuBar->addMenu(m_fileMenu);
     m_menuBar->addMenu(m_editMenu);
@@ -428,6 +434,7 @@ void MainWindow::initMainWindowMenu()
             TerminalProxy *terminal = createNewTerminalTab(tabName);
             if (terminal) {
                 terminal->setConnectionSettings(settings);
+                applyTerminalTheme(terminal);
                 if (terminal->openConnection()) {
                     qDebug() << "Connection opened successfully";
                 } else {
@@ -436,4 +443,22 @@ void MainWindow::initMainWindowMenu()
             }
         }
     });
+}
+
+void MainWindow::showThemeSettings()
+{
+    ThemeSettingsDialog dialog(this);
+    dialog.exec();
+    
+    for (auto it = m_terminals.begin(); it != m_terminals.end(); ++it) {
+        applyTerminalTheme(it.value());
+    }
+}
+
+void MainWindow::applyTerminalTheme(TerminalProxy *terminal)
+{
+    if (terminal) {
+        TerminalTheme theme = ThemeManager::instance()->currentTerminalTheme();
+        terminal->setTheme(theme);
+    }
 }
