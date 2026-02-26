@@ -2,8 +2,9 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include "common/connectionsettings.h"
 
-class TerminalWidget;
+class TerminalProxy;
 class QSplitter;
 class QListWidget;
 class QTabWidget;
@@ -13,7 +14,6 @@ class QMenu;
 class QToolBar;
 class QAction;
 class SessionManager;
-class Logger;
 
 class MainWindow : public QMainWindow
 {
@@ -31,18 +31,13 @@ private:
     void loadSession();
     void manageSessions();
     void populateSessionMenu();
-    void setupLogger();
-    void startLogging();
-    void stopLogging();
-    void toggleLogging();
     
-    // 多终端管理方法
-    TerminalWidget* createNewTerminalTab(const QString &tabName = QString());
+    TerminalProxy* createNewTerminalTab(const QString &tabName = QString());
     void closeTerminalTab(int index);
     void closeTerminalTabById(const QString &terminalId);
-    TerminalWidget* getCurrentTerminal() const;
-    TerminalWidget* getTerminalById(const QString &terminalId) const;
-    void updateCurrentTerminal(TerminalWidget *terminal);
+    TerminalProxy* getCurrentTerminal() const;
+    TerminalProxy* getTerminalById(const QString &terminalId) const;
+    void updateCurrentTerminal(TerminalProxy *terminal);
     void onTabCloseRequested(int index);
     void onTabCurrentChanged(int index);
 
@@ -52,9 +47,8 @@ private:
     QTabWidget *m_screenTabWidget;
     QTextEdit *m_commandTextEdit;
     
-    // 多终端管理
-    QMap<QString, TerminalWidget*> m_terminals; // 标签页ID -> TerminalWidget
-    TerminalWidget *m_currentTerminal;
+    QMap<QString, TerminalProxy*> m_terminals;
+    TerminalProxy *m_currentTerminal;
     int m_nextTerminalId;
 
     QMenuBar *m_menuBar;
@@ -75,10 +69,5 @@ private:
     QAction *m_saveSessionAction;
     QAction *m_loadSessionAction;
     QAction *m_manageSessionsAction;
-    
-    Logger *m_logger;
-    QAction *m_startLoggingAction;
-    QAction *m_stopLoggingAction;
-    QAction *m_toggleLoggingAction;
 };
 #endif // MAINWINDOW_H

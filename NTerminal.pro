@@ -14,26 +14,48 @@ win32 {
     LIBS += -L$$LIBSSH_ROOT/lib -lssh
 }
 
+INCLUDEPATH += $$PWD/common $$PWD/ipc $$PWD/session
+
 SOURCES += \
     main.cpp \
     mainwindow.cpp \
-    terminalwidget.cpp \
+    terminalproxy.cpp \
     connectiondialog.cpp \
     vt100parser.cpp \
     sessionmanager.cpp \
     logger.cpp \
     scriptrecorder.cpp \
-    sshclient.cpp
+    sshclient.cpp \
+    ipc/ipcprotocol.cpp \
+    ipc/ipcclient.cpp \
+    ipc/ipcserver.cpp \
+    session/sessionprocess.cpp \
+    session/sessionlogger.cpp \
+    session/connectionhandler.cpp \
+    session/serialhandler.cpp \
+    session/telnethandler.cpp \
+    session/ssshandler.cpp
 
 HEADERS += \
-    terminalwidget.h \
     mainwindow.h \
+    terminalproxy.h \
     connectiondialog.h \
     vt100parser.h \
     sessionmanager.h \
     logger.h \
     scriptrecorder.h \
-    sshclient.h
+    sshclient.h \
+    common/messagetypes.h \
+    common/connectionsettings.h \
+    ipc/ipcprotocol.h \
+    ipc/ipcclient.h \
+    ipc/ipcserver.h \
+    session/sessionprocess.h \
+    session/sessionlogger.h \
+    session/connectionhandler.h \
+    session/serialhandler.h \
+    session/telnethandler.h \
+    session/ssshandler.h
 
 TRANSLATIONS += \
     NTerminal_en_US.ts
