@@ -23,6 +23,9 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+private slots:
+    void openVt100Tester();
+
 private:
     void initMainWindowLayout();
     void initMainWindowMenu();

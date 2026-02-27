@@ -22,6 +22,8 @@ SOURCES += \
     terminalproxy.cpp \
     connectiondialog.cpp \
     vt100parser.cpp \
+    vt100tester.cpp \
+    testwindow.cpp \
     sessionmanager.cpp \
     logger.cpp \
     scriptrecorder.cpp \
@@ -43,6 +45,8 @@ HEADERS += \
     terminalproxy.h \
     connectiondialog.h \
     vt100parser.h \
+    vt100tester.h \
+    testwindow.h \
     sessionmanager.h \
     logger.h \
     scriptrecorder.h \

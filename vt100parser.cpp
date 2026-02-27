@@ -131,7 +131,14 @@ void VT100Parser::csiEntryState(unsigned char ch)
         m_state = StateCsiParam;
         return;
     }
-    
+
+    if (ch == '>') {
+        // ESC [ > c - Secondary device attributes
+        m_state = StateCsiIntermediate;
+        m_csiIntermediate.append(QChar(ch));
+        return;
+    }
+
     if (ch >= 0x30 && ch <= 0x3F) {
         m_state = StateCsiParam;
         csiParamState(ch);
@@ -216,6 +223,18 @@ void VT100Parser::oscStringState(unsigned char ch)
 
 void VT100Parser::processCsiCommand(unsigned char ch)
 {
+    // 处理 intermediate 字符
+    if (!m_csiIntermediate.isEmpty()) {
+        if (m_csiIntermediate == ">") {
+            // ESC [ > c - Secondary device attributes
+            if (ch == 'c') {
+                emit secondaryDeviceAttributes();
+            }
+            resetCsi();
+            return;
+        }
+    }
+
     if (m_privateMode) {
         processPrivateCsiCommand(ch);
         return;
@@ -246,6 +265,27 @@ void VT100Parser::processCsiCommand(unsigned char ch)
             if (m_csiParams.isEmpty()) {
                 emit resetAttributes();
             } else {
+                // 处理 256 色模式
+                for (int i = 0; i < m_csiParams.size(); ++i) {
+                    int param = m_csiParams[i];
+                    
+                    // ESC[38;5;n m - 前景色 256 色
+                    if (param == 38 && i + 2 < m_csiParams.size() && m_csiParams[i + 1] == 5) {
+                        // 256 色前景色
+                        int colorIndex = m_csiParams[i + 2];
+                        qDebug() << "[VT100Parser] 256 color foreground:" << colorIndex;
+                        i += 2;  // 跳过后续参数
+                        continue;
+                    }
+                    // ESC[48;5;n m - 背景色 256 色
+                    if (param == 48 && i + 2 < m_csiParams.size() && m_csiParams[i + 1] == 5) {
+                        // 256 色背景色
+                        int colorIndex = m_csiParams[i + 2];
+                        qDebug() << "[VT100Parser] 256 color background:" << colorIndex;
+                        i += 2;  // 跳过后续参数
+                        continue;
+                    }
+                }
                 emit setAttributes(m_csiParams);
             }
             break;

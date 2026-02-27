@@ -4,6 +4,7 @@
 #include "sessionmanager.h"
 #include "thememanager.h"
 #include "themesettingsdialog.h"
+#include "testwindow.h"
 #include <QSplitter>
 #include <QListWidget>
 #include <QTabWidget>
@@ -382,6 +383,10 @@ void MainWindow::initMainWindowMenu()
     connect(m_themeAction, &QAction::triggered, this, &MainWindow::showThemeSettings);
     m_optMenu->addAction(m_themeAction);
 
+    QAction *vt100TestAction = new QAction("VT100 Compatibility Test", this);
+    connect(vt100TestAction, &QAction::triggered, this, &MainWindow::openVt100Tester);
+    m_optMenu->addAction(vt100TestAction);
+
     m_menuBar->addMenu(m_fileMenu);
     m_menuBar->addMenu(m_editMenu);
     m_menuBar->addMenu(m_viewMenu);
@@ -461,4 +466,20 @@ void MainWindow::applyTerminalTheme(TerminalProxy *terminal)
         TerminalTheme theme = ThemeManager::instance()->currentTerminalTheme();
         terminal->setTheme(theme);
     }
+}
+
+void MainWindow::openVt100Tester()
+{
+    TestWindow *testWindow = new TestWindow(this);
+    testWindow->setAttribute(Qt::WA_DeleteOnClose);
+    
+    // 传递当前终端给测试窗口
+    TerminalProxy *currentTerminal = getCurrentTerminal();
+    if (currentTerminal) {
+        testWindow->setTerminal(currentTerminal);
+    }
+    
+    testWindow->show();
+    testWindow->raise();
+    testWindow->activateWindow();
 }

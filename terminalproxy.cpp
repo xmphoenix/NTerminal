@@ -104,6 +104,7 @@ TerminalProxy::TerminalProxy(QWidget *parent)
     connect(m_parser, &VT100Parser::deviceStatusReport, this, &TerminalProxy::onDeviceStatusReport);
     connect(m_parser, &VT100Parser::cursorPositionReportRequest, this, &TerminalProxy::onCursorPositionReportRequest);
     connect(m_parser, &VT100Parser::primaryDeviceAttributes, this, &TerminalProxy::onPrimaryDeviceAttributes);
+    connect(m_parser, &VT100Parser::secondaryDeviceAttributes, this, &TerminalProxy::onSecondaryDeviceAttributes);
     
     TerminalTheme initialTheme = ThemeManager::instance()->currentTerminalTheme();
     m_currentTheme = initialTheme;
@@ -1160,6 +1161,14 @@ void TerminalProxy::onPrimaryDeviceAttributes()
 {
     qDebug() << "[TerminalProxy] onPrimaryDeviceAttributes - responding with VT100 attributes";
     QByteArray response = "\x1b[?6c";
+    sendData(response);
+}
+
+void TerminalProxy::onSecondaryDeviceAttributes()
+{
+    qDebug() << "[TerminalProxy] onSecondaryDeviceAttributes - responding with terminal type";
+    // ESC[>1;2;0c - VT220 with firmware version 2.0
+    QByteArray response = "\x1b[>1;2;0c";
     sendData(response);
 }
 

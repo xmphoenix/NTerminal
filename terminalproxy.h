@@ -128,6 +128,7 @@ private slots:
     void onDeviceStatusReport();
     void onCursorPositionReportRequest();
     void onPrimaryDeviceAttributes();
+    void onSecondaryDeviceAttributes();
 
 private:
     void updateScrollBars();

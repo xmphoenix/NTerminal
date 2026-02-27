@@ -84,6 +84,7 @@ signals:
     void cursorPositionReportRequest();  // ESC [ 6 n - 光标位置报告请求
     void cursorPositionReport(int row, int column);
     void primaryDeviceAttributes();      // ESC [ c - 主设备属性查询
+    void secondaryDeviceAttributes();    // ESC [ > c - 次设备属性查询
     
     // 窗口标题和颜色
     void setWindowTitle(const QString &title);
