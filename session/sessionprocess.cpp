@@ -186,6 +186,10 @@ void SessionProcess::handleTerminalSize(const QByteArray &payload)
     m_rows = obj["rows"].toInt(24);
     
     qDebug() << "[SessionProcess] Terminal size changed to:" << m_columns << "x" << m_rows;
+    
+    if (m_connectionHandler) {
+        m_connectionHandler->setTerminalSize(m_columns, m_rows);
+    }
 }
 
 void SessionProcess::handleShutdown()

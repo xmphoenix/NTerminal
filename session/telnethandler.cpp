@@ -276,3 +276,15 @@ void TelnetHandler::sendNaws()
     m_socket->write(naws);
     qDebug() << "[TelnetHandler] Sent NAWS:" << m_columns << "x" << m_rows;
 }
+
+void TelnetHandler::setTerminalSize(int columns, int rows)
+{
+    m_columns = columns;
+    m_rows = rows;
+    
+    if (isConnected()) {
+        sendNaws();
+    }
+    
+    qDebug() << "[TelnetHandler] Terminal size set to:" << columns << "x" << rows;
+}

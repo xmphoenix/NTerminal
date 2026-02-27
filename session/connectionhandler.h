@@ -21,6 +21,10 @@ public:
     virtual bool isConnected() const = 0;
     virtual void sendData(const QByteArray &data) = 0;
     virtual QString connectionInfo() const = 0;
+    virtual void setTerminalSize(int columns, int rows) { 
+        Q_UNUSED(columns); 
+        Q_UNUSED(rows); 
+    }
     
 signals:
     void dataReceived(const QByteArray &data);

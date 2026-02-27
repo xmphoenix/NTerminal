@@ -197,3 +197,14 @@ void SshHandler::cleanup()
         m_session = nullptr;
     }
 }
+
+void SshHandler::setTerminalSize(int columns, int rows)
+{
+    m_columns = columns;
+    m_rows = rows;
+    
+    if (m_channel && ssh_channel_is_open(m_channel)) {
+        ssh_channel_change_pty_size(m_channel, columns, rows);
+        qDebug() << "[SshHandler] Terminal size changed to:" << columns << "x" << rows;
+    }
+}

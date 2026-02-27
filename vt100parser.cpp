@@ -265,6 +265,30 @@ void VT100Parser::processCsiCommand(unsigned char ch)
             emit primaryDeviceAttributes();
             break;
         case 'R': emit cursorPositionReport(param1, param2); break;
+        case 'S': 
+            qDebug() << "[VT100Parser] CSI命令 'S' (Scroll Up)，参数:" << param1;
+            emit scrollUp(param1 > 0 ? param1 : 1);
+            break;
+        case 'T': 
+            qDebug() << "[VT100Parser] CSI命令 'T' (Scroll Down)，参数:" << param1;
+            emit scrollDown(param1 > 0 ? param1 : 1);
+            break;
+        case 'L': 
+            qDebug() << "[VT100Parser] CSI命令 'L' (Insert Lines)，参数:" << param1;
+            emit insertLines(param1 > 0 ? param1 : 1);
+            break;
+        case 'M': 
+            qDebug() << "[VT100Parser] CSI命令 'M' (Delete Lines)，参数:" << param1;
+            emit deleteLines(param1 > 0 ? param1 : 1);
+            break;
+        case 'r': 
+            {
+                int top = param1 > 0 ? param1 : 1;
+                int bottom = param2 > 0 ? param2 : 0;
+                qDebug() << "[VT100Parser] CSI命令 'r' (Set Scroll Region)，参数:" << top << bottom;
+                emit setScrollRegion(top, bottom);
+            }
+            break;
         default:
             // 未实现的CSI命令
             qDebug() << "Unimplemented CSI command:" << ch << "params:" << m_csiParams;

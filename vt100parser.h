@@ -60,11 +60,14 @@ signals:
     void clearLine();
     void eraseEndOfLine();
     void eraseStartOfLine();
+    void insertLines(int count);
+    void deleteLines(int count);
+    void scrollUp(int count);
+    void scrollDown(int count);
     void deleteChars(int count = 1);
     void eraseChars(int count = 1);
     void insertChars(int count = 1);
-    void deleteLines(int count = 1);
-    void insertLines(int count = 1);
+    void setScrollRegion(int top, int bottom);
     
     // 字符属性
     void setAttributes(const QVector<int> &params);

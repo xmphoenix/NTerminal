@@ -85,6 +85,7 @@ protected:
     void contextMenuEvent(QContextMenuEvent *event) override;
     void focusInEvent(QFocusEvent *event) override;
     void focusOutEvent(QFocusEvent *event) override;
+    void showEvent(QShowEvent *event) override;
     bool focusNextPrevChild(bool next) override;
 
 private slots:
@@ -112,6 +113,11 @@ private slots:
     void onParserEraseEndOfLine();
     void onParserEraseStartOfLine();
     void onParserBackspace();
+    void onParserScrollUp(int count);
+    void onParserScrollDown(int count);
+    void onParserInsertLines(int count);
+    void onParserDeleteLines(int count);
+    void onParserSetScrollRegion(int top, int bottom);
     void onParserSetMode(int param);
     void onParserResetMode(int param);
     void onParserSetPrivateMode(int param);
@@ -160,6 +166,9 @@ private:
     
     bool m_insertMode;
     bool m_applicationCursorKeys;
+    
+    int m_scrollTop;
+    int m_scrollBottom;
     
     QVector<QVector<Cell>> m_historyBuffer;
     QVector<QVector<Cell>> m_terminalBuffer;

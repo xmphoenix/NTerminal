@@ -45,6 +45,8 @@ TerminalProxy::TerminalProxy(QWidget *parent)
     , m_cursorRow(0)
     , m_insertMode(false)
     , m_applicationCursorKeys(false)
+    , m_scrollTop(0)
+    , m_scrollBottom(0)
     , m_historyStart(0)
     , m_historySize(0)
     , m_useAlternateScreen(false)
@@ -67,6 +69,12 @@ TerminalProxy::TerminalProxy(QWidget *parent)
     setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     viewport()->setMouseTracking(true);
     
+    QFont font("Microsoft YaHei Mono", 10);
+    font.setStyleHint(QFont::Monospace);
+    QFontMetrics fm(font);
+    m_charWidth = fm.horizontalAdvance('W');
+    m_charHeight = fm.height();
+    
     connect(m_parser, &VT100Parser::textReceived, this, &TerminalProxy::onParserTextReceived);
     connect(m_parser, &VT100Parser::cursorUp, this, &TerminalProxy::onParserCursorUp);
     connect(m_parser, &VT100Parser::cursorDown, this, &TerminalProxy::onParserCursorDown);
@@ -82,6 +90,11 @@ TerminalProxy::TerminalProxy(QWidget *parent)
     connect(m_parser, &VT100Parser::eraseEndOfLine, this, &TerminalProxy::onParserEraseEndOfLine);
     connect(m_parser, &VT100Parser::eraseStartOfLine, this, &TerminalProxy::onParserEraseStartOfLine);
     connect(m_parser, &VT100Parser::backspace, this, &TerminalProxy::onParserBackspace);
+    connect(m_parser, &VT100Parser::scrollUp, this, &TerminalProxy::onParserScrollUp);
+    connect(m_parser, &VT100Parser::scrollDown, this, &TerminalProxy::onParserScrollDown);
+    connect(m_parser, &VT100Parser::insertLines, this, &TerminalProxy::onParserInsertLines);
+    connect(m_parser, &VT100Parser::deleteLines, this, &TerminalProxy::onParserDeleteLines);
+    connect(m_parser, &VT100Parser::setScrollRegion, this, &TerminalProxy::onParserSetScrollRegion);
     connect(m_parser, &VT100Parser::setMode, this, &TerminalProxy::onParserSetMode);
     connect(m_parser, &VT100Parser::resetMode, this, &TerminalProxy::onParserResetMode);
     connect(m_parser, &VT100Parser::setPrivateMode, this, &TerminalProxy::onParserSetPrivateMode);
@@ -281,113 +294,177 @@ QString TerminalProxy::getSelectedText() const
 void TerminalProxy::paintEvent(QPaintEvent *event)
 {
     Q_UNUSED(event);
-    
+
     QPainter painter(viewport());
     painter.fillRect(viewport()->rect(), m_defaultBackground);
-    
+
     QFont font("Microsoft YaHei Mono", 10);
     font.setStyleHint(QFont::Monospace);
     painter.setFont(font);
-    
+
     QFontMetrics fm(font);
     m_charWidth = fm.horizontalAdvance('W');
     m_charHeight = fm.height();
-    
-    int topLine = verticalScrollBar()->value();
+
+    int topLine = 0;
+    if (!m_useAlternateScreen) {
+        topLine = verticalScrollBar()->value();
+    }
     int leftColumn = horizontalScrollBar()->value();
-    
+
     int visibleLines = viewport()->height() / m_charHeight;
     int visibleColumns = viewport()->width() / m_charWidth;
-    
+
     static int lastTopLine = -1;
     static int lastHistorySize = -1;
-    if (topLine != lastTopLine || m_historySize != lastHistorySize) {
-        qDebug() << "[TerminalProxy] paintEvent: topLine=" << topLine 
+    static bool lastUseAlternateScreen = false;
+    if (topLine != lastTopLine || m_historySize != lastHistorySize || m_useAlternateScreen != lastUseAlternateScreen) {
+        qDebug() << "[TerminalProxy] paintEvent: topLine=" << topLine
                  << "historySize=" << m_historySize
                  << "visibleLines=" << visibleLines
+                 << "terminalRows=" << m_terminalRows
                  << "cursorRow=" << m_cursorRow
-                 << "cursorGlobalLine=" << (m_historySize + m_cursorRow);
+                 << "useAlternateScreen=" << m_useAlternateScreen;
         lastTopLine = topLine;
         lastHistorySize = m_historySize;
+        lastUseAlternateScreen = m_useAlternateScreen;
     }
-    
+
     for (int i = 0; i < visibleLines; ++i) {
         int line = topLine + i;
         const QVector<Cell> *lineData = nullptr;
-        
-        if (line < m_historySize) {
-            int idx = historyIndex(line);
-            if (idx >= 0) {
-                lineData = &m_historyBuffer[idx];
+
+        if (m_useAlternateScreen) {
+            // 在 alternate screen 模式下，只绘制当前屏幕缓冲区
+            if (i < m_terminalRows && i < m_terminalBuffer.size()) {
+                lineData = &m_terminalBuffer[i];
             }
         } else {
-            int termLine = line - m_historySize;
-            if (termLine >= 0 && termLine < m_terminalRows && termLine < m_terminalBuffer.size()) {
-                lineData = &m_terminalBuffer[termLine];
+            // 在 normal screen 模式下，绘制历史缓冲区和终端缓冲区
+            if (line < m_historySize) {
+                int idx = historyIndex(line);
+                if (idx >= 0) {
+                    lineData = &m_historyBuffer[idx];
+                }
+            } else {
+                int termLine = line - m_historySize;
+                if (termLine >= 0 && termLine < m_terminalRows && termLine < m_terminalBuffer.size()) {
+                    lineData = &m_terminalBuffer[termLine];
+                }
             }
         }
-        
+
         int y = i * m_charHeight + fm.ascent();
-        
+
         for (int j = 0; j < visibleColumns; ++j) {
             int col = leftColumn + j;
             int x = j * m_charWidth;
-            
+
             if (lineData && col < lineData->size()) {
                 const Cell &cell = (*lineData)[col];
-                
+
                 if (cell.character == QChar(0)) {
                     continue;
                 }
-                
+
                 QColor bg = cell.background;
                 QColor fg = cell.foreground;
-                
+
                 if (cell.attributes & Reverse) {
                     std::swap(fg, bg);
                 }
-                
+
                 int cellWidth = cell.isWide ? 2 : 1;
                 int pixelWidth = cellWidth * m_charWidth;
-                
+
                 if (bg != m_defaultBackground) {
                     painter.fillRect(x, i * m_charHeight, pixelWidth, m_charHeight, bg);
                 }
-                
+
                 painter.setPen(fg);
                 painter.drawText(x, y, QString(cell.character));
-                
+
                 if (cell.isWide) {
                     j++;
                 }
             }
         }
     }
-    
+
     if (m_hasSelection) {
         drawSelectionBackground(painter, 0, 0, topLine, leftColumn, visibleLines, visibleColumns);
     }
+
+    // 在 alternate screen 模式下，光标行直接对应屏幕行
+    int cursorScreenLine = m_useAlternateScreen ? m_cursorRow : (m_historySize + m_cursorRow - topLine);
+    int cursorScreenCol = m_cursorColumn - leftColumn;
+
+    if (cursorScreenLine >= 0 && cursorScreenLine < visibleLines &&
+        cursorScreenCol >= 0 && cursorScreenCol < visibleColumns) {
+        int x = cursorScreenCol * m_charWidth;
+        int y = cursorScreenLine * m_charHeight;
+
+        painter.fillRect(x, y, 2, m_charHeight, m_defaultForeground);
+    }
+}
+
+void TerminalProxy::showEvent(QShowEvent *event)
+{
+    QAbstractScrollArea::showEvent(event);
     
-    int cursorGlobalLine = m_historySize + m_cursorRow;
-    if (cursorGlobalLine >= topLine && cursorGlobalLine < topLine + visibleLines) {
-        int cursorScreenLine = cursorGlobalLine - topLine;
-        int cursorScreenCol = m_cursorColumn - leftColumn;
+    QFont font("Microsoft YaHei Mono", 10);
+    font.setStyleHint(QFont::Monospace);
+    QFontMetrics fm(font);
+    m_charWidth = fm.horizontalAdvance('W');
+    m_charHeight = fm.height();
+    
+    int rows = viewport()->height() / m_charHeight;
+    int cols = viewport()->width() / m_charWidth;
+    
+    if (rows > 0 && cols > 0) {
+        m_terminalRows = rows;
+        m_columns = cols;
+        allocateBuffers();
+        updateScrollBars();
         
-        if (cursorScreenCol >= 0 && cursorScreenCol < visibleColumns) {
-            int x = cursorScreenCol * m_charWidth;
-            int y = cursorScreenLine * m_charHeight;
-            
-            painter.fillRect(x, y, 2, m_charHeight, m_defaultForeground);
+        if (m_isConnected) {
+            sendTerminalSize();
         }
     }
+    
+    qDebug() << "[TerminalProxy] showEvent: terminalRows=" << m_terminalRows
+             << "columns=" << m_columns
+             << "charWidth=" << m_charWidth
+             << "charHeight=" << m_charHeight
+             << "viewportSize=" << viewport()->size();
 }
 
 void TerminalProxy::resizeEvent(QResizeEvent *event)
 {
     Q_UNUSED(event);
+    
+    QFont font("Microsoft YaHei Mono", 10);
+    font.setStyleHint(QFont::Monospace);
+    QFontMetrics fm(font);
+    m_charWidth = fm.horizontalAdvance('W');
+    m_charHeight = fm.height();
+    
+    int rows = viewport()->height() / m_charHeight;
+    int cols = viewport()->width() / m_charWidth;
+    
+    if (rows > 0 && cols > 0 && (rows != m_terminalRows || cols != m_columns)) {
+        m_terminalRows = rows;
+        m_columns = cols;
+        allocateBuffers();
+    }
+    
     updateScrollBars();
     sendTerminalSize();
     viewport()->update();
+    
+    qDebug() << "[TerminalProxy] resizeEvent: terminalRows=" << m_terminalRows
+             << "columns=" << m_columns
+             << "viewportSize=" << viewport()->size();
 }
 
 void TerminalProxy::scrollContentsBy(int dx, int dy)
@@ -599,6 +676,10 @@ void TerminalProxy::onParserCursorBackward(int count)
 
 void TerminalProxy::onParserCursorPosition(int row, int column)
 {
+    qDebug() << "[TerminalProxy] CursorPosition - row:" << row << "column:" << column
+             << "-> m_cursorRow:" << (qBound(0, row - 1, m_terminalRows - 1))
+             << "m_cursorColumn:" << (qBound(0, column - 1, m_columns - 1))
+             << "useAlternateScreen:" << m_useAlternateScreen;
     m_cursorRow = qBound(0, row - 1, m_terminalRows - 1);
     m_cursorColumn = qBound(0, column - 1, m_columns - 1);
     viewport()->update();
@@ -613,9 +694,18 @@ void TerminalProxy::onParserCarriageReturn()
 
 void TerminalProxy::onParserLineFeed()
 {
+    int bottom = (m_scrollBottom > 0) ? m_scrollBottom : m_terminalRows - 1;
+
+    qDebug() << "[TerminalProxy] LineFeed - cursorRow:" << m_cursorRow << "->" << (m_cursorRow + 1)
+             << "bottom:" << bottom << "useAlternateScreen:" << m_useAlternateScreen;
+
     m_cursorRow++;
-    if (m_cursorRow >= m_terminalRows) {
+    if (m_cursorRow > bottom) {
+        qDebug() << "[TerminalProxy] LineFeed - triggering scrollTerminalUp";
         scrollTerminalUp();
+        m_cursorRow = bottom;
+    }
+    if (m_cursorRow >= m_terminalRows) {
         m_cursorRow = m_terminalRows - 1;
     }
     viewport()->update();
@@ -624,16 +714,20 @@ void TerminalProxy::onParserLineFeed()
 
 void TerminalProxy::onParserClearScreen()
 {
-    qDebug() << "[TerminalProxy] ClearScreen - Before: historySize=" << m_historySize 
+    qDebug() << "[TerminalProxy] ClearScreen - Before: historySize=" << m_historySize
              << "historyStart=" << m_historyStart
-             << "cursorRow=" << m_cursorRow 
+             << "cursorRow=" << m_cursorRow
              << "cursorColumn=" << m_cursorColumn
              << "scrollbarValue=" << verticalScrollBar()->value()
-             << "scrollbarMax=" << verticalScrollBar()->maximum();
-    
-    m_historyStart = 0;
-    m_historySize = 0;
-    
+             << "scrollbarMax=" << verticalScrollBar()->maximum()
+             << "useAlternateScreen=" << m_useAlternateScreen;
+
+    // 在 alternate screen 模式下，不清除历史缓冲区
+    if (!m_useAlternateScreen) {
+        m_historyStart = 0;
+        m_historySize = 0;
+    }
+
     for (int i = 0; i < m_terminalRows && i < m_terminalBuffer.size(); ++i) {
         for (int j = 0; j < m_columns && j < m_terminalBuffer[i].size(); ++j) {
             m_terminalBuffer[i][j].character = QChar(' ');
@@ -643,36 +737,38 @@ void TerminalProxy::onParserClearScreen()
             m_terminalBuffer[i][j].isWide = false;
         }
     }
-    
+
     m_cursorRow = 0;
     m_cursorColumn = 0;
-    
+
     updateScrollBars();
-    
+
     verticalScrollBar()->setValue(0);
-    
-    qDebug() << "[TerminalProxy] ClearScreen - After: historySize=" << m_historySize 
-             << "cursorRow=" << m_cursorRow 
+
+    qDebug() << "[TerminalProxy] ClearScreen - After: historySize=" << m_historySize
+             << "cursorRow=" << m_cursorRow
              << "scrollbarValue=" << verticalScrollBar()->value()
              << "scrollbarMax=" << verticalScrollBar()->maximum();
-    
+
     viewport()->update();
 }
 
 void TerminalProxy::onParserEraseDown()
 {
-    qDebug() << "[TerminalProxy] EraseDown - cursorRow=" << m_cursorRow 
+    qDebug() << "[TerminalProxy] EraseDown - cursorRow=" << m_cursorRow
              << "cursorColumn=" << m_cursorColumn
-             << "historySize=" << m_historySize;
-    
-    if (m_cursorRow == 0) {
+             << "historySize=" << m_historySize
+             << "useAlternateScreen=" << m_useAlternateScreen;
+
+    // 在 alternate screen 模式下，不清除历史缓冲区
+    if (!m_useAlternateScreen && m_cursorRow == 0) {
         qDebug() << "[TerminalProxy] EraseDown - cursor at top, clearing history buffer";
         m_historyStart = 0;
         m_historySize = 0;
         updateScrollBars();
         verticalScrollBar()->setValue(0);
     }
-    
+
     for (int row = m_cursorRow; row < m_terminalRows && row < m_terminalBuffer.size(); ++row) {
         for (int col = (row == m_cursorRow ? m_cursorColumn : 0); col < m_columns && col < m_terminalBuffer[row].size(); ++col) {
             m_terminalBuffer[row][col].character = QChar(' ');
@@ -682,7 +778,7 @@ void TerminalProxy::onParserEraseDown()
             m_terminalBuffer[row][col].isWide = false;
         }
     }
-    
+
     viewport()->update();
 }
 
@@ -772,6 +868,128 @@ void TerminalProxy::onParserBackspace()
     }
 }
 
+void TerminalProxy::onParserScrollUp(int count)
+{
+    qDebug() << "[TerminalProxy] ScrollUp - count:" << count
+             << "scrollTop:" << m_scrollTop
+             << "scrollBottom:" << m_scrollBottom
+             << "useAlternateScreen:" << m_useAlternateScreen;
+
+    int top = m_scrollTop;
+    int bottom = (m_scrollBottom > 0) ? m_scrollBottom : m_terminalRows - 1;
+
+    for (int n = 0; n < count; ++n) {
+        for (int i = top; i < bottom && i + 1 < m_terminalBuffer.size(); ++i) {
+            m_terminalBuffer[i] = m_terminalBuffer[i + 1];
+        }
+
+        if (bottom >= 0 && bottom < m_terminalBuffer.size()) {
+            m_terminalBuffer[bottom].fill({QChar(' '), m_defaultForeground, m_defaultBackground, Normal, false});
+        }
+    }
+
+    viewport()->update();
+}
+
+void TerminalProxy::onParserScrollDown(int count)
+{
+    qDebug() << "[TerminalProxy] ScrollDown - count:" << count
+             << "scrollTop:" << m_scrollTop
+             << "scrollBottom:" << m_scrollBottom
+             << "useAlternateScreen:" << m_useAlternateScreen;
+
+    int top = m_scrollTop;
+    int bottom = (m_scrollBottom > 0) ? m_scrollBottom : m_terminalRows - 1;
+
+    for (int n = 0; n < count; ++n) {
+        for (int i = bottom; i > top && i < m_terminalBuffer.size(); --i) {
+            m_terminalBuffer[i] = m_terminalBuffer[i - 1];
+        }
+
+        if (top >= 0 && top < m_terminalBuffer.size()) {
+            m_terminalBuffer[top].fill({QChar(' '), m_defaultForeground, m_defaultBackground, Normal, false});
+        }
+    }
+
+    viewport()->update();
+}
+
+void TerminalProxy::onParserInsertLines(int count)
+{
+    qDebug() << "[TerminalProxy] InsertLines - count:" << count << "cursorRow:" << m_cursorRow
+             << "scrollTop:" << m_scrollTop << "scrollBottom:" << m_scrollBottom
+             << "useAlternateScreen:" << m_useAlternateScreen;
+
+    if (m_cursorRow < 0 || m_cursorRow >= m_terminalRows) return;
+
+    // 使用滚动区域而不是整个终端
+    int top = m_scrollTop;
+    int bottom = (m_scrollBottom > 0) ? m_scrollBottom : m_terminalRows - 1;
+
+    // 如果光标不在滚动区域内，不执行插入操作
+    if (m_cursorRow < top || m_cursorRow > bottom) return;
+
+    for (int n = 0; n < count; ++n) {
+        // 在滚动区域内，从底部向上移动行
+        for (int i = bottom; i > m_cursorRow && i < m_terminalBuffer.size(); --i) {
+            m_terminalBuffer[i] = m_terminalBuffer[i - 1];
+        }
+
+        // 在光标位置填充空白行
+        if (m_cursorRow >= 0 && m_cursorRow < m_terminalBuffer.size()) {
+            m_terminalBuffer[m_cursorRow].fill({QChar(' '), m_defaultForeground, m_defaultBackground, Normal, false});
+        }
+    }
+
+    viewport()->update();
+}
+
+void TerminalProxy::onParserDeleteLines(int count)
+{
+    qDebug() << "[TerminalProxy] DeleteLines - count:" << count << "cursorRow:" << m_cursorRow
+             << "scrollTop:" << m_scrollTop << "scrollBottom:" << m_scrollBottom
+             << "useAlternateScreen:" << m_useAlternateScreen;
+
+    if (m_cursorRow < 0 || m_cursorRow >= m_terminalRows) return;
+
+    // 使用滚动区域而不是整个终端
+    int top = m_scrollTop;
+    int bottom = (m_scrollBottom > 0) ? m_scrollBottom : m_terminalRows - 1;
+
+    // 如果光标不在滚动区域内，不执行删除操作
+    if (m_cursorRow < top || m_cursorRow > bottom) return;
+
+    for (int n = 0; n < count; ++n) {
+        // 在滚动区域内，从光标位置向下移动行
+        for (int i = m_cursorRow; i < bottom && i + 1 < m_terminalBuffer.size(); ++i) {
+            m_terminalBuffer[i] = m_terminalBuffer[i + 1];
+        }
+
+        // 在底部填充空白行
+        if (bottom >= 0 && bottom < m_terminalBuffer.size()) {
+            m_terminalBuffer[bottom].fill({QChar(' '), m_defaultForeground, m_defaultBackground, Normal, false});
+        }
+    }
+
+    viewport()->update();
+}
+
+void TerminalProxy::onParserSetScrollRegion(int top, int bottom)
+{
+    qDebug() << "[TerminalProxy] SetScrollRegion - top:" << top << "bottom:" << bottom
+             << "terminalRows:" << m_terminalRows;
+    
+    m_scrollTop = (top > 0) ? top - 1 : 0;
+    m_scrollBottom = (bottom > 0) ? bottom - 1 : m_terminalRows - 1;
+    
+    if (m_scrollBottom >= m_terminalRows) {
+        m_scrollBottom = m_terminalRows - 1;
+    }
+    
+    qDebug() << "[TerminalProxy] Scroll region set: scrollTop=" << m_scrollTop 
+             << "scrollBottom=" << m_scrollBottom;
+}
+
 void TerminalProxy::onParserSetMode(int param)
 {
     qDebug() << "[TerminalProxy] SetMode - param:" << param;
@@ -808,30 +1026,17 @@ void TerminalProxy::onParserSetPrivateMode(int param)
         qDebug() << "[TerminalProxy] m_terminalBuffer.size()=" << m_terminalBuffer.size()
                  << "m_terminalRows=" << m_terminalRows
                  << "m_columns=" << m_columns;
-        
+
         if (!m_useAlternateScreen) {
             m_savedCursorColumn = m_cursorColumn;
             m_savedCursorRow = m_cursorRow;
             m_savedHistorySize = m_historySize;
             m_savedHistoryStart = m_historyStart;
-            
-            m_alternateBuffer.clear();
-            m_alternateBuffer.resize(m_terminalRows);
-            for (int i = 0; i < m_terminalRows; ++i) {
-                m_alternateBuffer[i].resize(m_columns);
-                if (i < m_terminalBuffer.size() && m_terminalBuffer[i].size() == m_columns) {
-                    m_alternateBuffer[i] = m_terminalBuffer[i];
-                } else {
-                    for (int j = 0; j < m_columns; ++j) {
-                        m_alternateBuffer[i][j].character = QChar(' ');
-                        m_alternateBuffer[i][j].foreground = m_defaultForeground;
-                        m_alternateBuffer[i][j].background = m_defaultBackground;
-                        m_alternateBuffer[i][j].attributes = Normal;
-                        m_alternateBuffer[i][j].isWide = false;
-                    }
-                }
-            }
-            
+
+            // 保存主屏幕缓冲区的内容
+            m_alternateBuffer = m_terminalBuffer;
+
+            // 清空当前屏幕，准备显示 alternate screen 内容
             for (int i = 0; i < m_terminalRows; ++i) {
                 if (i < m_terminalBuffer.size()) {
                     for (int j = 0; j < m_columns && j < m_terminalBuffer[i].size(); ++j) {
@@ -843,13 +1048,13 @@ void TerminalProxy::onParserSetPrivateMode(int param)
                     }
                 }
             }
-            
+
             m_historyStart = 0;
             m_historySize = 0;
             m_cursorRow = 0;
             m_cursorColumn = 0;
             m_useAlternateScreen = true;
-            
+
             updateScrollBars();
             verticalScrollBar()->setValue(0);
             viewport()->update();
@@ -864,27 +1069,30 @@ void TerminalProxy::onParserSetPrivateMode(int param)
 
 void TerminalProxy::onParserResetPrivateMode(int param)
 {
-    qDebug() << "[TerminalProxy] ResetPrivateMode - param:" << param;
-    
+    qDebug() << "[TerminalProxy] ResetPrivateMode - param:" << param
+             << "useAlternateScreen:" << m_useAlternateScreen
+             << "savedCursorRow:" << m_savedCursorRow
+             << "savedCursorColumn:" << m_savedCursorColumn
+             << "savedHistorySize:" << m_savedHistorySize;
+
     if (param == 1049) {
         // Alternate Screen Buffer (xterm)
         qDebug() << "[TerminalProxy] Leaving alternate screen buffer (vi/vim mode)";
-        
+
         if (m_useAlternateScreen) {
-            if (m_alternateBuffer.size() == m_terminalRows) {
-                for (int i = 0; i < m_terminalRows; ++i) {
-                    m_terminalBuffer[i] = m_alternateBuffer[i];
-                }
+            // 恢复主屏幕缓冲区的内容
+            if (!m_alternateBuffer.isEmpty()) {
+                m_terminalBuffer = m_alternateBuffer;
             }
-            
+
             m_cursorColumn = m_savedCursorColumn;
             m_cursorRow = m_savedCursorRow;
             m_historySize = m_savedHistorySize;
             m_historyStart = m_savedHistoryStart;
             m_useAlternateScreen = false;
-            
+
             m_alternateBuffer.clear();
-            
+
             updateScrollBars();
             ensureCursorVisible();
             viewport()->update();
@@ -1010,11 +1218,25 @@ void TerminalProxy::sendTerminalSize()
         int rows = viewport()->height() / charHeight;
         int cols = viewport()->width() / charWidth;
         
-        QJsonObject size;
-        size["rows"] = rows;
-        size["columns"] = cols;
-        
-        m_ipcClient->sendMessage(Ipc::MessageType::TerminalSize, size);
+        if (rows > 0 && cols > 0) {
+            if (rows != m_terminalRows || cols != m_columns) {
+                m_terminalRows = rows;
+                m_columns = cols;
+                allocateBuffers();
+                updateScrollBars();
+            }
+            
+            QJsonObject size;
+            size["rows"] = rows;
+            size["columns"] = cols;
+            
+            m_ipcClient->sendMessage(Ipc::MessageType::TerminalSize, size);
+            
+            qDebug() << "[TerminalProxy] sendTerminalSize: rows=" << rows 
+                     << "cols=" << cols 
+                     << "terminalRows=" << m_terminalRows
+                     << "columns=" << m_columns;
+        }
     }
 }
 
@@ -1121,10 +1343,16 @@ void TerminalProxy::updateScrollBars()
     int visibleLines = viewport()->height() / charHeight;
     if (visibleLines <= 0) visibleLines = 1;
     
-    int newMax = qMax(0, totalLines - visibleLines);
-    verticalScrollBar()->setRange(0, newMax);
-    verticalScrollBar()->setPageStep(visibleLines);
-    verticalScrollBar()->setSingleStep(1);
+    if (m_useAlternateScreen) {
+        verticalScrollBar()->setRange(0, 0);
+        verticalScrollBar()->setPageStep(visibleLines);
+        verticalScrollBar()->setSingleStep(1);
+    } else {
+        int newMax = qMax(0, totalLines - visibleLines);
+        verticalScrollBar()->setRange(0, newMax);
+        verticalScrollBar()->setPageStep(visibleLines);
+        verticalScrollBar()->setSingleStep(1);
+    }
     
     int charWidth = m_charWidth > 0 ? m_charWidth : 10;
     int visibleColumns = viewport()->width() / charWidth;
@@ -1148,11 +1376,16 @@ void TerminalProxy::updateScrollBars()
              << "visibleLines=" << visibleLines
              << "visibleColumns=" << visibleColumns
              << "columns=" << m_columns
-             << "scrollbarMax=" << newMax;
+             << "scrollbarMax=" << verticalScrollBar()->maximum()
+             << "useAlternateScreen=" << m_useAlternateScreen;
 }
 
 void TerminalProxy::ensureCursorVisible()
 {
+    if (m_useAlternateScreen) {
+        return;
+    }
+    
     int cursorGlobalLine = m_historySize + m_cursorRow;
     
     int charHeight = m_charHeight > 0 ? m_charHeight : 20;
@@ -1171,31 +1404,34 @@ void TerminalProxy::ensureCursorVisible()
 
 void TerminalProxy::allocateBuffers()
 {
-    QVector<QVector<Cell>> oldHistoryBuffer = m_historyBuffer;
-    int oldColumns = m_historyBuffer.isEmpty() ? 0 : m_historyBuffer[0].size();
-    
-    m_historyBuffer.resize(m_historyLines);
-    for (int i = 0; i < m_historyLines; ++i) {
-        int oldSize = m_historyBuffer[i].size();
-        m_historyBuffer[i].resize(m_columns);
+    if (!m_useAlternateScreen) {
+        QVector<QVector<Cell>> oldHistoryBuffer = m_historyBuffer;
+        int oldColumns = m_historyBuffer.isEmpty() ? 0 : m_historyBuffer[0].size();
         
-        if (i < oldHistoryBuffer.size() && oldColumns > 0) {
-            for (int j = 0; j < oldColumns && j < m_columns; ++j) {
-                m_historyBuffer[i][j] = oldHistoryBuffer[i][j];
+        m_historyBuffer.resize(m_historyLines);
+        for (int i = 0; i < m_historyLines; ++i) {
+            int oldSize = m_historyBuffer[i].size();
+            m_historyBuffer[i].resize(m_columns);
+            
+            if (i < oldHistoryBuffer.size() && oldColumns > 0) {
+                for (int j = 0; j < oldColumns && j < m_columns; ++j) {
+                    m_historyBuffer[i][j] = oldHistoryBuffer[i][j];
+                }
             }
-        }
-        
-        for (int j = oldSize; j < m_columns; ++j) {
-            m_historyBuffer[i][j].character = QChar(' ');
-            m_historyBuffer[i][j].foreground = m_defaultForeground;
-            m_historyBuffer[i][j].background = m_defaultBackground;
-            m_historyBuffer[i][j].attributes = Normal;
-            m_historyBuffer[i][j].isWide = false;
+            
+            for (int j = oldSize; j < m_columns; ++j) {
+                m_historyBuffer[i][j].character = QChar(' ');
+                m_historyBuffer[i][j].foreground = m_defaultForeground;
+                m_historyBuffer[i][j].background = m_defaultBackground;
+                m_historyBuffer[i][j].attributes = Normal;
+                m_historyBuffer[i][j].isWide = false;
+            }
         }
     }
     
     QVector<QVector<Cell>> oldTerminalBuffer = m_terminalBuffer;
-    oldColumns = m_terminalBuffer.isEmpty() ? 0 : m_terminalBuffer[0].size();
+    int oldColumns = m_terminalBuffer.isEmpty() ? 0 : m_terminalBuffer[0].size();
+    int oldRows = m_terminalBuffer.size();
     
     m_terminalBuffer.resize(m_terminalRows);
     for (int i = 0; i < m_terminalRows; ++i) {
@@ -1216,6 +1452,21 @@ void TerminalProxy::allocateBuffers()
             m_terminalBuffer[i][j].isWide = false;
         }
     }
+    
+    if (m_cursorRow >= m_terminalRows) {
+        m_cursorRow = m_terminalRows - 1;
+    }
+    if (m_cursorColumn >= m_columns) {
+        m_cursorColumn = m_columns - 1;
+    }
+    
+    m_scrollTop = 0;
+    m_scrollBottom = m_terminalRows - 1;
+    
+    qDebug() << "[TerminalProxy] allocateBuffers: terminalRows=" << m_terminalRows
+             << "columns=" << m_columns
+             << "oldRows=" << oldRows
+             << "oldColumns=" << oldColumns;
 }
 
 int TerminalProxy::historyIndex(int line) const
@@ -1226,29 +1477,39 @@ int TerminalProxy::historyIndex(int line) const
 
 void TerminalProxy::scrollTerminalUp()
 {
-    if (m_historySize < m_historyLines) {
-        m_historySize++;
-    } else {
-        m_historyStart = (m_historyStart + 1) % m_historyLines;
+    int top = m_scrollTop;
+    int bottom = (m_scrollBottom > 0) ? m_scrollBottom : m_terminalRows - 1;
+    
+    if (!m_useAlternateScreen) {
+        if (top == 0 && bottom == m_terminalRows - 1) {
+            if (m_historySize < m_historyLines) {
+                m_historySize++;
+            } else {
+                m_historyStart = (m_historyStart + 1) % m_historyLines;
+            }
+            
+            int idx = historyIndex(m_historySize - 1);
+            if (idx >= 0 && !m_terminalBuffer.isEmpty()) {
+                m_historyBuffer[idx] = m_terminalBuffer[0];
+            }
+        }
     }
     
-    int idx = historyIndex(m_historySize - 1);
-    if (idx >= 0 && !m_terminalBuffer.isEmpty()) {
-        m_historyBuffer[idx] = m_terminalBuffer[0];
-    }
-    
-    for (int i = 0; i < m_terminalRows - 1 && i + 1 < m_terminalBuffer.size(); ++i) {
+    for (int i = top; i < bottom && i + 1 < m_terminalBuffer.size(); ++i) {
         m_terminalBuffer[i] = m_terminalBuffer[i + 1];
     }
     
-    if (m_terminalRows > 0 && m_terminalRows - 1 < m_terminalBuffer.size()) {
-        m_terminalBuffer[m_terminalRows - 1].fill({QChar(' '), m_defaultForeground, m_defaultBackground, Normal, false});
+    if (bottom >= 0 && bottom < m_terminalBuffer.size()) {
+        m_terminalBuffer[bottom].fill({QChar(' '), m_defaultForeground, m_defaultBackground, Normal, false});
     }
     
     updateScrollBars();
     
     qDebug() << "[TerminalProxy] scrollTerminalUp: historySize=" << m_historySize 
-             << "historyStart=" << m_historyStart;
+             << "historyStart=" << m_historyStart
+             << "useAlternateScreen=" << m_useAlternateScreen
+             << "scrollTop=" << top
+             << "scrollBottom=" << bottom;
 }
 
 TerminalProxy::SelectionPoint TerminalProxy::viewportToBuffer(const QPoint &pos) const

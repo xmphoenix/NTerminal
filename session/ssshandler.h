@@ -19,6 +19,7 @@ public:
     bool isConnected() const override;
     void sendData(const QByteArray &data) override;
     QString connectionInfo() const override;
+    void setTerminalSize(int columns, int rows) override;
     
 private slots:
     void onSocketActivated(int socket);
