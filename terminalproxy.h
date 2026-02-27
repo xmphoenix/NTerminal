@@ -8,7 +8,7 @@
 #include "common/connectionsettings.h"
 #include "common/messagetypes.h"
 #include "ipc/ipcclient.h"
-#include "vt100parser.h"
+#include "terminalparser.h"
 #include "thememanager.h"
 
 class TerminalProxy : public QAbstractScrollArea
@@ -152,7 +152,7 @@ private:
     QString m_sessionId;
     QProcess *m_sessionProcess;
     Ipc::IpcClient *m_ipcClient;
-    VT100Parser *m_parser;
+    TerminalParser *m_parser;
     
     Common::ConnectionSettings m_settings;
     bool m_isConnected;

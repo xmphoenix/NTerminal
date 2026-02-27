@@ -21,8 +21,8 @@ SOURCES += \
     mainwindow.cpp \
     terminalproxy.cpp \
     connectiondialog.cpp \
-    vt100parser.cpp \
-    vt100tester.cpp \
+    terminalparser.cpp \
+    terminaltester.cpp \
     testwindow.cpp \
     sessionmanager.cpp \
     logger.cpp \
@@ -44,8 +44,8 @@ HEADERS += \
     mainwindow.h \
     terminalproxy.h \
     connectiondialog.h \
-    vt100parser.h \
-    vt100tester.h \
+    terminalparser.h \
+    terminaltester.h \
     testwindow.h \
     sessionmanager.h \
     logger.h \

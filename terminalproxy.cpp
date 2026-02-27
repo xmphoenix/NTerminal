@@ -35,7 +35,7 @@ TerminalProxy::TerminalProxy(QWidget *parent)
     : QAbstractScrollArea(parent)
     , m_sessionProcess(nullptr)
     , m_ipcClient(nullptr)
-    , m_parser(new VT100Parser(this))
+    , m_parser(new TerminalParser(this))
     , m_isConnected(false)
     , m_columns(200)
     , m_terminalRows(24)
@@ -75,36 +75,36 @@ TerminalProxy::TerminalProxy(QWidget *parent)
     m_charWidth = fm.horizontalAdvance('W');
     m_charHeight = fm.height();
     
-    connect(m_parser, &VT100Parser::textReceived, this, &TerminalProxy::onParserTextReceived);
-    connect(m_parser, &VT100Parser::cursorUp, this, &TerminalProxy::onParserCursorUp);
-    connect(m_parser, &VT100Parser::cursorDown, this, &TerminalProxy::onParserCursorDown);
-    connect(m_parser, &VT100Parser::cursorForward, this, &TerminalProxy::onParserCursorForward);
-    connect(m_parser, &VT100Parser::cursorBackward, this, &TerminalProxy::onParserCursorBackward);
-    connect(m_parser, &VT100Parser::cursorPosition, this, &TerminalProxy::onParserCursorPosition);
-    connect(m_parser, &VT100Parser::carriageReturn, this, &TerminalProxy::onParserCarriageReturn);
-    connect(m_parser, &VT100Parser::lineFeed, this, &TerminalProxy::onParserLineFeed);
-    connect(m_parser, &VT100Parser::clearScreen, this, &TerminalProxy::onParserClearScreen);
-    connect(m_parser, &VT100Parser::eraseDown, this, &TerminalProxy::onParserEraseDown);
-    connect(m_parser, &VT100Parser::eraseUp, this, &TerminalProxy::onParserEraseUp);
-    connect(m_parser, &VT100Parser::clearLine, this, &TerminalProxy::onParserClearLine);
-    connect(m_parser, &VT100Parser::eraseEndOfLine, this, &TerminalProxy::onParserEraseEndOfLine);
-    connect(m_parser, &VT100Parser::eraseStartOfLine, this, &TerminalProxy::onParserEraseStartOfLine);
-    connect(m_parser, &VT100Parser::backspace, this, &TerminalProxy::onParserBackspace);
-    connect(m_parser, &VT100Parser::scrollUp, this, &TerminalProxy::onParserScrollUp);
-    connect(m_parser, &VT100Parser::scrollDown, this, &TerminalProxy::onParserScrollDown);
-    connect(m_parser, &VT100Parser::insertLines, this, &TerminalProxy::onParserInsertLines);
-    connect(m_parser, &VT100Parser::deleteLines, this, &TerminalProxy::onParserDeleteLines);
-    connect(m_parser, &VT100Parser::setScrollRegion, this, &TerminalProxy::onParserSetScrollRegion);
-    connect(m_parser, &VT100Parser::setMode, this, &TerminalProxy::onParserSetMode);
-    connect(m_parser, &VT100Parser::resetMode, this, &TerminalProxy::onParserResetMode);
-    connect(m_parser, &VT100Parser::setPrivateMode, this, &TerminalProxy::onParserSetPrivateMode);
-    connect(m_parser, &VT100Parser::resetPrivateMode, this, &TerminalProxy::onParserResetPrivateMode);
-    connect(m_parser, &VT100Parser::setAttributes, this, &TerminalProxy::onParserSetAttributes);
-    connect(m_parser, &VT100Parser::resetAttributes, this, &TerminalProxy::onParserResetAttributes);
-    connect(m_parser, &VT100Parser::deviceStatusReport, this, &TerminalProxy::onDeviceStatusReport);
-    connect(m_parser, &VT100Parser::cursorPositionReportRequest, this, &TerminalProxy::onCursorPositionReportRequest);
-    connect(m_parser, &VT100Parser::primaryDeviceAttributes, this, &TerminalProxy::onPrimaryDeviceAttributes);
-    connect(m_parser, &VT100Parser::secondaryDeviceAttributes, this, &TerminalProxy::onSecondaryDeviceAttributes);
+    connect(m_parser, &TerminalParser::textReceived, this, &TerminalProxy::onParserTextReceived);
+    connect(m_parser, &TerminalParser::cursorUp, this, &TerminalProxy::onParserCursorUp);
+    connect(m_parser, &TerminalParser::cursorDown, this, &TerminalProxy::onParserCursorDown);
+    connect(m_parser, &TerminalParser::cursorForward, this, &TerminalProxy::onParserCursorForward);
+    connect(m_parser, &TerminalParser::cursorBackward, this, &TerminalProxy::onParserCursorBackward);
+    connect(m_parser, &TerminalParser::cursorPosition, this, &TerminalProxy::onParserCursorPosition);
+    connect(m_parser, &TerminalParser::carriageReturn, this, &TerminalProxy::onParserCarriageReturn);
+    connect(m_parser, &TerminalParser::lineFeed, this, &TerminalProxy::onParserLineFeed);
+    connect(m_parser, &TerminalParser::clearScreen, this, &TerminalProxy::onParserClearScreen);
+    connect(m_parser, &TerminalParser::eraseDown, this, &TerminalProxy::onParserEraseDown);
+    connect(m_parser, &TerminalParser::eraseUp, this, &TerminalProxy::onParserEraseUp);
+    connect(m_parser, &TerminalParser::clearLine, this, &TerminalProxy::onParserClearLine);
+    connect(m_parser, &TerminalParser::eraseEndOfLine, this, &TerminalProxy::onParserEraseEndOfLine);
+    connect(m_parser, &TerminalParser::eraseStartOfLine, this, &TerminalProxy::onParserEraseStartOfLine);
+    connect(m_parser, &TerminalParser::backspace, this, &TerminalProxy::onParserBackspace);
+    connect(m_parser, &TerminalParser::scrollUp, this, &TerminalProxy::onParserScrollUp);
+    connect(m_parser, &TerminalParser::scrollDown, this, &TerminalProxy::onParserScrollDown);
+    connect(m_parser, &TerminalParser::insertLines, this, &TerminalProxy::onParserInsertLines);
+    connect(m_parser, &TerminalParser::deleteLines, this, &TerminalProxy::onParserDeleteLines);
+    connect(m_parser, &TerminalParser::setScrollRegion, this, &TerminalProxy::onParserSetScrollRegion);
+    connect(m_parser, &TerminalParser::setMode, this, &TerminalProxy::onParserSetMode);
+    connect(m_parser, &TerminalParser::resetMode, this, &TerminalProxy::onParserResetMode);
+    connect(m_parser, &TerminalParser::setPrivateMode, this, &TerminalProxy::onParserSetPrivateMode);
+    connect(m_parser, &TerminalParser::resetPrivateMode, this, &TerminalProxy::onParserResetPrivateMode);
+    connect(m_parser, &TerminalParser::setAttributes, this, &TerminalProxy::onParserSetAttributes);
+    connect(m_parser, &TerminalParser::resetAttributes, this, &TerminalProxy::onParserResetAttributes);
+    connect(m_parser, &TerminalParser::deviceStatusReport, this, &TerminalProxy::onDeviceStatusReport);
+    connect(m_parser, &TerminalParser::cursorPositionReportRequest, this, &TerminalProxy::onCursorPositionReportRequest);
+    connect(m_parser, &TerminalParser::primaryDeviceAttributes, this, &TerminalProxy::onPrimaryDeviceAttributes);
+    connect(m_parser, &TerminalParser::secondaryDeviceAttributes, this, &TerminalProxy::onSecondaryDeviceAttributes);
     
     TerminalTheme initialTheme = ThemeManager::instance()->currentTerminalTheme();
     m_currentTheme = initialTheme;

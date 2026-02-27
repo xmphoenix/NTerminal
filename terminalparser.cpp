@@ -1,7 +1,7 @@
-#include "vt100parser.h"
+#include "terminalparser.h"
 #include <QDebug>
 
-VT100Parser::VT100Parser(QObject *parent)
+TerminalParser::TerminalParser(QObject *parent)
     : QObject(parent)
     , m_state(StateGround)
     , m_utf8Remaining(0)
@@ -11,11 +11,11 @@ VT100Parser::VT100Parser(QObject *parent)
     resetOsc();
 }
 
-VT100Parser::~VT100Parser()
+TerminalParser::~TerminalParser()
 {
 }
 
-void VT100Parser::processByte(unsigned char ch)
+void TerminalParser::processByte(unsigned char ch)
 {
     if (ch <= 0x1F || ch == 0x7F) {
         switch (ch) {
@@ -75,14 +75,14 @@ void VT100Parser::processByte(unsigned char ch)
     }
 }
 
-void VT100Parser::processData(const QByteArray &data)
+void TerminalParser::processData(const QByteArray &data)
 {
     for (unsigned char ch : data) {
         processByte(ch);
     }
 }
 
-void VT100Parser::groundState(unsigned char ch)
+void TerminalParser::groundState(unsigned char ch)
 {
     if (ch >= 0x20 && ch <= 0x7E) {
         emit textReceived(QString(QChar(ch)));
@@ -105,7 +105,7 @@ void VT100Parser::groundState(unsigned char ch)
     // 其他字符忽略
 }
 
-void VT100Parser::escapeState(unsigned char ch)
+void TerminalParser::escapeState(unsigned char ch)
 {
     if (ch == '[') {
         m_state = StateCsiEntry;
@@ -124,7 +124,7 @@ void VT100Parser::escapeState(unsigned char ch)
     }
 }
 
-void VT100Parser::csiEntryState(unsigned char ch)
+void TerminalParser::csiEntryState(unsigned char ch)
 {
     if (ch == '?') {
         m_privateMode = true;
@@ -153,7 +153,7 @@ void VT100Parser::csiEntryState(unsigned char ch)
     }
 }
 
-void VT100Parser::csiParamState(unsigned char ch)
+void TerminalParser::csiParamState(unsigned char ch)
 {
     if (ch >= 0x30 && ch <= 0x3F) {
         // 参数字符
@@ -182,7 +182,7 @@ void VT100Parser::csiParamState(unsigned char ch)
     }
 }
 
-void VT100Parser::csiIntermediateState(unsigned char ch)
+void TerminalParser::csiIntermediateState(unsigned char ch)
 {
     if (ch >= 0x20 && ch <= 0x2F) {
         // 中间字符继续
@@ -197,7 +197,7 @@ void VT100Parser::csiIntermediateState(unsigned char ch)
     }
 }
 
-void VT100Parser::csiIgnoreState(unsigned char ch)
+void TerminalParser::csiIgnoreState(unsigned char ch)
 {
     if (ch >= 0x40 && ch <= 0x7E) {
         // 命令字符，结束忽略状态
@@ -206,7 +206,7 @@ void VT100Parser::csiIgnoreState(unsigned char ch)
     // 其他字符继续忽略
 }
 
-void VT100Parser::oscStringState(unsigned char ch)
+void TerminalParser::oscStringState(unsigned char ch)
 {
     if (ch == 0x07 || ch == 0x1B) {
         // OSC字符串结束（BEL或ESC）
@@ -221,7 +221,7 @@ void VT100Parser::oscStringState(unsigned char ch)
     }
 }
 
-void VT100Parser::processCsiCommand(unsigned char ch)
+void TerminalParser::processCsiCommand(unsigned char ch)
 {
     // 处理 intermediate 字符
     if (!m_csiIntermediate.isEmpty()) {
@@ -250,13 +250,13 @@ void VT100Parser::processCsiCommand(unsigned char ch)
         case 'D': emit cursorBackward(param1); break;
         case 'H': emit cursorPosition(param1, param2); break;
         case 'J': 
-            qDebug() << "[VT100Parser] CSI命令 'J'，参数:" << param1;
+            qDebug() << "[TerminalParser] CSI命令 'J'，参数:" << param1;
             if (param1 == 0) emit eraseDown(); 
             else if (param1 == 1) emit eraseUp();
             else if (param1 == 2) emit clearScreen();
             break;
         case 'K': 
-            qDebug() << "[VT100Parser] CSI命令 'K'，参数:" << param1;
+            qDebug() << "[TerminalParser] CSI命令 'K'，参数:" << param1;
             if (param1 == 0) emit eraseEndOfLine();
             else if (param1 == 1) emit eraseStartOfLine();
             else if (param1 == 2) emit clearLine();
@@ -273,7 +273,7 @@ void VT100Parser::processCsiCommand(unsigned char ch)
                     if (param == 38 && i + 2 < m_csiParams.size() && m_csiParams[i + 1] == 5) {
                         // 256 色前景色
                         int colorIndex = m_csiParams[i + 2];
-                        qDebug() << "[VT100Parser] 256 color foreground:" << colorIndex;
+                        qDebug() << "[TerminalParser] 256 color foreground:" << colorIndex;
                         i += 2;  // 跳过后续参数
                         continue;
                     }
@@ -281,7 +281,7 @@ void VT100Parser::processCsiCommand(unsigned char ch)
                     if (param == 48 && i + 2 < m_csiParams.size() && m_csiParams[i + 1] == 5) {
                         // 256 色背景色
                         int colorIndex = m_csiParams[i + 2];
-                        qDebug() << "[VT100Parser] 256 color background:" << colorIndex;
+                        qDebug() << "[TerminalParser] 256 color background:" << colorIndex;
                         i += 2;  // 跳过后续参数
                         continue;
                     }
@@ -306,26 +306,26 @@ void VT100Parser::processCsiCommand(unsigned char ch)
             break;
         case 'R': emit cursorPositionReport(param1, param2); break;
         case 'S': 
-            qDebug() << "[VT100Parser] CSI命令 'S' (Scroll Up)，参数:" << param1;
+            qDebug() << "[TerminalParser] CSI命令 'S' (Scroll Up)，参数:" << param1;
             emit scrollUp(param1 > 0 ? param1 : 1);
             break;
         case 'T': 
-            qDebug() << "[VT100Parser] CSI命令 'T' (Scroll Down)，参数:" << param1;
+            qDebug() << "[TerminalParser] CSI命令 'T' (Scroll Down)，参数:" << param1;
             emit scrollDown(param1 > 0 ? param1 : 1);
             break;
         case 'L': 
-            qDebug() << "[VT100Parser] CSI命令 'L' (Insert Lines)，参数:" << param1;
+            qDebug() << "[TerminalParser] CSI命令 'L' (Insert Lines)，参数:" << param1;
             emit insertLines(param1 > 0 ? param1 : 1);
             break;
         case 'M': 
-            qDebug() << "[VT100Parser] CSI命令 'M' (Delete Lines)，参数:" << param1;
+            qDebug() << "[TerminalParser] CSI命令 'M' (Delete Lines)，参数:" << param1;
             emit deleteLines(param1 > 0 ? param1 : 1);
             break;
         case 'r': 
             {
                 int top = param1 > 0 ? param1 : 1;
                 int bottom = param2 > 0 ? param2 : 0;
-                qDebug() << "[VT100Parser] CSI命令 'r' (Set Scroll Region)，参数:" << top << bottom;
+                qDebug() << "[TerminalParser] CSI命令 'r' (Set Scroll Region)，参数:" << top << bottom;
                 emit setScrollRegion(top, bottom);
             }
             break;
@@ -336,26 +336,26 @@ void VT100Parser::processCsiCommand(unsigned char ch)
     }
 }
 
-void VT100Parser::processPrivateCsiCommand(unsigned char ch)
+void TerminalParser::processPrivateCsiCommand(unsigned char ch)
 {
     int param1 = m_csiParams.isEmpty() ? 0 : m_csiParams[0];
     
     switch (ch) {
         case 'h':
-            qDebug() << "[VT100Parser] 私有模式设置 (SM ?) 参数:" << param1;
+            qDebug() << "[TerminalParser] 私有模式设置 (SM ?) 参数:" << param1;
             emit setPrivateMode(param1);
             break;
         case 'l':
-            qDebug() << "[VT100Parser] 私有模式重置 (RM ?) 参数:" << param1;
+            qDebug() << "[TerminalParser] 私有模式重置 (RM ?) 参数:" << param1;
             emit resetPrivateMode(param1);
             break;
         default:
-            qDebug() << "[VT100Parser] 未实现的私有CSI命令:" << ch << "params:" << m_csiParams;
+            qDebug() << "[TerminalParser] 未实现的私有CSI命令:" << ch << "params:" << m_csiParams;
             break;
     }
 }
 
-void VT100Parser::processEscapeCommand(unsigned char ch)
+void TerminalParser::processEscapeCommand(unsigned char ch)
 {
     switch (ch) {
         case 'M': emit cursorUp(); break;
@@ -371,7 +371,7 @@ void VT100Parser::processEscapeCommand(unsigned char ch)
     }
 }
 
-void VT100Parser::processOscCommand()
+void TerminalParser::processOscCommand()
 {
     if (m_oscBuffer.isEmpty()) return;
     
@@ -404,7 +404,7 @@ void VT100Parser::processOscCommand()
     }
 }
 
-void VT100Parser::resetCsi()
+void TerminalParser::resetCsi()
 {
     m_csiParams.clear();
     m_csiIntermediate.clear();
@@ -413,7 +413,7 @@ void VT100Parser::resetCsi()
     m_csiParams.append(0);
 }
 
-void VT100Parser::resetOsc()
+void TerminalParser::resetOsc()
 {
     m_oscBuffer.clear();
 }

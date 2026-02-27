@@ -1,5 +1,5 @@
-#ifndef VT100TESTER_H
-#define VT100TESTER_H
+#ifndef TERMINALTESTER_H
+#define TERMINALTESTER_H
 
 #include <QObject>
 #include <QString>
@@ -31,7 +31,7 @@ class TerminalProxy;
  * - https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
  * - https://en.wikipedia.org/wiki/ANSI_escape_code
  */
-class VT100Tester : public QObject
+class TerminalTester : public QObject
 {
     Q_OBJECT
 
@@ -71,8 +71,8 @@ public:
         int year;
     };
 
-    explicit VT100Tester(QObject *parent = nullptr);
-    ~VT100Tester();
+    explicit TerminalTester(QObject *parent = nullptr);
+    ~TerminalTester();
 
     // 设置要测试的终端代理
     void setTerminal(TerminalProxy *terminal);
@@ -293,4 +293,4 @@ private:
     static QMap<TerminalStandard, StandardInfo> m_standardInfo;
 };
 
-#endif // VT100TESTER_H
+#endif // TERMINALTESTER_H

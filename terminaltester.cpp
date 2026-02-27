@@ -1,4 +1,4 @@
-#include "vt100tester.h"
+#include "terminaltester.h"
 #include "terminalproxy.h"
 #include <QDebug>
 #include <QDateTime>
@@ -6,7 +6,7 @@
 #include <QTimer>
 
 // 初始化标准信息
-QMap<VT100Tester::TerminalStandard, VT100Tester::StandardInfo> VT100Tester::m_standardInfo = {
+QMap<TerminalTester::TerminalStandard, TerminalTester::StandardInfo> TerminalTester::m_standardInfo = {
     {VT100, {"VT100", "DEC VT100 (1978) - Basic ANSI/VT100 support", 1978}},
     {VT102, {"VT102", "DEC VT102 (1978) - VT100 with additional features", 1978}},
     {VT220, {"VT220", "DEC VT220 (1983) - Enhanced character sets and codes", 1983}},
@@ -17,7 +17,7 @@ QMap<VT100Tester::TerminalStandard, VT100Tester::StandardInfo> VT100Tester::m_st
     {ANSI, {"ANSI", "ANSI X3.64 / ECMA-48 - Standard terminal", 1979}}
 };
 
-VT100Tester::VT100Tester(QObject *parent)
+TerminalTester::TerminalTester(QObject *parent)
     : QObject(parent)
     , m_terminal(nullptr)
     , m_savedCursorRow(0)
@@ -32,23 +32,23 @@ VT100Tester::VT100Tester(QObject *parent)
 {
 }
 
-VT100Tester::~VT100Tester()
+TerminalTester::~TerminalTester()
 {
 }
 
-void VT100Tester::setTerminal(TerminalProxy *terminal)
+void TerminalTester::setTerminal(TerminalProxy *terminal)
 {
     m_terminal = terminal;
-    qDebug() << "[VT100Tester] Terminal set:" << (terminal ? "connected" : "disconnected");
+    qDebug() << "[TerminalTester] Terminal set:" << (terminal ? "connected" : "disconnected");
 }
 
-void VT100Tester::setTestStandard(TerminalStandard standard)
+void TerminalTester::setTestStandard(TerminalStandard standard)
 {
     m_testStandard = standard;
-    qDebug() << "[VT100Tester] Test standard set to:" << standardName(standard);
+    qDebug() << "[TerminalTester] Test standard set to:" << standardName(standard);
 }
 
-QString VT100Tester::standardName(TerminalStandard std)
+QString TerminalTester::standardName(TerminalStandard std)
 {
     if (m_standardInfo.contains(std)) {
         return m_standardInfo[std].name;
@@ -56,7 +56,7 @@ QString VT100Tester::standardName(TerminalStandard std)
     return "Unknown";
 }
 
-QString VT100Tester::standardDescription(TerminalStandard std)
+QString TerminalTester::standardDescription(TerminalStandard std)
 {
     if (m_standardInfo.contains(std)) {
         return m_standardInfo[std].description;
@@ -64,7 +64,7 @@ QString VT100Tester::standardDescription(TerminalStandard std)
     return "Unknown standard";
 }
 
-QStringList VT100Tester::standardsSupportingFeature(const QString &feature)
+QStringList TerminalTester::standardsSupportingFeature(const QString &feature)
 {
     // 简化实现，实际应该根据具体功能判断
     QStringList allStandards;
@@ -87,12 +87,12 @@ QStringList VT100Tester::standardsSupportingFeature(const QString &feature)
     return featureMap.value(feature, allStandards);
 }
 
-void VT100Tester::runAllTests()
+void TerminalTester::runAllTests()
 {
     clearReports();
     
-    qDebug() << "[VT100Tester] Starting all tests for standard:" << standardName(m_testStandard);
-    qDebug() << "[VT100Tester] Description:" << standardDescription(m_testStandard);
+    qDebug() << "[TerminalTester] Starting all tests for standard:" << standardName(m_testStandard);
+    qDebug() << "[TerminalTester] Description:" << standardDescription(m_testStandard);
 
     runControlCharacterTests();
     runCursorControlTests();
@@ -106,11 +106,11 @@ void VT100Tester::runAllTests()
     // runKeyboardTests();  // 需要键盘事件支持
     // runMouseTests();     // 需要鼠标事件支持
 
-    qDebug() << "[VT100Tester] All tests completed";
+    qDebug() << "[TerminalTester] All tests completed";
     qDebug() << generateReport();
 }
 
-void VT100Tester::runTestCategory(int index)
+void TerminalTester::runTestCategory(int index)
 {
     const QStringList categories = {
         "control", "cursor", "erase", "scroll", "attribute",
@@ -132,13 +132,13 @@ void VT100Tester::runTestCategory(int index)
     }
 }
 
-void VT100Tester::clearReports()
+void TerminalTester::clearReports()
 {
     m_testReports.clear();
     m_currentCategory.clear();
 }
 
-void VT100Tester::startCategory(const QString &category)
+void TerminalTester::startCategory(const QString &category)
 {
     m_currentCategory = category;
     TestReport report;
@@ -149,7 +149,7 @@ void VT100Tester::startCategory(const QString &category)
     m_testReports.append(report);
 }
 
-void VT100Tester::addTestResult(const QString &category, const QString &testName,
+void TerminalTester::addTestResult(const QString &category, const QString &testName,
                                 bool passed, const QString &description,
                                 const QString &sent, const QString &expected,
                                 const QString &actual,
@@ -182,26 +182,26 @@ void VT100Tester::addTestResult(const QString &category, const QString &testName
     qDebug() << (passed ? "[PASS]" : "[FAIL]") << testName << ":" << description;
 }
 
-void VT100Tester::sendSequence(const QByteArray &sequence)
+void TerminalTester::sendSequence(const QByteArray &sequence)
 {
     if (m_terminal && m_terminal->isConnected()) {
         m_terminal->sendData(sequence);
         emit sequenceSent(sequence);
-        qDebug() << "[VT100Tester] Sent:" << sequence.toHex();
+        qDebug() << "[TerminalTester] Sent:" << sequence.toHex();
     } else {
         emit sequenceSent(sequence);
-        qDebug() << "[VT100Tester] Sequence (no terminal):" << sequence.toHex();
+        qDebug() << "[TerminalTester] Sequence (no terminal):" << sequence.toHex();
     }
 }
 
-void VT100Tester::processEvents(int ms)
+void TerminalTester::processEvents(int ms)
 {
     QEventLoop loop;
     QTimer::singleShot(ms, &loop, &QEventLoop::quit);
     loop.exec();
 }
 
-void VT100Tester::saveState()
+void TerminalTester::saveState()
 {
     if (!m_terminal) return;
     
@@ -215,7 +215,7 @@ void VT100Tester::saveState()
     m_savedScrollBottom = 0;
 }
 
-void VT100Tester::restoreState()
+void TerminalTester::restoreState()
 {
     if (!m_terminal) return;
     
@@ -223,16 +223,16 @@ void VT100Tester::restoreState()
     // resetTerminal();
 }
 
-void VT100Tester::resetTerminal()
+void TerminalTester::resetTerminal()
 {
     if (m_terminal) {
         // 发送 RIS (Reset to Initial State)
-        sendSequence("\x1bc");
+        sendSequence("\x1b" "c");
         processEvents(100);
     }
 }
 
-bool VT100Tester::verifyCursorPosition(int expectedRow, int expectedCol)
+bool TerminalTester::verifyCursorPosition(int expectedRow, int expectedCol)
 {
     // 需要从 TerminalProxy 获取光标位置
     // 这里简化实现
@@ -241,19 +241,19 @@ bool VT100Tester::verifyCursorPosition(int expectedRow, int expectedCol)
     return true;
 }
 
-bool VT100Tester::verifyScreenCleared()
+bool TerminalTester::verifyScreenCleared()
 {
     // 需要检查终端缓冲区是否全为空格
     return true;
 }
 
-bool VT100Tester::verifyLineCleared(int row)
+bool TerminalTester::verifyLineCleared(int row)
 {
     Q_UNUSED(row);
     return true;
 }
 
-bool VT100Tester::verifyCharacterAt(int row, int col, QChar expectedChar)
+bool TerminalTester::verifyCharacterAt(int row, int col, QChar expectedChar)
 {
     Q_UNUSED(row);
     Q_UNUSED(col);
@@ -261,7 +261,7 @@ bool VT100Tester::verifyCharacterAt(int row, int col, QChar expectedChar)
     return true;
 }
 
-bool VT100Tester::verifyAttributeAt(int row, int col, int expectedAttribute)
+bool TerminalTester::verifyAttributeAt(int row, int col, int expectedAttribute)
 {
     Q_UNUSED(row);
     Q_UNUSED(col);
@@ -269,51 +269,51 @@ bool VT100Tester::verifyAttributeAt(int row, int col, int expectedAttribute)
     return true;
 }
 
-bool VT100Tester::verifyAlternateScreen(bool expected)
+bool TerminalTester::verifyAlternateScreen(bool expected)
 {
     Q_UNUSED(expected);
     return true;
 }
 
-bool VT100Tester::verifyScrollRegion(int top, int bottom)
+bool TerminalTester::verifyScrollRegion(int top, int bottom)
 {
     Q_UNUSED(top);
     Q_UNUSED(bottom);
     return true;
 }
 
-bool VT100Tester::verifyInsertMode(bool enabled)
+bool TerminalTester::verifyInsertMode(bool enabled)
 {
     Q_UNUSED(enabled);
     return true;
 }
 
-bool VT100Tester::verifyOriginMode(bool absolute)
+bool TerminalTester::verifyOriginMode(bool absolute)
 {
     Q_UNUSED(absolute);
     return true;
 }
 
-QString VT100Tester::getTerminalState()
+QString TerminalTester::getTerminalState()
 {
     return "State info";
 }
 
-QByteArray VT100Tester::getScreenContent(int startRow, int endRow)
+QByteArray TerminalTester::getScreenContent(int startRow, int endRow)
 {
     Q_UNUSED(startRow);
     Q_UNUSED(endRow);
     return QByteArray();
 }
 
-QString VT100Tester::getCellCharacter(int row, int col)
+QString TerminalTester::getCellCharacter(int row, int col)
 {
     Q_UNUSED(row);
     Q_UNUSED(col);
     return " ";
 }
 
-int VT100Tester::getCellAttribute(int row, int col)
+int TerminalTester::getCellAttribute(int row, int col)
 {
     Q_UNUSED(row);
     Q_UNUSED(col);
@@ -322,7 +322,7 @@ int VT100Tester::getCellAttribute(int row, int col)
 
 // ==================== 控制字符测试 ====================
 
-void VT100Tester::runControlCharacterTests()
+void TerminalTester::runControlCharacterTests()
 {
     startCategory("Control Characters (控制字符)");
     
@@ -340,7 +340,7 @@ void VT100Tester::runControlCharacterTests()
     testESC();
 }
 
-void VT100Tester::testBEL()
+void TerminalTester::testBEL()
 {
     QString testName = "BEL (0x07) - Bell";
     emit testStarted(testName);
@@ -357,7 +357,7 @@ void VT100Tester::testBEL()
                   standardsSupportingFeature("Basic Cursor"));
 }
 
-void VT100Tester::testBS()
+void TerminalTester::testBS()
 {
     QString testName = "BS (0x08) - Backspace";
     emit testStarted(testName);
@@ -377,7 +377,7 @@ void VT100Tester::testBS()
                   standardsSupportingFeature("Basic Cursor"));
 }
 
-void VT100Tester::testHT()
+void TerminalTester::testHT()
 {
     QString testName = "HT (0x09) - Horizontal Tab";
     emit testStarted(testName);
@@ -395,7 +395,7 @@ void VT100Tester::testHT()
                   standardsSupportingFeature("Basic Cursor"));
 }
 
-void VT100Tester::testLF()
+void TerminalTester::testLF()
 {
     QString testName = "LF (0x0A) - Line Feed";
     emit testStarted(testName);
@@ -413,7 +413,7 @@ void VT100Tester::testLF()
                   standardsSupportingFeature("Basic Cursor"));
 }
 
-void VT100Tester::testVT()
+void TerminalTester::testVT()
 {
     QString testName = "VT (0x0B) - Vertical Tab";
     emit testStarted(testName);
@@ -431,7 +431,7 @@ void VT100Tester::testVT()
                   {"VT100", "VT102", "VT220", "VT320", "Linux", "Xterm"});
 }
 
-void VT100Tester::testFF()
+void TerminalTester::testFF()
 {
     QString testName = "FF (0x0C) - Form Feed";
     emit testStarted(testName);
@@ -449,7 +449,7 @@ void VT100Tester::testFF()
                   {"VT100", "VT102", "VT220", "VT320", "Linux", "Xterm"});
 }
 
-void VT100Tester::testCR()
+void TerminalTester::testCR()
 {
     QString testName = "CR (0x0D) - Carriage Return";
     emit testStarted(testName);
@@ -467,7 +467,7 @@ void VT100Tester::testCR()
                   standardsSupportingFeature("Basic Cursor"));
 }
 
-void VT100Tester::testDEL()
+void TerminalTester::testDEL()
 {
     QString testName = "DEL (0x7F) - Delete";
     emit testStarted(testName);
@@ -484,7 +484,7 @@ void VT100Tester::testDEL()
                   standardsSupportingFeature("Basic Cursor"));
 }
 
-void VT100Tester::testSO()
+void TerminalTester::testSO()
 {
     QString testName = "SO (0x0E) - Shift Out";
     emit testStarted(testName);
@@ -500,7 +500,7 @@ void VT100Tester::testSO()
                   {"VT100", "VT102", "VT220", "VT320", "Linux", "Xterm"});
 }
 
-void VT100Tester::testSI()
+void TerminalTester::testSI()
 {
     QString testName = "SI (0x0F) - Shift In";
     emit testStarted(testName);
@@ -516,7 +516,7 @@ void VT100Tester::testSI()
                   {"VT100", "VT102", "VT220", "VT320", "Linux", "Xterm"});
 }
 
-void VT100Tester::testCAN()
+void TerminalTester::testCAN()
 {
     QString testName = "CAN (0x18) - Cancel";
     emit testStarted(testName);
@@ -533,7 +533,7 @@ void VT100Tester::testCAN()
                   {"VT100", "VT102", "VT220", "VT320", "Linux", "Xterm"});
 }
 
-void VT100Tester::testESC()
+void TerminalTester::testESC()
 {
     QString testName = "ESC (0x1B) - Escape";
     emit testStarted(testName);
@@ -551,7 +551,7 @@ void VT100Tester::testESC()
 
 // ==================== 光标控制测试 ====================
 
-void VT100Tester::runCursorControlTests()
+void TerminalTester::runCursorControlTests()
 {
     startCategory("Cursor Control (光标控制)");
     
@@ -566,7 +566,7 @@ void VT100Tester::runCursorControlTests()
     testSaveCursorSGR();
 }
 
-void VT100Tester::testCursorUp()
+void TerminalTester::testCursorUp()
 {
     QString testName = "Cursor Up (ESC[nA)";
     emit testStarted(testName);
@@ -583,7 +583,7 @@ void VT100Tester::testCursorUp()
                   standardsSupportingFeature("Basic Cursor"));
 }
 
-void VT100Tester::testCursorDown()
+void TerminalTester::testCursorDown()
 {
     QString testName = "Cursor Down (ESC[nB)";
     emit testStarted(testName);
@@ -600,7 +600,7 @@ void VT100Tester::testCursorDown()
                   standardsSupportingFeature("Basic Cursor"));
 }
 
-void VT100Tester::testCursorForward()
+void TerminalTester::testCursorForward()
 {
     QString testName = "Cursor Forward (ESC[nC)";
     emit testStarted(testName);
@@ -617,7 +617,7 @@ void VT100Tester::testCursorForward()
                   standardsSupportingFeature("Basic Cursor"));
 }
 
-void VT100Tester::testCursorBackward()
+void TerminalTester::testCursorBackward()
 {
     QString testName = "Cursor Backward (ESC[nD)";
     emit testStarted(testName);
@@ -634,7 +634,7 @@ void VT100Tester::testCursorBackward()
                   standardsSupportingFeature("Basic Cursor"));
 }
 
-void VT100Tester::testCursorPosition()
+void TerminalTester::testCursorPosition()
 {
     QString testName = "Cursor Position (ESC[row;colH)";
     emit testStarted(testName);
@@ -650,7 +650,7 @@ void VT100Tester::testCursorPosition()
                   standardsSupportingFeature("Basic Cursor"));
 }
 
-void VT100Tester::testCursorHome()
+void TerminalTester::testCursorHome()
 {
     QString testName = "Cursor Home (ESC[H)";
     emit testStarted(testName);
@@ -667,26 +667,26 @@ void VT100Tester::testCursorHome()
                   standardsSupportingFeature("Basic Cursor"));
 }
 
-void VT100Tester::testSaveCursor()
+void TerminalTester::testSaveCursor()
 {
     QString testName = "Cursor Save (ESC7)";
     emit testStarted(testName);
-    
+
     saveState();
     sendSequence("\x1b[15;30H");  // 移动到 (15, 30)
-    sendSequence("\x1b7");         // 保存光标
+    sendSequence("\x1b" "7");         // 保存光标
     sendSequence("\x1b[H");        // 移动光标到 home
-    sendSequence("\x1b8");         // 恢复光标
+    sendSequence("\x1b" "8");         // 恢复光标
     processEvents(50);
     restoreState();
-    
+
     addTestResult(m_currentCategory, testName, true,
                   "Save and restore cursor position (DECSC/DECRC)",
                   "ESC7 / ESC8", "Cursor restored to (15, 30)", "Cursor restored to (15, 30)",
                   {"VT100", "VT102", "VT220", "VT320", "Linux", "Xterm"});
 }
 
-void VT100Tester::testRestoreCursor()
+void TerminalTester::testRestoreCursor()
 {
     QString testName = "Cursor Restore (ESC8)";
     emit testStarted(testName);
@@ -698,7 +698,7 @@ void VT100Tester::testRestoreCursor()
                   {"VT100", "VT102", "VT220", "VT320", "Linux", "Xterm"});
 }
 
-void VT100Tester::testSaveCursorSGR()
+void TerminalTester::testSaveCursorSGR()
 {
     QString testName = "Save Cursor with SGR (ESC[?1049h/l)";
     emit testStarted(testName);
@@ -723,7 +723,7 @@ void VT100Tester::testSaveCursorSGR()
 
 // ==================== 擦除操作测试 ====================
 
-void VT100Tester::runEraseTests()
+void TerminalTester::runEraseTests()
 {
     startCategory("Erase Operations (擦除操作)");
     
@@ -735,7 +735,7 @@ void VT100Tester::runEraseTests()
     testEraseChars();
 }
 
-void VT100Tester::testEraseDisplay()
+void TerminalTester::testEraseDisplay()
 {
     QString testName = "Erase Display (ESC[nJ)";
     emit testStarted(testName);
@@ -755,7 +755,7 @@ void VT100Tester::testEraseDisplay()
                   standardsSupportingFeature("Basic Cursor"));
 }
 
-void VT100Tester::testEraseLine()
+void TerminalTester::testEraseLine()
 {
     QString testName = "Erase Line (ESC[nK)";
     emit testStarted(testName);
@@ -779,7 +779,7 @@ void VT100Tester::testEraseLine()
                   standardsSupportingFeature("Basic Cursor"));
 }
 
-void VT100Tester::testInsertLines()
+void TerminalTester::testInsertLines()
 {
     QString testName = "Insert Lines (ESC[nL)";
     emit testStarted(testName);
@@ -796,7 +796,7 @@ void VT100Tester::testInsertLines()
                   standardsSupportingFeature("Scroll Region"));
 }
 
-void VT100Tester::testDeleteLines()
+void TerminalTester::testDeleteLines()
 {
     QString testName = "Delete Lines (ESC[nM)";
     emit testStarted(testName);
@@ -813,7 +813,7 @@ void VT100Tester::testDeleteLines()
                   standardsSupportingFeature("Scroll Region"));
 }
 
-void VT100Tester::testDeleteChars()
+void TerminalTester::testDeleteChars()
 {
     QString testName = "Delete Characters (ESC[nP)";
     emit testStarted(testName);
@@ -832,7 +832,7 @@ void VT100Tester::testDeleteChars()
                   {"VT220", "VT320", "Linux", "Xterm"});
 }
 
-void VT100Tester::testEraseChars()
+void TerminalTester::testEraseChars()
 {
     QString testName = "Erase Characters (ESC[nX)";
     emit testStarted(testName);
@@ -853,7 +853,7 @@ void VT100Tester::testEraseChars()
 
 // ==================== 滚动测试 ====================
 
-void VT100Tester::runScrollTests()
+void TerminalTester::runScrollTests()
 {
     startCategory("Scroll Operations (滚动操作)");
     
@@ -862,7 +862,7 @@ void VT100Tester::runScrollTests()
     testScrollRegion();
 }
 
-void VT100Tester::testScrollUp()
+void TerminalTester::testScrollUp()
 {
     QString testName = "Scroll Up (ESC[nS)";
     emit testStarted(testName);
@@ -878,7 +878,7 @@ void VT100Tester::testScrollUp()
                   standardsSupportingFeature("Scroll Region"));
 }
 
-void VT100Tester::testScrollDown()
+void TerminalTester::testScrollDown()
 {
     QString testName = "Scroll Down (ESC[nT)";
     emit testStarted(testName);
@@ -894,7 +894,7 @@ void VT100Tester::testScrollDown()
                   standardsSupportingFeature("Scroll Region"));
 }
 
-void VT100Tester::testScrollRegion()
+void TerminalTester::testScrollRegion()
 {
     QString testName = "Scroll Region (ESC[top;bottomr)";
     emit testStarted(testName);
@@ -915,7 +915,7 @@ void VT100Tester::testScrollRegion()
 
 // ==================== 字符属性测试 ====================
 
-void VT100Tester::runAttributeTests()
+void TerminalTester::runAttributeTests()
 {
     startCategory("Character Attributes (字符属性)");
     
@@ -925,7 +925,7 @@ void VT100Tester::runAttributeTests()
     testDefaultColors();
 }
 
-void VT100Tester::testSGR()
+void TerminalTester::testSGR()
 {
     QString testName = "SGR Attributes (ESC[nm)";
     emit testStarted(testName);
@@ -947,7 +947,7 @@ void VT100Tester::testSGR()
                   standardsSupportingFeature("Basic Cursor"));
 }
 
-void VT100Tester::testSGRColors()
+void TerminalTester::testSGRColors()
 {
     QString testName = "SGR Colors (16 colors)";
     emit testStarted(testName);
@@ -968,7 +968,7 @@ void VT100Tester::testSGRColors()
                   standardsSupportingFeature("Colors 16"));
 }
 
-void VT100Tester::testSGR256Color()
+void TerminalTester::testSGR256Color()
 {
     QString testName = "SGR 256 Colors";
     emit testStarted(testName);
@@ -990,7 +990,7 @@ void VT100Tester::testSGR256Color()
                   {"Linux", "Xterm"});
 }
 
-void VT100Tester::testDefaultColors()
+void TerminalTester::testDefaultColors()
 {
     QString testName = "Default Colors (ESC[39m/ESC[49m)";
     emit testStarted(testName);
@@ -1011,7 +1011,7 @@ void VT100Tester::testDefaultColors()
 
 // ==================== 模式测试 ====================
 
-void VT100Tester::runModeTests()
+void TerminalTester::runModeTests()
 {
     startCategory("Mode Control (模式控制)");
     
@@ -1021,7 +1021,7 @@ void VT100Tester::runModeTests()
     testAlternateScreen();
 }
 
-void VT100Tester::testSetMode()
+void TerminalTester::testSetMode()
 {
     QString testName = "Set Mode (ESC[nh)";
     emit testStarted(testName);
@@ -1040,7 +1040,7 @@ void VT100Tester::testSetMode()
                   standardsSupportingFeature("Basic Cursor"));
 }
 
-void VT100Tester::testResetMode()
+void TerminalTester::testResetMode()
 {
     QString testName = "Reset Mode (ESC[nl)";
     emit testStarted(testName);
@@ -1059,7 +1059,7 @@ void VT100Tester::testResetMode()
                   standardsSupportingFeature("Basic Cursor"));
 }
 
-void VT100Tester::testPrivateMode()
+void TerminalTester::testPrivateMode()
 {
     QString testName = "Private Mode (ESC[?nh/ESC[?nl)";
     emit testStarted(testName);
@@ -1080,7 +1080,7 @@ void VT100Tester::testPrivateMode()
                   {"VT100", "VT102", "VT220", "VT320", "Linux", "Xterm"});
 }
 
-void VT100Tester::testAlternateScreen()
+void TerminalTester::testAlternateScreen()
 {
     QString testName = "Alternate Screen (ESC[?1049h/l)";
     emit testStarted(testName);
@@ -1109,7 +1109,7 @@ void VT100Tester::testAlternateScreen()
 
 // ==================== 终端报告测试 ====================
 
-void VT100Tester::runReportTests()
+void TerminalTester::runReportTests()
 {
     startCategory("Device Reports (设备报告)");
     
@@ -1119,7 +1119,7 @@ void VT100Tester::runReportTests()
     testSecondaryDA();
 }
 
-void VT100Tester::testDeviceStatus()
+void TerminalTester::testDeviceStatus()
 {
     QString testName = "Device Status (ESC[5n)";
     emit testStarted(testName);
@@ -1136,7 +1136,7 @@ void VT100Tester::testDeviceStatus()
                   standardsSupportingFeature("Basic Cursor"));
 }
 
-void VT100Tester::testCursorPositionReport()
+void TerminalTester::testCursorPositionReport()
 {
     QString testName = "Cursor Position Report (ESC[6n)";
     emit testStarted(testName);
@@ -1153,7 +1153,7 @@ void VT100Tester::testCursorPositionReport()
                   standardsSupportingFeature("Basic Cursor"));
 }
 
-void VT100Tester::testPrimaryDA()
+void TerminalTester::testPrimaryDA()
 {
     QString testName = "Primary Device Attributes (ESC[c)";
     emit testStarted(testName);
@@ -1171,7 +1171,7 @@ void VT100Tester::testPrimaryDA()
                   standardsSupportingFeature("Basic Cursor"));
 }
 
-void VT100Tester::testSecondaryDA()
+void TerminalTester::testSecondaryDA()
 {
     QString testName = "Secondary Device Attributes (ESC[>0c)";
     emit testStarted(testName);
@@ -1190,7 +1190,7 @@ void VT100Tester::testSecondaryDA()
 
 // ==================== 字符集测试 ====================
 
-void VT100Tester::runCharsetTests()
+void TerminalTester::runCharsetTests()
 {
     startCategory("Character Sets (字符集)");
     
@@ -1198,7 +1198,7 @@ void VT100Tester::runCharsetTests()
     testLineDrawing();
 }
 
-void VT100Tester::testCharsets()
+void TerminalTester::testCharsets()
 {
     QString testName = "Character Set Selection";
     emit testStarted(testName);
@@ -1218,7 +1218,7 @@ void VT100Tester::testCharsets()
                   {"VT100", "VT102", "VT220", "VT320", "Linux", "Xterm"});
 }
 
-void VT100Tester::testLineDrawing()
+void TerminalTester::testLineDrawing()
 {
     QString testName = "Line Drawing Characters";
     emit testStarted(testName);
@@ -1241,7 +1241,7 @@ void VT100Tester::testLineDrawing()
 
 // ==================== 窗口操作测试 ====================
 
-void VT100Tester::runWindowTests()
+void TerminalTester::runWindowTests()
 {
     startCategory("Window Operations (窗口操作)");
     
@@ -1249,7 +1249,7 @@ void VT100Tester::runWindowTests()
     testIconTitle();
 }
 
-void VT100Tester::testWindowTitle()
+void TerminalTester::testWindowTitle()
 {
     QString testName = "Window Title (ESC]0;titleBEL)";
     emit testStarted(testName);
@@ -1267,7 +1267,7 @@ void VT100Tester::testWindowTitle()
                   {"Xterm"});
 }
 
-void VT100Tester::testIconTitle()
+void TerminalTester::testIconTitle()
 {
     QString testName = "Icon Title (ESC]1;titleBEL)";
     emit testStarted(testName);
@@ -1287,7 +1287,7 @@ void VT100Tester::testIconTitle()
 
 // ==================== 报告生成 ====================
 
-QString VT100Tester::generateReport() const
+QString TerminalTester::generateReport() const
 {
     QString report;
     report += "===========================================\n";
@@ -1343,7 +1343,7 @@ QString VT100Tester::generateReport() const
     return report;
 }
 
-QString VT100Tester::generateHtmlReport() const
+QString TerminalTester::generateHtmlReport() const
 {
     QString html;
     html += "<!DOCTYPE html>\n<html>\n<head>\n";

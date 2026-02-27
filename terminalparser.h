@@ -1,10 +1,10 @@
-#ifndef VT100PARSER_H
-#define VT100PARSER_H
+#ifndef TERMINALPARSER_H
+#define TERMINALPARSER_H
 
 #include <QObject>
 #include <QVector>
 
-class VT100Parser : public QObject
+class TerminalParser : public QObject
 {
     Q_OBJECT
 
@@ -26,8 +26,8 @@ public:
         StateUtf8
     };
 
-    explicit VT100Parser(QObject *parent = nullptr);
-    ~VT100Parser();
+    explicit TerminalParser(QObject *parent = nullptr);
+    ~TerminalParser();
 
     void processByte(unsigned char ch);
     void processData(const QByteArray &data);
@@ -121,4 +121,4 @@ private:
     bool m_privateMode;
 };
 
-#endif // VT100PARSER_H
+#endif // TERMINALPARSER_H

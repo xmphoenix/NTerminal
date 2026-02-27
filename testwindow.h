@@ -9,7 +9,7 @@
 #include <QTabWidget>
 #include <QLabel>
 #include <QComboBox>
-#include "vt100tester.h"
+#include "terminaltester.h"
 
 class TerminalProxy;
 
@@ -41,7 +41,7 @@ private:
     void updateSummary();
     void updateStandardInfo();
 
-    VT100Tester *m_tester;
+    TerminalTester *m_tester;
 
     // UI 组件
     QWidget *m_centralWidget;

@@ -6,7 +6,7 @@
 
 TestWindow::TestWindow(QWidget *parent)
     : QMainWindow(parent)
-    , m_tester(new VT100Tester(this))
+    , m_tester(new TerminalTester(this))
     , m_centralWidget(new QWidget(this))
     , m_mainLayout(new QVBoxLayout(m_centralWidget))
     , m_tabWidget(new QTabWidget(this))
@@ -28,22 +28,22 @@ TestWindow::TestWindow(QWidget *parent)
     resize(1200, 800);
     
     // 初始化终端标准选择
-    m_standardCombo->addItem("VT100 (1978) - Basic ANSI/VT100", VT100Tester::VT100);
-    m_standardCombo->addItem("VT102 (1978) - VT100 with additional features", VT100Tester::VT102);
-    m_standardCombo->addItem("VT220 (1983) - Enhanced character sets and codes", VT100Tester::VT220);
-    m_standardCombo->addItem("VT320 (1987) - Additional editing features", VT100Tester::VT320);
-    m_standardCombo->addItem("Linux console - Extended colors and Unicode", VT100Tester::Linux);
-    m_standardCombo->addItem("xterm - X Terminal Emulator (extensive features)", VT100Tester::XTerm);
-    m_standardCombo->addItem("SCOANSI - SCO Unix console", VT100Tester::SCOANSI);
-    m_standardCombo->addItem("ANSI X3.64 / ECMA-48 - Standard terminal", VT100Tester::ANSI);
+    m_standardCombo->addItem("VT100 (1978) - Basic ANSI/VT100", TerminalTester::VT100);
+    m_standardCombo->addItem("VT102 (1978) - VT100 with additional features", TerminalTester::VT102);
+    m_standardCombo->addItem("VT220 (1983) - Enhanced character sets and codes", TerminalTester::VT220);
+    m_standardCombo->addItem("VT320 (1987) - Additional editing features", TerminalTester::VT320);
+    m_standardCombo->addItem("Linux console - Extended colors and Unicode", TerminalTester::Linux);
+    m_standardCombo->addItem("xterm - X Terminal Emulator (extensive features)", TerminalTester::XTerm);
+    m_standardCombo->addItem("SCOANSI - SCO Unix console", TerminalTester::SCOANSI);
+    m_standardCombo->addItem("ANSI X3.64 / ECMA-48 - Standard terminal", TerminalTester::ANSI);
     m_standardCombo->setCurrentIndex(0);
     
     // 连接信号
-    connect(m_tester, &VT100Tester::testStarted,
+    connect(m_tester, &TerminalTester::testStarted,
             this, &TestWindow::onTestStarted);
-    connect(m_tester, &VT100Tester::testCompleted,
+    connect(m_tester, &TerminalTester::testCompleted,
             this, &TestWindow::onTestCompleted);
-    connect(m_tester, &VT100Tester::sequenceSent,
+    connect(m_tester, &TerminalTester::sequenceSent,
             this, &TestWindow::onSequenceSent);
     connect(m_runButton, &QPushButton::clicked,
             this, &TestWindow::runAllTests);
@@ -51,7 +51,7 @@ TestWindow::TestWindow(QWidget *parent)
             this, &TestWindow::exportHtmlReport);
     connect(m_standardCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             [this](int index) {
-                VT100Tester::TerminalStandard std = static_cast<VT100Tester::TerminalStandard>(
+                TerminalTester::TerminalStandard std = static_cast<TerminalTester::TerminalStandard>(
                     m_standardCombo->itemData(index).toInt());
                 m_tester->setTestStandard(std);
                 updateStandardInfo();
@@ -127,14 +127,14 @@ void TestWindow::runAllTests()
     m_passedCount = 0;
     m_failedCount = 0;
     
-    VT100Tester::TerminalStandard std = static_cast<VT100Tester::TerminalStandard>(
+    TerminalTester::TerminalStandard std = static_cast<TerminalTester::TerminalStandard>(
         m_standardCombo->currentData().toInt());
     
     m_logEdit->append("===========================================\n");
     m_logEdit->append("     NTerminal Emulation Test\n");
     m_logEdit->append("===========================================\n");
-    m_logEdit->append("Standard: " + VT100Tester::standardName(std) + "\n");
-    m_logEdit->append("Description: " + VT100Tester::standardDescription(std) + "\n");
+    m_logEdit->append("Standard: " + TerminalTester::standardName(std) + "\n");
+    m_logEdit->append("Description: " + TerminalTester::standardDescription(std) + "\n");
     m_logEdit->append("Started: " + QDateTime::currentDateTime().toString() + "\n\n");
     
     if (m_currentTerminal) {
@@ -223,13 +223,13 @@ void TestWindow::updateSummary()
 
 void TestWindow::updateStandardInfo()
 {
-    VT100Tester::TerminalStandard std = static_cast<VT100Tester::TerminalStandard>(
+    TerminalTester::TerminalStandard std = static_cast<TerminalTester::TerminalStandard>(
         m_standardCombo->currentData().toInt());
     
     m_standardLabel->setText(
         QString("<b>%1</b> - %2")
-            .arg(VT100Tester::standardName(std))
-            .arg(VT100Tester::standardDescription(std))
+            .arg(TerminalTester::standardName(std))
+            .arg(TerminalTester::standardDescription(std))
     );
 }
 
