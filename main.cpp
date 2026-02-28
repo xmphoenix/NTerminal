@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "session/sessionprocess.h"
 #include "thememanager.h"
+#include "fontmanager.h"
 #include "testwindow.h"
 
 #include <QApplication>
@@ -67,6 +68,7 @@ int main(int argc, char *argv[])
         qDebug() << "[GUI] Starting GUI application";
 
         ThemeManager::instance()->initialize();
+        FontManager::instance()->initialize();
 
         QTranslator translator;
         const QStringList uiLanguages = QLocale::system().uiLanguages();

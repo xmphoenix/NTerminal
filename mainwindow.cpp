@@ -3,6 +3,7 @@
 #include "connectiondialog.h"
 #include "sessionmanager.h"
 #include "thememanager.h"
+#include "fontmanager.h"
 #include "themesettingsdialog.h"
 #include "testwindow.h"
 #include <QSplitter>
@@ -465,6 +466,9 @@ void MainWindow::applyTerminalTheme(TerminalProxy *terminal)
     if (terminal) {
         TerminalTheme theme = ThemeManager::instance()->currentTerminalTheme();
         terminal->setTheme(theme);
+
+        QFont font = FontManager::instance()->currentFont();
+        terminal->setFont(font);
     }
 }
 

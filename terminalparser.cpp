@@ -268,12 +268,13 @@ void TerminalParser::processCsiCommand(unsigned char ch)
                 // 处理 256 色模式
                 for (int i = 0; i < m_csiParams.size(); ++i) {
                     int param = m_csiParams[i];
-                    
+
                     // ESC[38;5;n m - 前景色 256 色
                     if (param == 38 && i + 2 < m_csiParams.size() && m_csiParams[i + 1] == 5) {
                         // 256 色前景色
                         int colorIndex = m_csiParams[i + 2];
                         qDebug() << "[TerminalParser] 256 color foreground:" << colorIndex;
+                        emit setForegroundColor256(colorIndex);
                         i += 2;  // 跳过后续参数
                         continue;
                     }
@@ -282,7 +283,26 @@ void TerminalParser::processCsiCommand(unsigned char ch)
                         // 256 色背景色
                         int colorIndex = m_csiParams[i + 2];
                         qDebug() << "[TerminalParser] 256 color background:" << colorIndex;
+                        emit setBackgroundColor256(colorIndex);
                         i += 2;  // 跳过后续参数
+                        continue;
+                    }
+                    // ESC[38;2;r;g;b m - 前景色 RGB 真彩色
+                    if (param == 38 && i + 4 < m_csiParams.size() && m_csiParams[i + 1] == 2) {
+                        int r = m_csiParams[i + 2];
+                        int g = m_csiParams[i + 3];
+                        int b = m_csiParams[i + 4];
+                        qDebug() << "[TerminalParser] True color foreground:" << r << g << b;
+                        i += 4;  // 跳过后续参数
+                        continue;
+                    }
+                    // ESC[48;2;r;g;b m - 背景色 RGB 真彩色
+                    if (param == 48 && i + 4 < m_csiParams.size() && m_csiParams[i + 1] == 2) {
+                        int r = m_csiParams[i + 2];
+                        int g = m_csiParams[i + 3];
+                        int b = m_csiParams[i + 4];
+                        qDebug() << "[TerminalParser] True color background:" << r << g << b;
+                        i += 4;  // 跳过后续参数
                         continue;
                     }
                 }

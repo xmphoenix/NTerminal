@@ -68,13 +68,14 @@ TerminalProxy::TerminalProxy(QWidget *parent)
     setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     viewport()->setMouseTracking(true);
-    
-    QFont font("Microsoft YaHei Mono", 10);
-    font.setStyleHint(QFont::Monospace);
-    QFontMetrics fm(font);
-    m_charWidth = fm.horizontalAdvance('W');
-    m_charHeight = fm.height();
-    
+
+    // 初始化字体
+    FontManager *fm = FontManager::instance();
+    m_currentFont = fm->currentFont();
+    QFontMetrics fmetrics(m_currentFont);
+    m_charWidth = fmetrics.horizontalAdvance('W');
+    m_charHeight = fmetrics.height();
+
     connect(m_parser, &TerminalParser::textReceived, this, &TerminalProxy::onParserTextReceived);
     connect(m_parser, &TerminalParser::cursorUp, this, &TerminalProxy::onParserCursorUp);
     connect(m_parser, &TerminalParser::cursorDown, this, &TerminalProxy::onParserCursorDown);
@@ -101,6 +102,8 @@ TerminalProxy::TerminalProxy(QWidget *parent)
     connect(m_parser, &TerminalParser::resetPrivateMode, this, &TerminalProxy::onParserResetPrivateMode);
     connect(m_parser, &TerminalParser::setAttributes, this, &TerminalProxy::onParserSetAttributes);
     connect(m_parser, &TerminalParser::resetAttributes, this, &TerminalProxy::onParserResetAttributes);
+    connect(m_parser, &TerminalParser::setForegroundColor256, this, &TerminalProxy::onParserSetForegroundColor256);
+    connect(m_parser, &TerminalParser::setBackgroundColor256, this, &TerminalProxy::onParserSetBackgroundColor256);
     connect(m_parser, &TerminalParser::deviceStatusReport, this, &TerminalProxy::onDeviceStatusReport);
     connect(m_parser, &TerminalParser::cursorPositionReportRequest, this, &TerminalProxy::onCursorPositionReportRequest);
     connect(m_parser, &TerminalParser::primaryDeviceAttributes, this, &TerminalProxy::onPrimaryDeviceAttributes);
@@ -299,13 +302,9 @@ void TerminalProxy::paintEvent(QPaintEvent *event)
     QPainter painter(viewport());
     painter.fillRect(viewport()->rect(), m_defaultBackground);
 
-    QFont font("Microsoft YaHei Mono", 10);
-    font.setStyleHint(QFont::Monospace);
-    painter.setFont(font);
+    painter.setFont(m_currentFont);
 
-    QFontMetrics fm(font);
-    m_charWidth = fm.horizontalAdvance('W');
-    m_charHeight = fm.height();
+    QFontMetrics fmetrics(m_currentFont);
 
     int topLine = 0;
     if (!m_useAlternateScreen) {
@@ -355,7 +354,7 @@ void TerminalProxy::paintEvent(QPaintEvent *event)
             }
         }
 
-        int y = i * m_charHeight + fm.ascent();
+        int y = i * m_charHeight + fmetrics.ascent();
 
         for (int j = 0; j < visibleColumns; ++j) {
             int col = leftColumn + j;
@@ -413,26 +412,24 @@ void TerminalProxy::showEvent(QShowEvent *event)
 {
     QAbstractScrollArea::showEvent(event);
     
-    QFont font("Microsoft YaHei Mono", 10);
-    font.setStyleHint(QFont::Monospace);
-    QFontMetrics fm(font);
+    QFontMetrics fm(m_currentFont);
     m_charWidth = fm.horizontalAdvance('W');
     m_charHeight = fm.height();
-    
+
     int rows = viewport()->height() / m_charHeight;
     int cols = viewport()->width() / m_charWidth;
-    
+
     if (rows > 0 && cols > 0) {
         m_terminalRows = rows;
         m_columns = cols;
         allocateBuffers();
         updateScrollBars();
-        
+
         if (m_isConnected) {
             sendTerminalSize();
         }
     }
-    
+
     qDebug() << "[TerminalProxy] showEvent: terminalRows=" << m_terminalRows
              << "columns=" << m_columns
              << "charWidth=" << m_charWidth
@@ -443,26 +440,24 @@ void TerminalProxy::showEvent(QShowEvent *event)
 void TerminalProxy::resizeEvent(QResizeEvent *event)
 {
     Q_UNUSED(event);
-    
-    QFont font("Microsoft YaHei Mono", 10);
-    font.setStyleHint(QFont::Monospace);
-    QFontMetrics fm(font);
+
+    QFontMetrics fm(m_currentFont);
     m_charWidth = fm.horizontalAdvance('W');
     m_charHeight = fm.height();
-    
+
     int rows = viewport()->height() / m_charHeight;
     int cols = viewport()->width() / m_charWidth;
-    
+
     if (rows > 0 && cols > 0 && (rows != m_terminalRows || cols != m_columns)) {
         m_terminalRows = rows;
         m_columns = cols;
         allocateBuffers();
     }
-    
+
     updateScrollBars();
     sendTerminalSize();
     viewport()->update();
-    
+
     qDebug() << "[TerminalProxy] resizeEvent: terminalRows=" << m_terminalRows
              << "columns=" << m_columns
              << "viewportSize=" << viewport()->size();
@@ -1129,8 +1124,8 @@ void TerminalProxy::onParserSetAttributes(const QVector<int> &params)
             m_currentBackground = ansiColorToQColor(code - 40, false);
         } else if (code >= 100 && code <= 107) {
             m_currentBackground = ansiColorToQColor(code - 100, true);
-        } else if (code == 38 || code == 48) {
         }
+        // 注意：38;5;n 和 48;5;n 由专门的信号处理，这里不再处理
     }
 }
 
@@ -1139,6 +1134,18 @@ void TerminalProxy::onParserResetAttributes()
     m_currentForeground = m_defaultForeground;
     m_currentBackground = m_defaultBackground;
     m_currentAttributes = Normal;
+}
+
+void TerminalProxy::onParserSetForegroundColor256(int colorIndex)
+{
+    qDebug() << "[TerminalProxy] Setting 256 color foreground:" << colorIndex;
+    m_currentForeground = ansi256ColorToQColor(colorIndex);
+}
+
+void TerminalProxy::onParserSetBackgroundColor256(int colorIndex)
+{
+    qDebug() << "[TerminalProxy] Setting 256 color background:" << colorIndex;
+    m_currentBackground = ansi256ColorToQColor(colorIndex);
 }
 
 void TerminalProxy::onDeviceStatusReport()
@@ -1599,12 +1606,16 @@ static QColor ansi256ColorToQColor(int code)
     } else if (code < 16) {
         return ansiColorToQColor(code - 8, true);
     } else if (code < 232) {
+        // 6x6x6 color cube (codes 16-231)
+        // Each RGB component can be: 0, 95, 135, 175, 215, 255
+        static const int colorValues[6] = {0, 95, 135, 175, 215, 255};
         int n = code - 16;
-        int r = (n / 36) ? (n / 36) * 40 + 55 : 0;
-        int g = ((n % 36) / 6) ? ((n % 36) / 6) * 40 + 55 : 0;
-        int b = (n % 6) ? (n % 6) * 40 + 55 : 0;
+        int r = colorValues[(n / 36) % 6];
+        int g = colorValues[(n / 6) % 6];
+        int b = colorValues[n % 6];
         return QColor(r, g, b);
     } else {
+        // Grayscale (codes 232-255)
         int gray = (code - 232) * 10 + 8;
         return QColor(gray, gray, gray);
     }
@@ -1617,13 +1628,35 @@ void TerminalProxy::setTheme(const TerminalTheme &theme)
     m_defaultBackground = theme.defaultBackground;
     m_currentForeground = theme.defaultForeground;
     m_currentBackground = theme.defaultBackground;
-    
+
     viewport()->setAutoFillBackground(true);
     QPalette pal = viewport()->palette();
     pal.setColor(QPalette::Window, theme.defaultBackground);
     pal.setColor(QPalette::Base, theme.defaultBackground);
     viewport()->setPalette(pal);
     viewport()->setStyleSheet(QString("background-color: %1;").arg(theme.defaultBackground.name()));
-    
+
+    viewport()->update();
+}
+
+void TerminalProxy::setFont(const QFont &font)
+{
+    m_currentFont = font;
+    QFontMetrics fmetrics(m_currentFont);
+    m_charWidth = fmetrics.horizontalAdvance('W');
+    m_charHeight = fmetrics.height();
+
+    // 重新计算终端行列数
+    int newCols = viewport()->width() / m_charWidth;
+    int newRows = viewport()->height() / m_charHeight;
+
+    if (newCols > 0 && newRows > 0 && (newCols != m_columns || newRows != m_terminalRows)) {
+        m_columns = newCols;
+        m_terminalRows = newRows;
+        allocateBuffers();
+    }
+
+    updateScrollBars();
+    sendTerminalSize();
     viewport()->update();
 }

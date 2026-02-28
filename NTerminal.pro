@@ -30,6 +30,7 @@ SOURCES += \
     sshclient.cpp \
     thememanager.cpp \
     themesettingsdialog.cpp \
+    fontmanager.cpp \
     ipc/ipcprotocol.cpp \
     ipc/ipcclient.cpp \
     ipc/ipcserver.cpp \
@@ -53,6 +54,7 @@ HEADERS += \
     sshclient.h \
     thememanager.h \
     themesettingsdialog.h \
+    fontmanager.h \
     common/messagetypes.h \
     common/connectionsettings.h \
     ipc/ipcprotocol.h \
@@ -64,6 +66,9 @@ HEADERS += \
     session/serialhandler.h \
     session/telnethandler.h \
     session/ssshandler.h
+
+RESOURCES += \
+    resources/resources.qrc
 
 TRANSLATIONS += \
     NTerminal_en_US.ts

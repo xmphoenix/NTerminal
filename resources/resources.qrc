@@ -1,0 +1,13 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/">
+        <!-- 字体文件是可选的，如果没有字体文件，程序会使用系统字体 -->
+        <!-- 已下载的字体文件 -->
+        <file>fonts/CascadiaCode.ttf</file>
+        <file>fonts/JetBrainsMono-Regular.ttf</file>
+        
+        <!-- 如需添加更多字体，请下载后取消下面行的注释 -->
+        <!-- <file>fonts/FiraCode-Regular.ttf</file> -->
+        <!-- <file>fonts/SourceCodePro-Regular.ttf</file> -->
+    </qresource>
+</RCC>

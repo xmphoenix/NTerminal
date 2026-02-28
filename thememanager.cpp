@@ -332,6 +332,174 @@ void ThemeManager::initTerminalThemes()
     theme.ansiColors[15] = QColor(233, 216, 196);
     m_terminalThemes[theme.id] = theme;
     
+    // 11. VS Code Dark (Default Dark+)
+    theme = TerminalTheme();
+    theme.id = "vscode-dark";
+    theme.name = tr("VS Code Dark");
+    theme.defaultForeground = QColor(204, 204, 204);
+    theme.defaultBackground = QColor(30, 30, 30);
+    theme.cursorColor = QColor(140, 140, 140);
+    theme.selectionBackground = QColor(58, 61, 65);
+    theme.selectionForeground = QColor(255, 255, 255);
+
+    theme.ansiColors[0]  = QColor(0, 0, 0);
+    theme.ansiColors[1]  = QColor(205, 49, 49);
+    theme.ansiColors[2]  = QColor(13, 188, 75);
+    theme.ansiColors[3]  = QColor(229, 192, 123);
+    theme.ansiColors[4]  = QColor(37, 117, 252);
+    theme.ansiColors[5]  = QColor(136, 23, 152);
+    theme.ansiColors[6]  = QColor(20, 179, 178);
+    theme.ansiColors[7]  = QColor(204, 204, 204);
+    theme.ansiColors[8]  = QColor(128, 128, 128);
+    theme.ansiColors[9]  = QColor(241, 76, 76);
+    theme.ansiColors[10] = QColor(35, 209, 91);
+    theme.ansiColors[11] = QColor(250, 179, 135);
+    theme.ansiColors[12] = QColor(59, 142, 234);
+    theme.ansiColors[13] = QColor(180, 0, 158);
+    theme.ansiColors[14] = QColor(23, 201, 100);
+    theme.ansiColors[15] = QColor(229, 229, 229);
+    m_terminalThemes[theme.id] = theme;
+
+    // 12. VS Code Light (Default Light+)
+    theme = TerminalTheme();
+    theme.id = "vscode-light";
+    theme.name = tr("VS Code Light");
+    theme.defaultForeground = QColor(51, 51, 51);
+    theme.defaultBackground = QColor(255, 255, 255);
+    theme.cursorColor = QColor(85, 85, 85);
+    theme.selectionBackground = QColor(221, 221, 221);
+    theme.selectionForeground = QColor(0, 0, 0);
+
+    theme.ansiColors[0]  = QColor(0, 0, 0);
+    theme.ansiColors[1]  = QColor(156, 39, 99);
+    theme.ansiColors[2]  = QColor(0, 119, 170);
+    theme.ansiColors[3]  = QColor(163, 190, 140);
+    theme.ansiColors[4]  = QColor(0, 119, 170);
+    theme.ansiColors[5]  = QColor(156, 39, 99);
+    theme.ansiColors[6]  = QColor(20, 179, 178);
+    theme.ansiColors[7]  = QColor(204, 204, 204);
+    theme.ansiColors[8]  = QColor(128, 128, 128);
+    theme.ansiColors[9]  = QColor(205, 49, 49);
+    theme.ansiColors[10] = QColor(13, 188, 75);
+    theme.ansiColors[11] = QColor(229, 192, 123);
+    theme.ansiColors[12] = QColor(37, 117, 252);
+    theme.ansiColors[13] = QColor(136, 23, 152);
+    theme.ansiColors[14] = QColor(20, 179, 178);
+    theme.ansiColors[15] = QColor(229, 229, 229);
+    m_terminalThemes[theme.id] = theme;
+
+    // 13. VS Code Dark Dimmed
+    theme = TerminalTheme();
+    theme.id = "vscode-dark-dimmed";
+    theme.name = tr("VS Code Dark Dimmed");
+    theme.defaultForeground = QColor(185, 185, 185);
+    theme.defaultBackground = QColor(40, 40, 40);
+    theme.cursorColor = QColor(120, 120, 120);
+    theme.selectionBackground = QColor(50, 50, 50);
+    theme.selectionForeground = QColor(255, 255, 255);
+
+    theme.ansiColors[0]  = QColor(30, 30, 30);
+    theme.ansiColors[1]  = QColor(171, 41, 41);
+    theme.ansiColors[2]  = QColor(13, 155, 63);
+    theme.ansiColors[3]  = QColor(198, 160, 105);
+    theme.ansiColors[4]  = QColor(30, 95, 212);
+    theme.ansiColors[5]  = QColor(113, 19, 127);
+    theme.ansiColors[6]  = QColor(20, 149, 148);
+    theme.ansiColors[7]  = QColor(185, 185, 185);
+    theme.ansiColors[8]  = QColor(108, 108, 108);
+    theme.ansiColors[9]  = QColor(201, 64, 64);
+    theme.ansiColors[10] = QColor(30, 175, 79);
+    theme.ansiColors[11] = QColor(217, 149, 115);
+    theme.ansiColors[12] = QColor(50, 120, 212);
+    theme.ansiColors[13] = QColor(150, 30, 170);
+    theme.ansiColors[14] = QColor(30, 169, 168);
+    theme.ansiColors[15] = QColor(200, 200, 200);
+    m_terminalThemes[theme.id] = theme;
+
+    // 14. VS Code Dark Modern
+    theme = TerminalTheme();
+    theme.id = "vscode-dark-modern";
+    theme.name = tr("VS Code Dark Modern");
+    theme.defaultForeground = QColor(204, 204, 204);
+    theme.defaultBackground = QColor(17, 17, 17);
+    theme.cursorColor = QColor(140, 140, 140);
+    theme.selectionBackground = QColor(38, 38, 38);
+    theme.selectionForeground = QColor(255, 255, 255);
+
+    theme.ansiColors[0]  = QColor(0, 0, 0);
+    theme.ansiColors[1]  = QColor(255, 85, 85);
+    theme.ansiColors[2]  = QColor(85, 255, 136);
+    theme.ansiColors[3]  = QColor(255, 255, 136);
+    theme.ansiColors[4]  = QColor(85, 170, 255);
+    theme.ansiColors[5]  = QColor(255, 136, 255);
+    theme.ansiColors[6]  = QColor(85, 255, 255);
+    theme.ansiColors[7]  = QColor(204, 204, 204);
+    theme.ansiColors[8]  = QColor(76, 76, 76);
+    theme.ansiColors[9]  = QColor(255, 85, 85);
+    theme.ansiColors[10] = QColor(85, 255, 136);
+    theme.ansiColors[11] = QColor(255, 255, 136);
+    theme.ansiColors[12] = QColor(85, 170, 255);
+    theme.ansiColors[13] = QColor(255, 136, 255);
+    theme.ansiColors[14] = QColor(85, 255, 255);
+    theme.ansiColors[15] = QColor(255, 255, 255);
+    m_terminalThemes[theme.id] = theme;
+
+    // 15. VS Code Dark High Contrast
+    theme = TerminalTheme();
+    theme.id = "vscode-dark-hc";
+    theme.name = tr("VS Code Dark High Contrast");
+    theme.defaultForeground = QColor(255, 255, 255);
+    theme.defaultBackground = QColor(0, 0, 0);
+    theme.cursorColor = QColor(255, 255, 255);
+    theme.selectionBackground = QColor(58, 61, 65);
+    theme.selectionForeground = QColor(255, 255, 255);
+
+    theme.ansiColors[0]  = QColor(0, 0, 0);
+    theme.ansiColors[1]  = QColor(255, 0, 0);
+    theme.ansiColors[2]  = QColor(0, 255, 0);
+    theme.ansiColors[3]  = QColor(255, 255, 0);
+    theme.ansiColors[4]  = QColor(0, 0, 255);
+    theme.ansiColors[5]  = QColor(255, 0, 255);
+    theme.ansiColors[6]  = QColor(0, 255, 255);
+    theme.ansiColors[7]  = QColor(255, 255, 255);
+    theme.ansiColors[8]  = QColor(128, 128, 128);
+    theme.ansiColors[9]  = QColor(255, 85, 85);
+    theme.ansiColors[10] = QColor(85, 255, 85);
+    theme.ansiColors[11] = QColor(255, 255, 85);
+    theme.ansiColors[12] = QColor(85, 85, 255);
+    theme.ansiColors[13] = QColor(255, 85, 255);
+    theme.ansiColors[14] = QColor(85, 255, 255);
+    theme.ansiColors[15] = QColor(255, 255, 255);
+    m_terminalThemes[theme.id] = theme;
+
+    // 16. VS Code Light Modern
+    theme = TerminalTheme();
+    theme.id = "vscode-light-modern";
+    theme.name = tr("VS Code Light Modern");
+    theme.defaultForeground = QColor(51, 51, 51);
+    theme.defaultBackground = QColor(255, 255, 255);
+    theme.cursorColor = QColor(0, 0, 0);
+    theme.selectionBackground = QColor(221, 221, 221);
+    theme.selectionForeground = QColor(0, 0, 0);
+
+    theme.ansiColors[0]  = QColor(0, 0, 0);
+    theme.ansiColors[1]  = QColor(165, 30, 30);
+    theme.ansiColors[2]  = QColor(15, 128, 15);
+    theme.ansiColors[3]  = QColor(148, 107, 0);
+    theme.ansiColors[4]  = QColor(0, 68, 170);
+    theme.ansiColors[5]  = QColor(136, 0, 136);
+    theme.ansiColors[6]  = QColor(0, 136, 136);
+    theme.ansiColors[7]  = QColor(204, 204, 204);
+    theme.ansiColors[8]  = QColor(128, 128, 128);
+    theme.ansiColors[9]  = QColor(205, 49, 49);
+    theme.ansiColors[10] = QColor(13, 188, 75);
+    theme.ansiColors[11] = QColor(229, 192, 123);
+    theme.ansiColors[12] = QColor(37, 117, 252);
+    theme.ansiColors[13] = QColor(136, 23, 152);
+    theme.ansiColors[14] = QColor(20, 179, 178);
+    theme.ansiColors[15] = QColor(229, 229, 229);
+    m_terminalThemes[theme.id] = theme;
+
     m_currentTerminalThemeId = "default";
 }
 

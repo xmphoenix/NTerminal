@@ -72,6 +72,8 @@ signals:
     // 字符属性
     void setAttributes(const QVector<int> &params);
     void resetAttributes();
+    void setForegroundColor256(int colorIndex);
+    void setBackgroundColor256(int colorIndex);
     
     // 模式设置
     void setMode(int param);

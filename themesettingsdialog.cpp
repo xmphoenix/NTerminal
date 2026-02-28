@@ -4,20 +4,26 @@
 #include <QFormLayout>
 #include <QFrame>
 #include <QScrollArea>
+#include <QFontDatabase>
 
 ThemeSettingsDialog::ThemeSettingsDialog(QWidget *parent)
     : QDialog(parent)
     , m_appThemeCombo(new QComboBox(this))
     , m_terminalThemeCombo(new QComboBox(this))
+    , m_fontCombo(new QComboBox(this))
+    , m_fontSizeSpinBox(new QSpinBox(this))
     , m_appThemePreview(new QLabel(this))
+    , m_fontPreview(new QLabel(this))
     , m_terminalPreviewGroup(new QGroupBox(tr("Terminal Theme Preview"), this))
     , m_colorLayout(new QGridLayout())
     , m_applyButton(new QPushButton(tr("Apply"), this))
     , m_okButton(new QPushButton(tr("OK"), this))
     , m_cancelButton(new QPushButton(tr("Cancel"), this))
+    , m_selectedFontSize(10)
 {
     setupUi();
     loadThemes();
+    loadFonts();
     updatePreview();
 }
 
@@ -28,56 +34,81 @@ ThemeSettingsDialog::~ThemeSettingsDialog()
 void ThemeSettingsDialog::setupUi()
 {
     setWindowTitle(tr("Theme Settings"));
-    setMinimumSize(600, 500);
-    
+    setMinimumSize(650, 600);
+
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    
+
     QGroupBox *appThemeGroup = new QGroupBox(tr("Application Theme"), this);
     QFormLayout *appThemeLayout = new QFormLayout(appThemeGroup);
     appThemeLayout->addRow(tr("Theme:"), m_appThemeCombo);
-    
+
     m_appThemePreview->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
     m_appThemePreview->setMinimumHeight(60);
     m_appThemePreview->setAlignment(Qt::AlignCenter);
     appThemeLayout->addRow(tr("Preview:"), m_appThemePreview);
-    
+
     mainLayout->addWidget(appThemeGroup);
-    
+
+    QGroupBox *fontGroup = new QGroupBox(tr("Font Settings"), this);
+    QFormLayout *fontLayout = new QFormLayout(fontGroup);
+
+    m_fontSizeSpinBox->setRange(8, 72);
+    m_fontSizeSpinBox->setValue(10);
+
+    QHBoxLayout *fontSizeLayout = new QHBoxLayout();
+    fontSizeLayout->addWidget(m_fontCombo);
+    fontSizeLayout->addWidget(new QLabel(tr("Size:")));
+    fontSizeLayout->addWidget(m_fontSizeSpinBox);
+
+    fontLayout->addRow(tr("Font:"), fontSizeLayout);
+
+    m_fontPreview->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+    m_fontPreview->setMinimumHeight(60);
+    m_fontPreview->setAlignment(Qt::AlignCenter);
+    m_fontPreview->setText("The quick brown fox jumps over the lazy dog. 0123456789");
+    fontLayout->addRow(tr("Preview:"), m_fontPreview);
+
+    mainLayout->addWidget(fontGroup);
+
     QGroupBox *terminalThemeGroup = new QGroupBox(tr("Terminal Theme"), this);
     QFormLayout *terminalThemeLayout = new QFormLayout(terminalThemeGroup);
     terminalThemeLayout->addRow(tr("Theme:"), m_terminalThemeCombo);
-    
+
     mainLayout->addWidget(terminalThemeGroup);
-    
+
     QWidget *colorPreviewWidget = new QWidget();
     m_colorLayout->setSpacing(4);
     m_colorLayout->setContentsMargins(8, 8, 8, 8);
     colorPreviewWidget->setLayout(m_colorLayout);
-    
+
     QScrollArea *scrollArea = new QScrollArea();
     scrollArea->setWidget(colorPreviewWidget);
     scrollArea->setWidgetResizable(true);
     scrollArea->setMinimumHeight(200);
-    
+
     QVBoxLayout *previewLayout = new QVBoxLayout(m_terminalPreviewGroup);
     previewLayout->addWidget(scrollArea);
-    
+
     mainLayout->addWidget(m_terminalPreviewGroup);
-    
+
     mainLayout->addStretch();
-    
+
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     buttonLayout->addStretch();
     buttonLayout->addWidget(m_applyButton);
     buttonLayout->addWidget(m_okButton);
     buttonLayout->addWidget(m_cancelButton);
-    
+
     mainLayout->addLayout(buttonLayout);
-    
+
     connect(m_appThemeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ThemeSettingsDialog::onAppThemeChanged);
     connect(m_terminalThemeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ThemeSettingsDialog::onTerminalThemeChanged);
+    connect(m_fontCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &ThemeSettingsDialog::onFontChanged);
+    connect(m_fontSizeSpinBox, QOverload<int>::of(&QSpinBox::valueChanged),
+            this, &ThemeSettingsDialog::onFontSizeChanged);
     connect(m_applyButton, &QPushButton::clicked, this, &ThemeSettingsDialog::onApply);
     connect(m_okButton, &QPushButton::clicked, this, &ThemeSettingsDialog::onOk);
     connect(m_cancelButton, &QPushButton::clicked, this, &ThemeSettingsDialog::onCancel);
@@ -86,7 +117,7 @@ void ThemeSettingsDialog::setupUi()
 void ThemeSettingsDialog::loadThemes()
 {
     ThemeManager *tm = ThemeManager::instance();
-    
+
     m_appThemeCombo->clear();
     QVector<AppTheme> appThemes = tm->appThemes();
     for (const AppTheme &theme : appThemes) {
@@ -95,7 +126,7 @@ void ThemeSettingsDialog::loadThemes()
             m_appThemeCombo->setCurrentIndex(m_appThemeCombo->count() - 1);
         }
     }
-    
+
     m_terminalThemeCombo->clear();
     QVector<TerminalTheme> terminalThemes = tm->terminalThemes();
     for (const TerminalTheme &theme : terminalThemes) {
@@ -104,9 +135,46 @@ void ThemeSettingsDialog::loadThemes()
             m_terminalThemeCombo->setCurrentIndex(m_terminalThemeCombo->count() - 1);
         }
     }
-    
+
     m_selectedAppThemeId = tm->currentAppThemeId();
     m_selectedTerminalThemeId = tm->currentTerminalThemeId();
+}
+
+void ThemeSettingsDialog::loadFonts()
+{
+    FontManager *fm = FontManager::instance();
+
+    m_fontCombo->clear();
+    QVector<FontInfo> fonts = fm->availableFonts();
+    for (const FontInfo &font : fonts) {
+        m_fontCombo->addItem(font.displayName, font.id);
+        if (font.id == fm->currentFontId()) {
+            m_fontCombo->setCurrentIndex(m_fontCombo->count() - 1);
+        }
+    }
+
+    m_fontSizeSpinBox->setValue(fm->currentFontSize());
+
+    m_selectedFontId = fm->currentFontId();
+    m_selectedFontSize = fm->currentFontSize();
+
+    updateFontPreview();
+}
+
+void ThemeSettingsDialog::updateFontPreview()
+{
+    FontManager *fm = FontManager::instance();
+
+    if (m_fontCombo->count() > 0) {
+        QString fontId = m_fontCombo->currentData().toString();
+        int fontSize = m_fontSizeSpinBox->value();
+
+        QFont font = fm->font(fontId, fontSize);
+        m_fontPreview->setFont(font);
+
+        m_selectedFontId = fontId;
+        m_selectedFontSize = fontSize;
+    }
 }
 
 void ThemeSettingsDialog::updatePreview()
@@ -216,11 +284,28 @@ void ThemeSettingsDialog::onTerminalThemeChanged(int index)
     updatePreview();
 }
 
+void ThemeSettingsDialog::onFontChanged(int index)
+{
+    Q_UNUSED(index);
+    m_selectedFontId = m_fontCombo->currentData().toString();
+    updateFontPreview();
+}
+
+void ThemeSettingsDialog::onFontSizeChanged(int size)
+{
+    m_selectedFontSize = size;
+    updateFontPreview();
+}
+
 void ThemeSettingsDialog::onApply()
 {
     ThemeManager *tm = ThemeManager::instance();
+    FontManager *fm = FontManager::instance();
+
     tm->setAppTheme(m_selectedAppThemeId);
     tm->setTerminalTheme(m_selectedTerminalThemeId);
+    fm->setCurrentFont(m_selectedFontId);
+    fm->setCurrentFontSize(m_selectedFontSize);
 }
 
 void ThemeSettingsDialog::onOk()

@@ -5,11 +5,13 @@
 #include <QProcess>
 #include <QColor>
 #include <QVector>
+#include <QFont>
 #include "common/connectionsettings.h"
 #include "common/messagetypes.h"
 #include "ipc/ipcclient.h"
 #include "terminalparser.h"
 #include "thememanager.h"
+#include "fontmanager.h"
 
 class TerminalProxy : public QAbstractScrollArea
 {
@@ -32,7 +34,7 @@ public:
         Attributes attributes;
         bool isWide;
     };
-    
+
     struct SelectionPoint {
         int line;
         int column;
@@ -46,24 +48,27 @@ public:
 
     explicit TerminalProxy(QWidget *parent = nullptr);
     ~TerminalProxy();
-    
+
     void setConnectionSettings(const Common::ConnectionSettings &settings);
     bool openConnection();
     void closeConnection();
     bool isConnected() const;
     Common::ConnectionSettings getConnectionSettings() const;
-    
+
     void setTheme(const TerminalTheme &theme);
     TerminalTheme currentTheme() const { return m_currentTheme; }
-    
+
+    void setFont(const QFont &font);
+    QFont currentFont() const { return m_currentFont; }
+
     void sendText(const QString &text);
     void sendData(const QByteArray &data);
-    
+
     void copyToClipboard();
     void clearSelection();
     bool hasSelection() const;
     QString getSelectedText() const;
-    
+
     QString sessionId() const { return m_sessionId; }
 
 signals:
@@ -124,7 +129,9 @@ private slots:
     void onParserResetPrivateMode(int param);
     void onParserSetAttributes(const QVector<int> &params);
     void onParserResetAttributes();
-    
+    void onParserSetForegroundColor256(int colorIndex);
+    void onParserSetBackgroundColor256(int colorIndex);
+
     void onDeviceStatusReport();
     void onCursorPositionReportRequest();
     void onPrimaryDeviceAttributes();
@@ -188,12 +195,13 @@ private:
     QColor m_currentForeground;
     QColor m_currentBackground;
     Attributes m_currentAttributes;
-    
+
     TerminalTheme m_currentTheme;
-    
+    QFont m_currentFont;
+
     int m_charWidth;
     int m_charHeight;
-    
+
     mutable SelectionPoint m_selectionStart;
     mutable SelectionPoint m_selectionEnd;
     bool m_selecting;
