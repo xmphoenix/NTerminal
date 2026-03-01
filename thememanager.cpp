@@ -739,7 +739,7 @@ void ThemeManager::applyAppTheme(const AppTheme &theme)
         "QStatusBar { background-color: %2; color: %3; font-size: 12px; }"
         "QListWidget { border: none; border-top: 1px solid #0078D7; }"
         "QTabWidget::pane { border: none; }"
-        "QTabBar::tab { background-color: %2; color: %3; padding: 8px 16px; }"
+        "QTabBar::tab { background-color: %2; color: %3; padding: 2px 12px; font-size: 12px; }"
         "QTabBar::tab:selected { background-color: %4; }"
         "QTextEdit { border: none; border-top: 1px solid #0078D7; }"
         "TerminalProxy { background-color: transparent; border: none; }"
