@@ -49,12 +49,12 @@ int main(int argc, char *argv[])
 
         return app.exec();
     } else if (isTestMode) {
-        // VT100 测试模式
+        // Terminal tester mode
         QApplication app(argc, argv);
         QCoreApplication::setApplicationName("NTerminal-Tester");
         QCoreApplication::setApplicationVersion("1.0.0");
 
-        qDebug() << "[Tester] Starting VT100 terminal emulation tester";
+        qDebug() << "[Tester] Starting terminal emulation tester";
 
         TestWindow testWindow;
         testWindow.show();

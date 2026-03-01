@@ -413,9 +413,9 @@ void MainWindow::initMainWindowMenu()
     connect(m_themeAction, &QAction::triggered, this, &MainWindow::showThemeSettings);
     m_optMenu->addAction(m_themeAction);
 
-    QAction *vt100TestAction = new QAction("VT100 Compatibility Test", this);
-    connect(vt100TestAction, &QAction::triggered, this, &MainWindow::openVt100Tester);
-    m_optMenu->addAction(vt100TestAction);
+    QAction *terminalTestAction = new QAction("Terminal Compatibility Test", this);
+    connect(terminalTestAction, &QAction::triggered, this, &MainWindow::openTerminalTester);
+    m_optMenu->addAction(terminalTestAction);
 
     m_menuBar->addMenu(m_fileMenu);
     m_menuBar->addMenu(m_editMenu);
@@ -501,17 +501,17 @@ void MainWindow::applyTerminalTheme(TerminalProxy *terminal)
     }
 }
 
-void MainWindow::openVt100Tester()
+void MainWindow::openTerminalTester()
 {
     TestWindow *testWindow = new TestWindow(this);
     testWindow->setAttribute(Qt::WA_DeleteOnClose);
-    
+
     // 传递当前终端给测试窗口
     TerminalProxy *currentTerminal = getCurrentTerminal();
     if (currentTerminal) {
         testWindow->setTerminal(currentTerminal);
     }
-    
+
     testWindow->show();
     testWindow->raise();
     testWindow->activateWindow();

@@ -40,23 +40,18 @@ TerminalWidget::TerminalWidget(QWidget *parent)
     , m_tcpSocket(nullptr)
     , m_sshProcess(nullptr)
     , m_sshClient(nullptr)
-    , m_vt100Parser(nullptr)
     , m_isConnected(false)
     , m_telnetLoginState(TelnetLoginNone)
     , m_sshLoginState(SshLoginNone)
 {
-    qDebug() << "[TerminalWidget] 构造函数 - 初始列数:" << m_columns;
+    qDebug() << "[TerminalWidget] Constructor - Initial columns:" << m_columns;
     setFocusPolicy(Qt::StrongFocus);
     setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    
+
     // 设置视口也接收鼠标事件
     viewport()->setMouseTracking(true);
-    
-    // 初始化VT100解析器
-    m_vt100Parser = new VT100Parser(this);
-    connectVT100ParserSignals();
-    
+
     allocateBuffers();
     updateScrollBars();
 }
@@ -261,7 +256,7 @@ void TerminalWidget::allocateBuffers()
             }
         }
         
-        // 初始化新增的列
+        // Initialize新增的列
         for (int j = oldSize; j < m_columns; ++j) {
             m_historyBuffer[i][j].character = QChar(' ');
             m_historyBuffer[i][j].foreground = m_defaultForeground;
@@ -286,7 +281,7 @@ void TerminalWidget::allocateBuffers()
             }
         }
         
-        // 初始化新增的列
+        // Initialize新增的列
         for (int j = oldSize; j < m_columns; ++j) {
             m_terminalBuffer[i][j].character = QChar(' ');
             m_terminalBuffer[i][j].foreground = m_defaultForeground;
@@ -584,21 +579,21 @@ void TerminalWidget::scrollContentsBy(int dx, int dy)
     viewport()->update();
 }
 
-// 键盘事件处理
+// 键盘事件handling
 void TerminalWidget::keyPressEvent(QKeyEvent *event)
 {
     qDebug() << "[TerminalWidget] keyPressEvent - 按键:" << event->key() 
              << "文本:" << event->text() << "修饰符:" << event->modifiers()
-             << "连接状态:" << m_isConnected;
+             << "Connect状态:" << m_isConnected;
     
-    // 首先处理终端相关的快捷键
+    // 首先handling终端相关的快捷键
     if (event->modifiers() & Qt::ControlModifier) {
         switch (event->key()) {
             case Qt::Key_C: // Ctrl+C
                 if (hasSelection()) {
                     copyToClipboard();
                 } else {
-                    // 如果没有选择，发送Ctrl+C中断信号
+                    // 如果没有选择，SendCtrl+C中断signal
                     if (m_isConnected) {
                         sendData(QByteArray("\x03", 1)); // ASCII ETX (Ctrl+C)
                     }
@@ -621,10 +616,10 @@ void TerminalWidget::keyPressEvent(QKeyEvent *event)
                 return;
             case Qt::Key_L: // Ctrl+L
                 if (m_isConnected) {
-                    // 发送VT100清屏序列（ESC [ 2J）
+                    // SendTerminalclear screen sequence（ESC [ 2J）
                     sendData(QByteArray("\x1b[2J", 4));
                 } else {
-                    // 未连接时本地清屏
+                    // 未Connect时本地清屏
                     clearScreen();
                 }
                 return;
@@ -632,22 +627,22 @@ void TerminalWidget::keyPressEvent(QKeyEvent *event)
     }
     
     if (!m_isConnected && event->key() != Qt::Key_Tab && event->key() != Qt::Key_Backtab) {
-        qDebug() << "[TerminalWidget] 未连接且非Tab键，调用父类处理";
+        qDebug() << "[TerminalWidget] 未Connect且非Tab键，调用父类handling";
         QAbstractScrollArea::keyPressEvent(event);
         return;
     }
-    qDebug() << "[TerminalWidget] 通过连接检查，继续处理按键";
+    qDebug() << "[TerminalWidget] 通过Connect检查，继续handling按键";
     
     QString text = event->text();
     if (!text.isEmpty()) {
-        qDebug() << "[TerminalWidget] 发送文本:" << text << "长度:" << text.length();
-        // 发送输入的字符到连接
+        qDebug() << "[TerminalWidget] Send文本:" << text << "长度:" << text.length();
+        // Send输入的字符到Connect
         sendText(text);
         
         // 本地回显（可选）
         // writeText(text);
     } else {
-        // 处理特殊键
+        // handling特殊键
         switch (event->key()) {
             case Qt::Key_Return:
             case Qt::Key_Enter:
@@ -658,73 +653,73 @@ void TerminalWidget::keyPressEvent(QKeyEvent *event)
                 break;
             case Qt::Key_Tab:
             case Qt::Key_Backtab:
-                qDebug() << "[TerminalWidget] 处理Tab/Backtab键，连接状态:" << m_isConnected;
+                qDebug() << "[TerminalWidget] handlingTab/Backtab键，Connect状态:" << m_isConnected;
                 if (m_isConnected) {
-                    qDebug() << "[TerminalWidget] 发送制表符到连接";
+                    qDebug() << "[TerminalWidget] Send制表符到Connect";
                     sendData(QByteArray("\t", 1));
                 } else {
-                    qDebug() << "[TerminalWidget] 未连接，Tab键被忽略";
+                    qDebug() << "[TerminalWidget] 未Connect，Tab键被忽略";
                 }
                 break;
             case Qt::Key_Escape:
                 sendData(QByteArray("\x1b", 1));
                 break;
             case Qt::Key_Up:
-                qDebug() << "[TerminalWidget] 处理上箭头键，修饰符:" << event->modifiers();
+                qDebug() << "[TerminalWidget] handling上箭头键，修饰符:" << event->modifiers();
                 if (m_isConnected) {
                     handleArrowKey(event->key(), event->modifiers());
                 }
                 break;
             case Qt::Key_Down:
-                qDebug() << "[TerminalWidget] 处理下箭头键，修饰符:" << event->modifiers();
+                qDebug() << "[TerminalWidget] handling下箭头键，修饰符:" << event->modifiers();
                 if (m_isConnected) {
                     handleArrowKey(event->key(), event->modifiers());
                 }
                 break;
             case Qt::Key_Right:
-                qDebug() << "[TerminalWidget] 处理右箭头键，修饰符:" << event->modifiers();
+                qDebug() << "[TerminalWidget] handling右箭头键，修饰符:" << event->modifiers();
                 if (m_isConnected) {
                     handleArrowKey(event->key(), event->modifiers());
                 }
                 break;
             case Qt::Key_Left:
-                qDebug() << "[TerminalWidget] 处理左箭头键，修饰符:" << event->modifiers();
+                qDebug() << "[TerminalWidget] handling左箭头键，修饰符:" << event->modifiers();
                 if (m_isConnected) {
                     handleArrowKey(event->key(), event->modifiers());
                 }
                 break;
             case Qt::Key_Home:
-                qDebug() << "[TerminalWidget] 处理Home键，修饰符:" << event->modifiers();
+                qDebug() << "[TerminalWidget] handlingHome键，修饰符:" << event->modifiers();
                 if (m_isConnected) {
                     handleHomeKey(event->modifiers());
                 }
                 break;
             case Qt::Key_End:
-                qDebug() << "[TerminalWidget] 处理End键，修饰符:" << event->modifiers();
+                qDebug() << "[TerminalWidget] handlingEnd键，修饰符:" << event->modifiers();
                 if (m_isConnected) {
                     handleEndKey(event->modifiers());
                 }
                 break;
             case Qt::Key_PageUp:
-                qDebug() << "[TerminalWidget] 处理PageUp键";
+                qDebug() << "[TerminalWidget] handlingPageUp键";
                 if (m_isConnected) {
                     sendData(QByteArray("\x1b[5~", 4)); // ESC [ 5 ~
                 }
                 break;
             case Qt::Key_PageDown:
-                qDebug() << "[TerminalWidget] 处理PageDown键";
+                qDebug() << "[TerminalWidget] handlingPageDown键";
                 if (m_isConnected) {
                     sendData(QByteArray("\x1b[6~", 4)); // ESC [ 6 ~
                 }
                 break;
             case Qt::Key_Insert:
-                qDebug() << "[TerminalWidget] 处理Insert键";
+                qDebug() << "[TerminalWidget] handlingInsert键";
                 if (m_isConnected) {
                     sendData(QByteArray("\x1b[2~", 4)); // ESC [ 2 ~
                 }
                 break;
             case Qt::Key_Delete:
-                qDebug() << "[TerminalWidget] 处理Delete键";
+                qDebug() << "[TerminalWidget] handlingDelete键";
                 if (m_isConnected) {
                     sendData(QByteArray("\x1b[3~", 4)); // ESC [ 3 ~
                 }
@@ -736,38 +731,7 @@ void TerminalWidget::keyPressEvent(QKeyEvent *event)
     }
 }
 
-// 以下是连接管理方法的实现（从之前版本复制）
-// 连接VT100解析器信号
-void TerminalWidget::connectVT100ParserSignals()
-{
-    if (!m_vt100Parser) return;
-    
-    connect(m_vt100Parser, &VT100Parser::textReceived, this, &TerminalWidget::onTextReceived);
-    connect(m_vt100Parser, &VT100Parser::setAttributes, this, &TerminalWidget::onSetAttributes);
-    connect(m_vt100Parser, &VT100Parser::resetAttributes, this, &TerminalWidget::onResetAttributes);
-    connect(m_vt100Parser, &VT100Parser::cursorUp, this, &TerminalWidget::onCursorUp);
-    connect(m_vt100Parser, &VT100Parser::cursorDown, this, &TerminalWidget::onCursorDown);
-    connect(m_vt100Parser, &VT100Parser::cursorForward, this, &TerminalWidget::onCursorForward);
-    connect(m_vt100Parser, &VT100Parser::cursorBackward, this, &TerminalWidget::onCursorBackward);
-    connect(m_vt100Parser, &VT100Parser::cursorPosition, this, &TerminalWidget::onCursorPosition);
-    connect(m_vt100Parser, &VT100Parser::cursorHome, this, &TerminalWidget::onCursorHome);
-    connect(m_vt100Parser, &VT100Parser::carriageReturn, this, &TerminalWidget::onCarriageReturn);
-    connect(m_vt100Parser, &VT100Parser::lineFeed, this, &TerminalWidget::onLineFeed);
-    connect(m_vt100Parser, &VT100Parser::clearScreen, this, &TerminalWidget::onClearScreen);
-    connect(m_vt100Parser, &VT100Parser::eraseDown, this, &TerminalWidget::onEraseDown);
-    connect(m_vt100Parser, &VT100Parser::eraseUp, this, &TerminalWidget::onEraseUp);
-    connect(m_vt100Parser, &VT100Parser::clearLine, this, &TerminalWidget::onClearLine);
-    connect(m_vt100Parser, &VT100Parser::eraseEndOfLine, this, &TerminalWidget::onEraseEndOfLine);
-    connect(m_vt100Parser, &VT100Parser::eraseStartOfLine, this, &TerminalWidget::onEraseStartOfLine);
-    connect(m_vt100Parser, &VT100Parser::backspace, this, &TerminalWidget::onBackspace);
-    connect(m_vt100Parser, &VT100Parser::setMode, this, &TerminalWidget::onSetMode);
-    connect(m_vt100Parser, &VT100Parser::resetMode, this, &TerminalWidget::onResetMode);
-    
-    // 终端能力查询响应
-    connect(m_vt100Parser, &VT100Parser::deviceStatusReport, this, &TerminalWidget::onDeviceStatusReport);
-    connect(m_vt100Parser, &VT100Parser::cursorPositionReportRequest, this, &TerminalWidget::onCursorPositionReportRequest);
-    connect(m_vt100Parser, &VT100Parser::primaryDeviceAttributes, this, &TerminalWidget::onPrimaryDeviceAttributes);
-}
+// 以下是Connect管理方法的实现（从之前版本复制）
 
 void TerminalWidget::onSetAttributes(const QVector<int> &params)
 {
@@ -805,12 +769,12 @@ void TerminalWidget::onSetAttributes(const QVector<int> &params)
                 break;
             case 30: case 31: case 32: case 33:
             case 34: case 35: case 36: case 37:
-                // 标准前景色
+                // standard前景色
                 m_currentForeground = ansiColorToQColor(param - 30, false);
                 break;
             case 40: case 41: case 42: case 43:
             case 44: case 45: case 46: case 47:
-                // 标准背景色
+                // standard背景色
                 m_currentBackground = ansiColorToQColor(param - 40, true);
                 break;
             case 90: case 91: case 92: case 93:
@@ -830,7 +794,7 @@ void TerminalWidget::onSetAttributes(const QVector<int> &params)
                 if (i < params.size() && params[i] == 5) {
                     i++; // 跳过颜色类型
                     if (i < params.size()) {
-                        // 256色索引，简化处理
+                        // 256色索引，简化handling
                         int colorIndex = params[i];
                         QColor color = ansi256ColorToQColor(colorIndex);
                         if (param == 38) {
@@ -912,7 +876,7 @@ static QColor ansi256ColorToQColor(int code)
 void TerminalWidget::setConnectionSettings(const ConnectionDialog::ConnectionSettings &settings)
 {
     m_connectionSettings = settings;
-    qDebug() << "[TerminalWidget] setConnectionSettings - 连接类型:" << settings.type
+    qDebug() << "[TerminalWidget] setConnectionSettings - Connect类型:" << settings.type
              << "主机:" << settings.host << "端口:" << settings.port
              << "用户名:" << settings.username << "密码:" << (settings.password.isEmpty() ? "空" : "已设置");
 }
@@ -935,7 +899,7 @@ bool TerminalWidget::openConnection()
             success = openSshConnection();
             break;
         default:
-            emit connectionError("未知的连接类型");
+            emit connectionError("未知的Connect类型");
             return false;
     }
     
@@ -975,71 +939,71 @@ bool TerminalWidget::isConnected() const
 void TerminalWidget::sendData(const QByteArray &data)
 {
     qDebug() << "[TerminalWidget] sendData - 数据大小:" << data.size() 
-             << "内容:" << data.toHex() << "连接状态:" << m_isConnected
-             << "连接类型:" << m_connectionSettings.type;
+             << "内容:" << data.toHex() << "Connect状态:" << m_isConnected
+             << "Connect类型:" << m_connectionSettings.type;
     
     if (!m_isConnected) {
-        qDebug() << "[TerminalWidget] sendData失败：未连接";
-        emit connectionError("未连接");
+        qDebug() << "[TerminalWidget] sendData失败：未Connect";
+        emit connectionError("未Connect");
         return;
     }
     
     switch (m_connectionSettings.type) {
         case ConnectionDialog::Serial:
-            qDebug() << "[TerminalWidget] 通过串口发送数据，串口状态:" 
+            qDebug() << "[TerminalWidget] 通过串口Send数据，串口状态:" 
                      << (m_serialPort ? "存在" : "null") 
                      << (m_serialPort && m_serialPort->isOpen() ? "已打开" : "未打开");
             if (m_serialPort && m_serialPort->isOpen()) {
                 qint64 bytesWritten = m_serialPort->write(data);
                 qDebug() << "[TerminalWidget] 串口写入字节数:" << bytesWritten << "期望:" << data.size();
                 if (bytesWritten == data.size()) {
-                    qDebug() << "[TerminalWidget] 串口发送成功";
+                    qDebug() << "[TerminalWidget] 串口Send成功";
                     emit dataSent(data);
                 } else {
-                    qDebug() << "[TerminalWidget] 串口发送失败";
-                    emit connectionError("串口发送失败");
+                    qDebug() << "[TerminalWidget] 串口Send失败";
+                    emit connectionError("串口Send失败");
                 }
             } else {
-                qDebug() << "[TerminalWidget] 串口不可用，无法发送数据";
+                qDebug() << "[TerminalWidget] 串口不可用，无法Send数据";
             }
             break;
         case ConnectionDialog::Telnet:
-            qDebug() << "[TerminalWidget] 通过Telnet发送数据，Socket状态:" 
+            qDebug() << "[TerminalWidget] 通过TelnetSend数据，Socket状态:" 
                      << (m_tcpSocket ? "存在" : "null")
                      << (m_tcpSocket ? m_tcpSocket->state() : QAbstractSocket::UnconnectedState);
             if (m_tcpSocket && m_tcpSocket->state() == QAbstractSocket::ConnectedState) {
                 qint64 bytesWritten = m_tcpSocket->write(data);
                 qDebug() << "[TerminalWidget] Telnet写入字节数:" << bytesWritten << "期望:" << data.size();
                 if (bytesWritten == data.size()) {
-                    qDebug() << "[TerminalWidget] Telnet发送成功";
+                    qDebug() << "[TerminalWidget] TelnetSend成功";
                     emit dataSent(data);
                 } else {
-                    qDebug() << "[TerminalWidget] Telnet发送失败";
-                    emit connectionError("网络发送失败");
+                    qDebug() << "[TerminalWidget] TelnetSend失败";
+                    emit connectionError("网络Send失败");
                 }
             } else {
-                qDebug() << "[TerminalWidget] Telnet连接不可用，无法发送数据";
+                qDebug() << "[TerminalWidget] TelnetConnect不可用，无法Send数据";
             }
             break;
         case ConnectionDialog::SSH:
             // 优先使用libssh客户端
             if (m_sshClient && m_sshClient->state() == SshClient::Ready) {
-                qDebug() << "[TerminalWidget] 通过libssh发送数据，大小:" << data.size();
+                qDebug() << "[TerminalWidget] 通过libsshSend数据，大小:" << data.size();
                 qint64 bytesWritten = m_sshClient->write(data);
                 if (bytesWritten > 0) {
-                    qDebug() << "[TerminalWidget] libssh发送成功";
+                    qDebug() << "[TerminalWidget] libsshSend成功";
                     emit dataSent(data);
                 } else {
-                    qDebug() << "[TerminalWidget] libssh发送失败:" << m_sshClient->lastError();
+                    qDebug() << "[TerminalWidget] libsshSend失败:" << m_sshClient->lastError();
                 }
             }
             // 备选：使用QProcess
             else if (m_sshProcess && m_sshProcess->state() == QProcess::Running) {
-                qDebug() << "[TerminalWidget] 通过SSH进程发送数据，大小:" << data.size();
+                qDebug() << "[TerminalWidget] 通过SSH进程Send数据，大小:" << data.size();
                 m_sshProcess->write(data);
                 emit dataSent(data);
             } else {
-                qDebug() << "[TerminalWidget] SSH连接不可用，无法发送数据";
+                qDebug() << "[TerminalWidget] SSHConnect不可用，无法Send数据";
             }
             break;
     }
@@ -1099,7 +1063,7 @@ void TerminalWidget::closeSerialConnection()
 
 bool TerminalWidget::openTelnetConnection()
 {
-    qDebug() << "[TerminalWidget] openTelnetConnection - 开始连接Telnet服务器"
+    qDebug() << "[TerminalWidget] openTelnetConnection - 开始ConnectTelnet服务器"
              << m_connectionSettings.host << ":" << m_connectionSettings.port;
     
     if (m_tcpSocket) {
@@ -1113,11 +1077,11 @@ bool TerminalWidget::openTelnetConnection()
     m_telnetLoginState = TelnetLoginNone;
     m_receivedBuffer.clear();
     
-    // 连接信号
+    // Connectsignal
     connect(m_tcpSocket, &QTcpSocket::readyRead, this, &TerminalWidget::onTcpDataReady);
     connect(m_tcpSocket, &QTcpSocket::errorOccurred, this, &TerminalWidget::onTcpError);
     connect(m_tcpSocket, &QTcpSocket::connected, this, [this]() {
-        qDebug() << "[TerminalWidget] Telnet连接成功 - Socket已连接";
+        qDebug() << "[TerminalWidget] TelnetConnect成功 - Socket已Connect";
         // 如果配置了用户名和密码，启动自动登录
         if (!m_connectionSettings.username.isEmpty() && !m_connectionSettings.password.isEmpty()) {
             qDebug() << "[TerminalWidget] 启动自动登录流程，用户名:" << m_connectionSettings.username;
@@ -1125,7 +1089,7 @@ bool TerminalWidget::openTelnetConnection()
         }
     });
     connect(m_tcpSocket, &QTcpSocket::disconnected, this, [this]() {
-        qDebug() << "[TerminalWidget] Telnet连接断开 - 服务器关闭连接";
+        qDebug() << "[TerminalWidget] TelnetConnect断开 - 服务器关闭Connect";
         m_isConnected = false;
         m_telnetLoginState = TelnetLoginNone;
         emit connectionClosed();
@@ -1137,14 +1101,14 @@ bool TerminalWidget::openTelnetConnection()
     m_tcpSocket->connectToHost(m_connectionSettings.host, m_connectionSettings.port);
     
     if (m_tcpSocket->waitForConnected(5000)) {
-        qDebug() << "[TerminalWidget] openTelnetConnection - 连接成功";
+        qDebug() << "[TerminalWidget] openTelnetConnection - Connect成功";
         return true;
     } else {
-        QString error = QString("无法连接到Telnet服务器 %1:%2: %3")
+        QString error = QString("无法Connect到Telnet服务器 %1:%2: %3")
                           .arg(m_connectionSettings.host)
                           .arg(m_connectionSettings.port)
                           .arg(m_tcpSocket->errorString());
-        qDebug() << "[TerminalWidget] openTelnetConnection - 连接失败:" << error;
+        qDebug() << "[TerminalWidget] openTelnetConnection - Connect失败:" << error;
         emit connectionError(error);
         delete m_tcpSocket;
         m_tcpSocket = nullptr;
@@ -1154,29 +1118,29 @@ bool TerminalWidget::openTelnetConnection()
 
 void TerminalWidget::closeTelnetConnection()
 {
-    qDebug() << "[TerminalWidget] closeTelnetConnection - 关闭Telnet连接";
+    qDebug() << "[TerminalWidget] closeTelnetConnection - 关闭TelnetConnect";
     if (m_tcpSocket) {
         qDebug() << "[TerminalWidget] closeTelnetConnection - 当前Socket状态:" << m_tcpSocket->state();
         m_tcpSocket->disconnectFromHost();
         if (m_tcpSocket->state() != QAbstractSocket::UnconnectedState) {
-            qDebug() << "[TerminalWidget] closeTelnetConnection - 等待断开连接...";
+            qDebug() << "[TerminalWidget] closeTelnetConnection - 等待断开Connect...";
             m_tcpSocket->waitForDisconnected(1000);
         }
         disconnect(m_tcpSocket, &QTcpSocket::readyRead, this, &TerminalWidget::onTcpDataReady);
         disconnect(m_tcpSocket, &QTcpSocket::errorOccurred, this, &TerminalWidget::onTcpError);
         delete m_tcpSocket;
         m_tcpSocket = nullptr;
-        qDebug() << "[TerminalWidget] closeTelnetConnection - 连接已关闭";
+        qDebug() << "[TerminalWidget] closeTelnetConnection - Connect已关闭";
     }
 }
 
 bool TerminalWidget::openSshConnection()
 {
-    qDebug() << "[TerminalWidget] openSshConnection - 开始SSH连接(libssh)"
+    qDebug() << "[TerminalWidget] openSshConnection - 开始SSHConnect(libssh)"
              << m_connectionSettings.host << ":" << m_connectionSettings.port
              << "用户名:" << m_connectionSettings.username;
     
-    // 清理旧连接
+    // 清理旧Connect
     if (m_sshClient) {
         qDebug() << "[TerminalWidget] openSshConnection - 删除旧SSH客户端";
         delete m_sshClient;
@@ -1194,9 +1158,9 @@ bool TerminalWidget::openSshConnection()
     // 创建SSH客户端
     m_sshClient = new SshClient(this);
     
-    // 连接信号
+    // Connectsignal
     connect(m_sshClient, &SshClient::connected, this, [this]() {
-        qDebug() << "[TerminalWidget] SSH已连接，开始认证";
+        qDebug() << "[TerminalWidget] SSH已Connect，开始认证";
         if (!m_sshClient->authenticate()) {
             qDebug() << "[TerminalWidget] SSH认证失败";
         }
@@ -1231,7 +1195,7 @@ bool TerminalWidget::openSshConnection()
     });
     
     connect(m_sshClient, &SshClient::ready, this, [this]() {
-        qDebug() << "[SSH] 连接就绪";
+        qDebug() << "[SSH] Connect就绪";
     });
     
     connect(m_sshClient, &SshClient::dataReceived, this, [this](const QByteArray &data) {
@@ -1244,12 +1208,12 @@ bool TerminalWidget::openSshConnection()
     });
     
     connect(m_sshClient, &SshClient::disconnected, this, [this]() {
-        qDebug() << "[TerminalWidget] SSH连接断开";
+        qDebug() << "[TerminalWidget] SSHConnect断开";
         m_isConnected = false;
         emit connectionClosed();
     });
     
-    // 配置SSH连接参数
+    // 配置SSHConnect参数
     SshClient::SshSettings settings;
     settings.host = m_connectionSettings.host;
     settings.port = m_connectionSettings.port;
@@ -1261,10 +1225,10 @@ bool TerminalWidget::openSshConnection()
     settings.verifyHostKey = false;
     settings.timeout = 30;
     
-    // 开始连接
+    // 开始Connect
     if (!m_sshClient->connect(settings)) {
-        QString error = QString("SSH连接失败: %1").arg(m_sshClient->lastError());
-        qDebug() << "[TerminalWidget] SSH连接失败:" << error;
+        QString error = QString("SSHConnect失败: %1").arg(m_sshClient->lastError());
+        qDebug() << "[TerminalWidget] SSHConnect失败:" << error;
         emit connectionError(error);
         delete m_sshClient;
         m_sshClient = nullptr;
@@ -1276,7 +1240,7 @@ bool TerminalWidget::openSshConnection()
 
 void TerminalWidget::closeSshConnection()
 {
-    qDebug() << "[TerminalWidget] closeSshConnection - 关闭SSH连接";
+    qDebug() << "[TerminalWidget] closeSshConnection - 关闭SSHConnect";
     
     // 关闭libssh客户端
     if (m_sshClient) {
@@ -1336,7 +1300,7 @@ void TerminalWidget::onSshProcessErrorOccurred(QProcess::ProcessError error)
             errorMsg = "SSH进程崩溃";
             break;
         case QProcess::Timedout:
-            errorMsg = "SSH连接超时";
+            errorMsg = "SSHConnect超时";
             break;
         case QProcess::WriteError:
             errorMsg = "SSH写入错误";
@@ -1374,7 +1338,7 @@ void TerminalWidget::onTcpDataReady()
         QByteArray data = m_tcpSocket->readAll();
         qDebug() << "[TerminalWidget] Telnet收到数据，大小:" << data.size() << "内容:" << data.toHex();
         
-        // 处理Telnet协议协商
+        // handlingTelnet协议协商
         QByteArray processedData = processTelnetProtocol(data);
         
         if (!processedData.isEmpty()) {
@@ -1469,9 +1433,6 @@ void TerminalWidget::processReceivedData(const QByteArray &data)
     
     emit dataReceived(data);
     
-    if (m_vt100Parser) {
-        m_vt100Parser->processData(data);
-    }
 }
 
 void TerminalWidget::onSerialError(QSerialPort::SerialPortError error)
@@ -1499,18 +1460,18 @@ void TerminalWidget::onTcpError(QAbstractSocket::SocketError error)
     qDebug() << "[TerminalWidget] onTcpError - 错误信息:" << errorMsg;
     emit connectionError(errorMsg);
     
-    // 根据错误类型决定是否关闭连接
+    // According to错误类型决定是否关闭Connect
     if (error == QAbstractSocket::ConnectionRefusedError ||
         error == QAbstractSocket::RemoteHostClosedError ||
         error == QAbstractSocket::NetworkError ||
         error == QAbstractSocket::SocketTimeoutError ||
         error == QAbstractSocket::HostNotFoundError) {
-        qDebug() << "[TerminalWidget] onTcpError - 致命错误，关闭连接";
+        qDebug() << "[TerminalWidget] onTcpError - 致命错误，关闭Connect";
         closeConnection();
     }
 }
 
-// VT100解析器信号处理
+
 void TerminalWidget::onTextReceived(const QString &text)
 {
     writeText(text);
@@ -1595,7 +1556,7 @@ void TerminalWidget::onBackspace()
 void TerminalWidget::onSetMode(int param)
 {
     qDebug() << "[TerminalWidget] onSetMode - 参数:" << param;
-    // 根据VT100规范，参数4是插入模式
+    // According toTerminalspecification，参数4是插入模式
     if (param == 4) {
         setInsertMode(true);
         qDebug() << "[TerminalWidget] onSetMode - 启用插入模式";
@@ -1605,20 +1566,19 @@ void TerminalWidget::onSetMode(int param)
 void TerminalWidget::onResetMode(int param)
 {
     qDebug() << "[TerminalWidget] onResetMode - 参数:" << param;
-    // 根据VT100规范，参数4是插入模式
+    // According toTerminalspecification，参数4是插入模式
     if (param == 4) {
         setInsertMode(false);
         qDebug() << "[TerminalWidget] onResetMode - 禁用插入模式（覆盖模式）";
     }
 }
 
-// 终端能力查询响应
-void TerminalWidget::onDeviceStatusReport()
+// void TerminalWidget::onDeviceStatusReport()
 {
     qDebug() << "[TerminalWidget] onDeviceStatusReport - 响应设备状态报告请求";
     // 响应 ESC [ 0 n 表示设备正常
     QByteArray response = "\x1b[0n";
-    qDebug() << "[TerminalWidget] onDeviceStatusReport - 发送响应:" << response.toHex();
+    qDebug() << "[TerminalWidget] onDeviceStatusReport - Send响应:" << response.toHex();
     sendData(response);
 }
 
@@ -1630,7 +1590,7 @@ void TerminalWidget::onCursorPositionReportRequest()
     int row = m_cursorRow + 1; // 转换为1-based
     int column = m_cursorColumn + 1; // 转换为1-based
     QByteArray response = QString("\x1b[%1;%2R").arg(row).arg(column).toUtf8();
-    qDebug() << "[TerminalWidget] onCursorPositionReportRequest - 发送响应:" << response.toHex() 
+    qDebug() << "[TerminalWidget] onCursorPositionReportRequest - Send响应:" << response.toHex() 
              << "光标位置: (" << row << "," << column << ")";
     sendData(response);
 }
@@ -1638,22 +1598,22 @@ void TerminalWidget::onCursorPositionReportRequest()
 void TerminalWidget::onPrimaryDeviceAttributes()
 {
     qDebug() << "[TerminalWidget] onPrimaryDeviceAttributes - 响应主设备属性查询";
-    // 根据VT100标准，响应 ESC [?6c 表示VT100兼容终端
+    // According toTerminalstandard，响应 ESC [?6c 表示Terminal兼容终端
     QByteArray response = "\x1b[?6c";
-    qDebug() << "[TerminalWidget] onPrimaryDeviceAttributes - 发送响应:" << response.toHex();
+    qDebug() << "[TerminalWidget] onPrimaryDeviceAttributes - Send响应:" << response.toHex();
     sendData(response);
 }
 
 void TerminalWidget::checkLoginPrompt(const QString &text)
 {
-    // 检测登录提示并发送凭据
+    // 检测登录提示并Send凭据
     QString lowerText = text.toLower();
     
     switch (m_telnetLoginState) {
         case TelnetLoginWaitPrompt:
             // 检测用户名提示 (login:, username:, user: 等)
             if (lowerText.contains("login:") || lowerText.contains("username:") || lowerText.contains("user:")) {
-                qDebug() << "[TerminalWidget] checkLoginPrompt - 检测到用户名提示";
+                qDebug() << "[TerminalWidget] checkLoginPrompt - 检测到用户名提��";
                 m_telnetLoginState = TelnetLoginSentUser;
                 QTimer::singleShot(100, this, &TerminalWidget::sendTelnetCredentials);
                 m_receivedBuffer.clear();
@@ -1661,7 +1621,7 @@ void TerminalWidget::checkLoginPrompt(const QString &text)
             break;
             
         case TelnetLoginSentUser:
-            // 已发送用户名，等待密码提示
+            // 已Send用户名，等待密码提示
             if (lowerText.contains("password:") || lowerText.contains("passwd:")) {
                 qDebug() << "[TerminalWidget] checkLoginPrompt - 检测到密码提示";
                 m_telnetLoginState = TelnetLoginWaitPassword;
@@ -1671,7 +1631,7 @@ void TerminalWidget::checkLoginPrompt(const QString &text)
             break;
             
         case TelnetLoginWaitPassword:
-            // 已发送密码，等待登录结果
+            // 已Send密码，等待登录结果
             // 检测是否登录成功（通常会有 shell 提示符或欢迎信息）
             if (lowerText.contains("$") || lowerText.contains("#") || 
                 lowerText.contains(">") || lowerText.contains("~") ||
@@ -1695,20 +1655,20 @@ void TerminalWidget::checkLoginPrompt(const QString &text)
 void TerminalWidget::sendTelnetCredentials()
 {
     if (!m_tcpSocket || m_tcpSocket->state() != QAbstractSocket::ConnectedState) {
-        qDebug() << "[TerminalWidget] sendTelnetCredentials - 连接已断开";
+        qDebug() << "[TerminalWidget] sendTelnetCredentials - Connect已断开";
         return;
     }
     
     switch (m_telnetLoginState) {
         case TelnetLoginSentUser:
-            // 发送用户名
-            qDebug() << "[TerminalWidget] sendTelnetCredentials - 发送用户名:" << m_connectionSettings.username;
+            // Send用户名
+            qDebug() << "[TerminalWidget] sendTelnetCredentials - Send用户名:" << m_connectionSettings.username;
             m_tcpSocket->write((m_connectionSettings.username + "\r\n").toUtf8());
             break;
             
         case TelnetLoginWaitPassword:
-            // 发送密码
-            qDebug() << "[TerminalWidget] sendTelnetCredentials - 发送密码";
+            // Send密码
+            qDebug() << "[TerminalWidget] sendTelnetCredentials - Send密码";
             m_tcpSocket->write((m_connectionSettings.password + "\r\n").toUtf8());
             m_telnetLoginState = TelnetLoginSentPassword;
             break;
@@ -1747,7 +1707,7 @@ void TerminalWidget::checkSshLoginPrompt(const QString &text)
                 m_sshLoginState = SshLoginNone;
                 closeConnection();
             }
-            // 检测连接成功（出现 shell 提示符）
+            // 检测Connect成功（出现 shell 提示符）
             else if (lowerText.contains("$") || lowerText.contains("#") || 
                      lowerText.contains(">") || lowerText.contains("~") ||
                      lowerText.contains("welcome") || lowerText.contains("last login")) {
@@ -1759,7 +1719,7 @@ void TerminalWidget::checkSshLoginPrompt(const QString &text)
             
         case SshLoginSentPassword:
         case SshLoginSentPassphrase:
-            // 已发送凭据，等待结果
+            // 已Send凭据，等待结果
             if (lowerText.contains("permission denied") || 
                 lowerText.contains("access denied")) {
                 qDebug() << "[TerminalWidget] checkSshLoginPrompt - 认证失败";
@@ -1767,7 +1727,7 @@ void TerminalWidget::checkSshLoginPrompt(const QString &text)
                 m_sshLoginState = SshLoginNone;
                 closeConnection();
             }
-            // 检测连接成功
+            // 检测Connect成功
             else if (lowerText.contains("$") || lowerText.contains("#") || 
                      lowerText.contains(">") || lowerText.contains("~") ||
                      lowerText.contains("welcome") || lowerText.contains("last login")) {
@@ -1796,15 +1756,15 @@ void TerminalWidget::sendSshCredentials()
     
     switch (m_sshLoginState) {
         case SshLoginWaitPassword:
-            // 发送密码
-            qDebug() << "[TerminalWidget] sendSshCredentials - 发送密码";
+            // Send密码
+            qDebug() << "[TerminalWidget] sendSshCredentials - Send密码";
             m_sshProcess->write((m_connectionSettings.password + "\n").toUtf8());
             m_sshLoginState = SshLoginSentPassword;
             break;
             
         case SshLoginWaitPassphrase:
-            // 发送密钥密码短语（使用密码作为密钥密码短语）
-            qDebug() << "[TerminalWidget] sendSshCredentials - 发送密钥密码短语";
+            // Send密钥密码短语（使用密码作为密钥密码短语）
+            qDebug() << "[TerminalWidget] sendSshCredentials - Send密钥密码短语";
             m_sshProcess->write((m_connectionSettings.password + "\n").toUtf8());
             m_sshLoginState = SshLoginSentPassphrase;
             break;
@@ -1982,7 +1942,7 @@ void TerminalWidget::drawSelectionBackground(QPainter &painter, int line, int li
                      selectionColor);
 }
 
-// 鼠标事件处理
+// 鼠标事件handling
 void TerminalWidget::mousePressEvent(QMouseEvent *event)
 {
     // 检查鼠标是否按下在TerminalWidget视口范围内
@@ -2188,7 +2148,7 @@ void TerminalWidget::focusInEvent(QFocusEvent *event)
     }
     
     QAbstractScrollArea::focusInEvent(event);
-    // qDebug() << "[TerminalWidget] focusInEvent 处理完成";
+    // qDebug() << "[TerminalWidget] focusInEvent handling完成";
 }
 
 void TerminalWidget::focusOutEvent(QFocusEvent *event)
@@ -2227,7 +2187,7 @@ void TerminalWidget::focusOutEvent(QFocusEvent *event)
     }
     
     QAbstractScrollArea::focusOutEvent(event);
-    // qDebug() << "[TerminalWidget] focusOutEvent 处理完成";
+    // qDebug() << "[TerminalWidget] focusOutEvent handling完成";
 }
 
 bool TerminalWidget::focusNextPrevChild(bool next)
@@ -2237,12 +2197,12 @@ bool TerminalWidget::focusNextPrevChild(bool next)
     return false;
 }
 
-// 键盘处理辅助函数实现
+// 键盘handling辅助函数实现
 void TerminalWidget::handleArrowKey(int key, Qt::KeyboardModifiers modifiers)
 {
     QByteArray sequence = getArrowSequence(key, modifiers);
     if (!sequence.isEmpty()) {
-        qDebug() << "[TerminalWidget] handleArrowKey - 发送序列:" << sequence.toHex();
+        qDebug() << "[TerminalWidget] handleArrowKey - Send序列:" << sequence.toHex();
         sendData(sequence);
     }
 }
@@ -2251,7 +2211,7 @@ void TerminalWidget::handleHomeKey(Qt::KeyboardModifiers modifiers)
 {
     QByteArray sequence = getHomeSequence(modifiers);
     if (!sequence.isEmpty()) {
-        qDebug() << "[TerminalWidget] handleHomeKey - 发送序列:" << sequence.toHex();
+        qDebug() << "[TerminalWidget] handleHomeKey - Send序列:" << sequence.toHex();
         sendData(sequence);
     }
 }
@@ -2260,7 +2220,7 @@ void TerminalWidget::handleEndKey(Qt::KeyboardModifiers modifiers)
 {
     QByteArray sequence = getEndSequence(modifiers);
     if (!sequence.isEmpty()) {
-        qDebug() << "[TerminalWidget] handleEndKey - 发送序列:" << sequence.toHex();
+        qDebug() << "[TerminalWidget] handleEndKey - Send序列:" << sequence.toHex();
         sendData(sequence);
     }
 }
@@ -2269,7 +2229,7 @@ QByteArray TerminalWidget::getArrowSequence(int key, Qt::KeyboardModifiers modif
 {
     QByteArray baseSequence;
     
-    // 确定基础序列（根据应用程序模式）
+    // 确定基础序列（According to应用程序模式）
     if (m_applicationCursorKeys) {
         // 应用程序模式：ESC O A/B/C/D
         switch (key) {
@@ -2290,7 +2250,7 @@ QByteArray TerminalWidget::getArrowSequence(int key, Qt::KeyboardModifiers modif
         }
     }
     
-    // 处理修饰键
+    // handling修饰键
     if (modifiers & Qt::ControlModifier) {
         // Ctrl+方向键：ESC [ 1;5 A/B/C/D
         QByteArray ctrlSequence;

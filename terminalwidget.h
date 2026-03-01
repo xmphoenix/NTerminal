@@ -8,7 +8,6 @@
 #include <QTcpSocket>
 #include <QProcess>
 #include "connectiondialog.h"
-#include "vt100parser.h"
 #include "sshclient.h"
 
 class TerminalWidget : public QAbstractScrollArea
@@ -122,9 +121,9 @@ private:
     void updateSelection(const QPoint &pos);
     void normalizeSelection() const;
     void drawSelectionBackground(QPainter &painter, int line, int lineInView, int topLine, int leftColumn, int visibleLines, int visibleColumns) const;
-    
+
     // 连接相关私有方法
-    void connectVT100ParserSignals();
+    void connectTerminalParserSignals();
     bool openSerialConnection();
     void closeSerialConnection();
     bool openTelnetConnection();
@@ -171,7 +170,7 @@ private:
     QTcpSocket *m_tcpSocket;
     QProcess *m_sshProcess;      // 使用系统ssh命令（备选方案）
     SshClient *m_sshClient;      // 使用libssh（推荐方案）
-    VT100Parser *m_vt100Parser;
+    // Terminal parser removed
     bool m_isConnected;
     
     // Telnet自动登录状态
@@ -207,7 +206,7 @@ private slots:
     void onSerialError(QSerialPort::SerialPortError error);
     void onTcpError(QAbstractSocket::SocketError error);
     
-    // VT100解析器信号处理
+    // Terminal parser signal handling
     void onTextReceived(const QString &text);
     void onSetAttributes(const QVector<int> &params);
     void onResetAttributes();

@@ -1166,7 +1166,7 @@ void TerminalProxy::onCursorPositionReportRequest()
 
 void TerminalProxy::onPrimaryDeviceAttributes()
 {
-    qDebug() << "[TerminalProxy] onPrimaryDeviceAttributes - responding with VT100 attributes";
+    qDebug() << "[TerminalProxy] onPrimaryDeviceAttributes - responding with terminal attributes";
     QByteArray response = "\x1b[?6c";
     sendData(response);
 }

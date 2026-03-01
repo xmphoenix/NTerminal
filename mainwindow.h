@@ -24,7 +24,7 @@ public:
     ~MainWindow();
 
 private slots:
-    void openVt100Tester();
+    void openTerminalTester();
 
 private:
     void initMainWindowLayout();
