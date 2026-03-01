@@ -15,6 +15,8 @@
 #include <QMenu>
 #include <QToolBar>
 #include <QAction>
+#include <QFrame>
+#include <QVBoxLayout>
 #include <QDebug>
 
 namespace {
@@ -328,13 +330,28 @@ void MainWindow::initMainWindowLayout()
     m_horizontalSplitter = new QSplitter(Qt::Horizontal, m_verticalSplitter);
 
     m_listWidget = new QListWidget(m_horizontalSplitter);
-    m_screenTabWidget = new QTabWidget(m_horizontalSplitter);
+    m_listWidget->setMaximumWidth(400); // 限制最大宽度为 1/3 (1200/3=400)
+
+    // 创建容器 widget 用于显示顶部蓝色边框
+    QWidget* terminalContainer = new QWidget(m_horizontalSplitter);
+    terminalContainer->setStyleSheet("QWidget { border-top: 1px solid #0078D7; }");
+    QVBoxLayout* containerLayout = new QVBoxLayout(terminalContainer);
+    containerLayout->setContentsMargins(0, 0, 0, 0);
+    containerLayout->setSpacing(0);
+    
+    m_screenTabWidget = new QTabWidget(terminalContainer);
+    m_screenTabWidget->setDocumentMode(true); // 使用文档模式，无边框
+    containerLayout->addWidget(m_screenTabWidget);
+    
+    // 设置默认宽度比例：左侧 1/5，右侧 4/5 (1:4)
     m_horizontalSplitter->setStretchFactor(0, 1);
-    m_horizontalSplitter->setStretchFactor(1, 180);
+    m_horizontalSplitter->setStretchFactor(1, 4);
+    // 设置默认宽度：1200 * 1/5 = 240
+    m_horizontalSplitter->setSizes({240, 960});
 
     m_screenTabWidget->setTabsClosable(true);
     m_screenTabWidget->setMovable(true);
-    
+
     connect(m_screenTabWidget, &QTabWidget::tabCloseRequested,
             this, &MainWindow::onTabCloseRequested);
     connect(m_screenTabWidget, &QTabWidget::currentChanged,
@@ -345,10 +362,22 @@ void MainWindow::initMainWindowLayout()
     m_verticalSplitter->setStretchFactor(0, 5);
     m_verticalSplitter->setStretchFactor(1, 1);
 
+    // 移除所有边距和间隙
+    m_verticalSplitter->setContentsMargins(0, 0, 0, 0);
+    m_horizontalSplitter->setContentsMargins(0, 0, 0, 0);
+    m_listWidget->setContentsMargins(0, 0, 0, 0);
+    m_screenTabWidget->setContentsMargins(0, 0, 0, 0);
+
+    // 设置 QSplitter 的 handle 为蓝色分隔线
+    m_horizontalSplitter->setHandleWidth(1);
+    m_horizontalSplitter->setStyleSheet("QSplitter::handle { background-color: #0078D7; }");
+    m_verticalSplitter->setHandleWidth(1);
+    m_verticalSplitter->setStyleSheet("QSplitter::handle { background-color: #0078D7; }");
+
     setCentralWidget(m_verticalSplitter);
     resize(1200, 600);
 
-    setWindowTitle("NTerminal - Multi-Session Terminal");
+    setWindowTitle("NTerminal");
 }
 
 void MainWindow::initMainWindowMenu()
