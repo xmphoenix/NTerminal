@@ -317,23 +317,23 @@ void TerminalWidget::updateScrollBars()
     int requiredColumns = qMax(m_cursorColumn + 1, visibleColumns);
     if (requiredColumns > m_columns) {
         int newColumns = qMax(requiredColumns, m_columns + 50); // 至少增加50列
-        qDebug() << "[TerminalWidget] updateScrollBars - 动态扩展列数从" << m_columns << "到" << newColumns 
-                 << "（光标列:" << m_cursorColumn << "可见列:" << visibleColumns << "）";
+        // qDebug() << "[TerminalWidget] updateScrollBars - 动态扩展列数从" << m_columns << "到" << newColumns
+        //          << "（光标列:" << m_cursorColumn << "可见列:" << visibleColumns << "）";
         m_columns = newColumns;
         allocateBuffers(); // 重新分配缓冲区以容纳新列数
     }
-    
+
     horizontalScrollBar()->setRange(0, qMax(0, m_columns - visibleColumns));
     horizontalScrollBar()->setPageStep(visibleColumns);
     horizontalScrollBar()->setSingleStep(1);
-    
-    qDebug() << "[TerminalWidget] updateScrollBars - 历史大小:" << m_historySize 
-             << "终端行数:" << m_terminalRows << "总行数:" << totalLines
-             << "可见行数:" << visibleLines << "可见列数:" << visibleColumns 
-             << "当前列数:" << m_columns 
-             << "垂直范围: 0 -" << qMax(0, totalLines - visibleLines)
-             << "水平范围: 0 -" << qMax(0, m_columns - visibleColumns)
-             << "光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
+
+    // qDebug() << "[TerminalWidget] updateScrollBars - 历史大小:" << m_historySize
+    //          << "终端行数:" << m_terminalRows << "总行数:" << totalLines
+    //          << "可见行数:" << visibleLines << "可见列数:" << visibleColumns
+    //          << "当前列数:" << m_columns
+    //          << "垂直范围: 0 -" << qMax(0, totalLines - visibleLines)
+    //          << "水平范围: 0 -" << qMax(0, m_columns - visibleColumns)
+    //          << "光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
 }
 
 void TerminalWidget::ensureCursorVisible()

@@ -62,10 +62,9 @@ int main(int argc, char *argv[])
         return app.exec();
     } else {
         // 启用高 DPI 支持，确保多显示器颜色一致
-        QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-        QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
+        // Note: Qt 6.x automatically enables high DPI scaling
         QCoreApplication::setAttribute(Qt::AA_UseOpenGLES);
-        
+
         QApplication app(argc, argv);
         QCoreApplication::setApplicationName("NTerminal");
         QCoreApplication::setApplicationVersion("2.0.0");

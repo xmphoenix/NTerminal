@@ -37,6 +37,23 @@ ConnectionDialog::ConnectionDialog(QWidget *parent)
     , m_useSshKeyCheckBox(nullptr)
     , m_sshKeyPathEdit(nullptr)
     , m_browseKeyButton(nullptr)
+    , m_rloginHostEdit(nullptr)
+    , m_rloginPortSpinBox(nullptr)
+    , m_rloginUsernameEdit(nullptr)
+    , m_rloginPasswordEdit(nullptr)
+    , m_sftpHostEdit(nullptr)
+    , m_sftpPortSpinBox(nullptr)
+    , m_sftpUsernameEdit(nullptr)
+    , m_sftpPasswordEdit(nullptr)
+    , m_useSftpKeyCheckBox(nullptr)
+    , m_sftpKeyPathEdit(nullptr)
+    , m_browseSftpKeyButton(nullptr)
+    , m_ftpHostEdit(nullptr)
+    , m_ftpPortSpinBox(nullptr)
+    , m_ftpUsernameEdit(nullptr)
+    , m_ftpPasswordEdit(nullptr)
+    , m_tftpHostEdit(nullptr)
+    , m_tftpPortSpinBox(nullptr)
     , m_okButton(nullptr)
     , m_cancelButton(nullptr)
 {
@@ -77,6 +94,10 @@ void ConnectionDialog::setupUi()
     m_typeComboBox->addItem("Serial", Serial);
     m_typeComboBox->addItem("Telnet", Telnet);
     m_typeComboBox->addItem("SSH", SSH);
+    m_typeComboBox->addItem("Rlogin", Rlogin);
+    m_typeComboBox->addItem("SFTP", SFTP);
+    m_typeComboBox->addItem("FTP", FTP);
+    m_typeComboBox->addItem("TFTP", TFTP);
     formLayout->addRow("Connection Type:", m_typeComboBox);
 
     mainLayout->addLayout(formLayout);
@@ -88,6 +109,10 @@ void ConnectionDialog::setupUi()
     createSerialSettingsWidget();
     createTelnetSettingsWidget();
     createSshSettingsWidget();
+    createRloginSettingsWidget();
+    createSftpSettingsWidget();
+    createFtpSettingsWidget();
+    createTftpSettingsWidget();
 
     mainLayout->addWidget(m_settingsStack);
 
@@ -249,7 +274,7 @@ void ConnectionDialog::onConnectionTypeChanged(int index)
 {
     ConnectionType type = static_cast<ConnectionType>(m_typeComboBox->itemData(index).toInt());
     m_currentSettings.type = type;
-    
+
     switch (type) {
     case Serial:
         m_settingsStack->setCurrentIndex(0);
@@ -266,6 +291,22 @@ void ConnectionDialog::onConnectionTypeChanged(int index)
     case SSH:
         m_settingsStack->setCurrentIndex(2);
         m_sessionNameEdit->setText(m_sshHostEdit->text());
+        break;
+    case Rlogin:
+        m_settingsStack->setCurrentIndex(3);
+        m_sessionNameEdit->setText(m_rloginHostEdit->text());
+        break;
+    case SFTP:
+        m_settingsStack->setCurrentIndex(4);
+        m_sessionNameEdit->setText(m_sftpHostEdit->text());
+        break;
+    case FTP:
+        m_settingsStack->setCurrentIndex(5);
+        m_sessionNameEdit->setText(m_ftpHostEdit->text());
+        break;
+    case TFTP:
+        m_settingsStack->setCurrentIndex(6);
+        m_sessionNameEdit->setText(m_tftpHostEdit->text());
         break;
     }
 }
@@ -323,6 +364,152 @@ void ConnectionDialog::onSshHostChanged(const QString &text)
     }
 }
 
+void ConnectionDialog::onRloginHostChanged(const QString &text)
+{
+    ConnectionType type = static_cast<ConnectionType>(m_typeComboBox->currentData().toInt());
+    if (type == Rlogin) {
+        m_sessionNameEdit->setText(text);
+    }
+}
+
+void ConnectionDialog::onSftpHostChanged(const QString &text)
+{
+    ConnectionType type = static_cast<ConnectionType>(m_typeComboBox->currentData().toInt());
+    if (type == SFTP) {
+        m_sessionNameEdit->setText(text);
+    }
+}
+
+void ConnectionDialog::onFtpHostChanged(const QString &text)
+{
+    ConnectionType type = static_cast<ConnectionType>(m_typeComboBox->currentData().toInt());
+    if (type == FTP) {
+        m_sessionNameEdit->setText(text);
+    }
+}
+
+void ConnectionDialog::onTftpHostChanged(const QString &text)
+{
+    ConnectionType type = static_cast<ConnectionType>(m_typeComboBox->currentData().toInt());
+    if (type == TFTP) {
+        m_sessionNameEdit->setText(text);
+    }
+}
+
+void ConnectionDialog::createRloginSettingsWidget()
+{
+    QWidget *widget = new QWidget();
+    QFormLayout *layout = new QFormLayout(widget);
+
+    m_rloginHostEdit = new QLineEdit("127.0.0.1");
+    layout->addRow("Host:", m_rloginHostEdit);
+
+    m_rloginPortSpinBox = new QSpinBox();
+    m_rloginPortSpinBox->setRange(1, 65535);
+    m_rloginPortSpinBox->setValue(513);
+    layout->addRow("Port:", m_rloginPortSpinBox);
+
+    m_rloginUsernameEdit = new QLineEdit();
+    layout->addRow("Username:", m_rloginUsernameEdit);
+
+    m_rloginPasswordEdit = new QLineEdit();
+    m_rloginPasswordEdit->setEchoMode(QLineEdit::Password);
+    layout->addRow("Password:", m_rloginPasswordEdit);
+
+    connect(m_rloginHostEdit, &QLineEdit::textChanged, this, &ConnectionDialog::onRloginHostChanged);
+
+    m_settingsStack->addWidget(widget);
+}
+
+void ConnectionDialog::createSftpSettingsWidget()
+{
+    QWidget *widget = new QWidget();
+    QFormLayout *layout = new QFormLayout(widget);
+
+    m_sftpHostEdit = new QLineEdit("127.0.0.1");
+    layout->addRow("Host:", m_sftpHostEdit);
+
+    m_sftpPortSpinBox = new QSpinBox();
+    m_sftpPortSpinBox->setRange(1, 65535);
+    m_sftpPortSpinBox->setValue(22);
+    layout->addRow("Port:", m_sftpPortSpinBox);
+
+    m_sftpUsernameEdit = new QLineEdit();
+    layout->addRow("Username:", m_sftpUsernameEdit);
+
+    m_sftpPasswordEdit = new QLineEdit();
+    m_sftpPasswordEdit->setEchoMode(QLineEdit::Password);
+    layout->addRow("Password:", m_sftpPasswordEdit);
+
+    m_useSftpKeyCheckBox = new QCheckBox("Use SSH Key");
+    layout->addRow("", m_useSftpKeyCheckBox);
+
+    QHBoxLayout *keyLayout = new QHBoxLayout();
+    m_sftpKeyPathEdit = new QLineEdit();
+    m_browseSftpKeyButton = new QPushButton("Browse...");
+    keyLayout->addWidget(m_sftpKeyPathEdit);
+    keyLayout->addWidget(m_browseSftpKeyButton);
+    layout->addRow("SSH Key:", keyLayout);
+
+    m_sftpKeyPathEdit->setEnabled(false);
+    m_browseSftpKeyButton->setEnabled(false);
+
+    connect(m_useSftpKeyCheckBox, &QCheckBox::toggled, m_sftpKeyPathEdit, &QLineEdit::setEnabled);
+    connect(m_useSftpKeyCheckBox, &QCheckBox::toggled, m_browseSftpKeyButton, &QPushButton::setEnabled);
+    connect(m_browseSftpKeyButton, &QPushButton::clicked, [this]() {
+        QString fileName = QFileDialog::getOpenFileName(this, "Select SSH Key File", "", "All Files (*)");
+        if (!fileName.isEmpty()) {
+            m_sftpKeyPathEdit->setText(fileName);
+        }
+    });
+    connect(m_sftpHostEdit, &QLineEdit::textChanged, this, &ConnectionDialog::onSftpHostChanged);
+
+    m_settingsStack->addWidget(widget);
+}
+
+void ConnectionDialog::createFtpSettingsWidget()
+{
+    QWidget *widget = new QWidget();
+    QFormLayout *layout = new QFormLayout(widget);
+
+    m_ftpHostEdit = new QLineEdit("127.0.0.1");
+    layout->addRow("Host:", m_ftpHostEdit);
+
+    m_ftpPortSpinBox = new QSpinBox();
+    m_ftpPortSpinBox->setRange(1, 65535);
+    m_ftpPortSpinBox->setValue(21);
+    layout->addRow("Port:", m_ftpPortSpinBox);
+
+    m_ftpUsernameEdit = new QLineEdit("anonymous");
+    layout->addRow("Username:", m_ftpUsernameEdit);
+
+    m_ftpPasswordEdit = new QLineEdit();
+    m_ftpPasswordEdit->setEchoMode(QLineEdit::Password);
+    layout->addRow("Password:", m_ftpPasswordEdit);
+
+    connect(m_ftpHostEdit, &QLineEdit::textChanged, this, &ConnectionDialog::onFtpHostChanged);
+
+    m_settingsStack->addWidget(widget);
+}
+
+void ConnectionDialog::createTftpSettingsWidget()
+{
+    QWidget *widget = new QWidget();
+    QFormLayout *layout = new QFormLayout(widget);
+
+    m_tftpHostEdit = new QLineEdit("127.0.0.1");
+    layout->addRow("Host:", m_tftpHostEdit);
+
+    m_tftpPortSpinBox = new QSpinBox();
+    m_tftpPortSpinBox->setRange(1, 65535);
+    m_tftpPortSpinBox->setValue(69);
+    layout->addRow("Port:", m_tftpPortSpinBox);
+
+    connect(m_tftpHostEdit, &QLineEdit::textChanged, this, &ConnectionDialog::onTftpHostChanged);
+
+    m_settingsStack->addWidget(widget);
+}
+
 ConnectionDialog::ConnectionSettings ConnectionDialog::getSettings() const
 {
     ConnectionSettings settings = m_currentSettings;
@@ -371,6 +558,26 @@ ConnectionDialog::ConnectionSettings ConnectionDialog::getSettings() const
                 "If the target service is Telnet, please change the connection type to Telnet.\n"
                 "If the target service is SSH, please change the port to 22.");
         }
+    } else if (type == Rlogin) {
+        settings.host = m_rloginHostEdit->text();
+        settings.port = m_rloginPortSpinBox->value();
+        settings.username = m_rloginUsernameEdit->text();
+        settings.password = m_rloginPasswordEdit->text();
+    } else if (type == SFTP) {
+        settings.host = m_sftpHostEdit->text();
+        settings.port = m_sftpPortSpinBox->value();
+        settings.username = m_sftpUsernameEdit->text();
+        settings.password = m_sftpPasswordEdit->text();
+        settings.useSshKey = m_useSftpKeyCheckBox->isChecked();
+        settings.sshKeyPath = m_sftpKeyPathEdit->text();
+    } else if (type == FTP) {
+        settings.host = m_ftpHostEdit->text();
+        settings.port = m_ftpPortSpinBox->value();
+        settings.username = m_ftpUsernameEdit->text();
+        settings.password = m_ftpPasswordEdit->text();
+    } else if (type == TFTP) {
+        settings.host = m_tftpHostEdit->text();
+        settings.port = m_tftpPortSpinBox->value();
     }
     
     return settings;

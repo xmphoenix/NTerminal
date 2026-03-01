@@ -39,7 +39,11 @@ SOURCES += \
     session/connectionhandler.cpp \
     session/serialhandler.cpp \
     session/telnethandler.cpp \
-    session/ssshandler.cpp
+    session/ssshandler.cpp \
+    session/rloginhandler.cpp \
+    session/sftphandler.cpp \
+    session/ftphandler.cpp \
+    session/tftphandler.cpp
 
 HEADERS += \
     mainwindow.h \
@@ -65,7 +69,11 @@ HEADERS += \
     session/connectionhandler.h \
     session/serialhandler.h \
     session/telnethandler.h \
-    session/ssshandler.h
+    session/ssshandler.h \
+    session/rloginhandler.h \
+    session/sftphandler.h \
+    session/ftphandler.h \
+    session/tftphandler.h
 
 RESOURCES += \
     resources/resources.qrc

@@ -139,7 +139,17 @@ void TerminalProxy::setConnectionSettings(const Common::ConnectionSettings &sett
 bool TerminalProxy::openConnection()
 {
     m_sessionProcess = new QProcess(this);
-    
+
+    // Capture session process output for debugging
+    connect(m_sessionProcess, &QProcess::readyReadStandardOutput, this, [this]() {
+        QByteArray output = m_sessionProcess->readAllStandardOutput();
+        qDebug().noquote() << "[SessionProcess-stdout]" << QString::fromUtf8(output);
+    });
+    connect(m_sessionProcess, &QProcess::readyReadStandardError, this, [this]() {
+        QByteArray output = m_sessionProcess->readAllStandardError();
+        qDebug().noquote() << "[SessionProcess-stderr]" << QString::fromUtf8(output);
+    });
+
     connect(m_sessionProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
             this, &TerminalProxy::onProcessFinished);
     connect(m_sessionProcess, &QProcess::errorOccurred, this, &TerminalProxy::onProcessError);
@@ -1377,23 +1387,23 @@ void TerminalProxy::updateScrollBars()
     int requiredColumns = qMax(m_cursorColumn + 1, visibleColumns);
     if (requiredColumns > m_columns) {
         int newColumns = qMax(requiredColumns, m_columns + 50);
-        qDebug() << "[TerminalProxy] updateScrollBars - Dynamic expand columns from" << m_columns << "to" << newColumns;
+        // qDebug() << "[TerminalProxy] updateScrollBars - Dynamic expand columns from" << m_columns << "to" << newColumns;
         m_columns = newColumns;
         allocateBuffers();
     }
-    
+
     horizontalScrollBar()->setRange(0, qMax(0, m_columns - visibleColumns));
     horizontalScrollBar()->setPageStep(visibleColumns);
     horizontalScrollBar()->setSingleStep(1);
-    
-    qDebug() << "[TerminalProxy] updateScrollBars: totalLines=" << totalLines 
-             << "historySize=" << m_historySize
-             << "terminalRows=" << m_terminalRows
-             << "visibleLines=" << visibleLines
-             << "visibleColumns=" << visibleColumns
-             << "columns=" << m_columns
-             << "scrollbarMax=" << verticalScrollBar()->maximum()
-             << "useAlternateScreen=" << m_useAlternateScreen;
+
+    // qDebug() << "[TerminalProxy] updateScrollBars: totalLines=" << totalLines
+    //          << "historySize=" << m_historySize
+    //          << "terminalRows=" << m_terminalRows
+    //          << "visibleLines=" << visibleLines
+    //          << "visibleColumns=" << visibleColumns
+    //          << "columns=" << m_columns
+    //          << "scrollbarMax=" << verticalScrollBar()->maximum()
+    //          << "useAlternateScreen=" << m_useAlternateScreen;
 }
 
 void TerminalProxy::ensureCursorVisible()

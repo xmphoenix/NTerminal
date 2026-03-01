@@ -10,7 +10,11 @@ namespace Common {
 enum class ConnectionType {
     Serial,
     Telnet,
-    SSH
+    SSH,
+    Rlogin,
+    SFTP,
+    FTP,
+    TFTP
 };
 
 struct ConnectionSettings {
@@ -45,23 +49,22 @@ struct ConnectionSettings {
     QJsonObject toJson() const {
         QJsonObject obj;
         obj["sessionName"] = sessionName;
-        obj["type"] = type == ConnectionType::Serial ? "Serial" :
-                      type == ConnectionType::Telnet ? "Telnet" : "SSH";
-        
+        obj["type"] = connectionTypeToString(type);
+
         obj["portName"] = portName;
         obj["baudRate"] = baudRate;
         obj["dataBits"] = dataBitsToInt(dataBits);
         obj["parity"] = parityToString(parity);
         obj["stopBits"] = stopBitsToString(stopBits);
         obj["flowControl"] = flowControlToString(flowControl);
-        
+
         obj["host"] = host;
         obj["port"] = port;
         obj["username"] = username;
         obj["password"] = password;
         obj["useSshKey"] = useSshKey;
         obj["sshKeyPath"] = sshKeyPath;
-        
+
         return obj;
     }
     
@@ -88,9 +91,26 @@ struct ConnectionSettings {
     }
     
 private:
+    static QString connectionTypeToString(ConnectionType type) {
+        switch (type) {
+            case ConnectionType::Serial: return "Serial";
+            case ConnectionType::Telnet: return "Telnet";
+            case ConnectionType::SSH: return "SSH";
+            case ConnectionType::Rlogin: return "Rlogin";
+            case ConnectionType::SFTP: return "SFTP";
+            case ConnectionType::FTP: return "FTP";
+            case ConnectionType::TFTP: return "TFTP";
+            default: return "Serial";
+        }
+    }
+
     static ConnectionType stringToConnectionType(const QString &str) {
         if (str == "Telnet") return ConnectionType::Telnet;
         if (str == "SSH") return ConnectionType::SSH;
+        if (str == "Rlogin") return ConnectionType::Rlogin;
+        if (str == "SFTP") return ConnectionType::SFTP;
+        if (str == "FTP") return ConnectionType::FTP;
+        if (str == "TFTP") return ConnectionType::TFTP;
         return ConnectionType::Serial;
     }
     

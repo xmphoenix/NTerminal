@@ -165,11 +165,25 @@ void SessionProcess::handleSessionConfig(const QByteArray &payload)
 
 void SessionProcess::handleDataToSend(const QByteArray &payload)
 {
-    if (m_connectionHandler && m_connectionHandler->isConnected()) {
-        m_connectionHandler->sendData(payload);
-        if (m_logger) {
-            m_logger->logData(payload, false);
+    qDebug() << "[SessionProcess] handleDataToSend: payload size=" << payload.size();
+    qDebug() << "[SessionProcess] handleDataToSend: payload hex=" << payload.toHex(' ');
+    qDebug() << "[SessionProcess] handleDataToSend: payload string=" << QString::fromUtf8(payload);
+
+    if (m_connectionHandler) {
+        qDebug() << "[SessionProcess] handleDataToSend: connectionHandler exists";
+        qDebug() << "[SessionProcess] handleDataToSend: isConnected=" << m_connectionHandler->isConnected();
+
+        if (m_connectionHandler->isConnected()) {
+            qDebug() << "[SessionProcess] handleDataToSend: Sending data to connection handler";
+            m_connectionHandler->sendData(payload);
+            if (m_logger) {
+                m_logger->logData(payload, false);
+            }
+        } else {
+            qDebug() << "[SessionProcess] handleDataToSend: Connection handler not connected, data not sent";
         }
+    } else {
+        qDebug() << "[SessionProcess] handleDataToSend: No connection handler";
     }
 }
 
