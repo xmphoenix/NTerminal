@@ -392,7 +392,7 @@ void MainWindow::initMainWindowMenu()
     m_scriptMenu = m_menuBar->addMenu("Script");
     m_helpMenu = m_menuBar->addMenu("Help");
 
-    m_sessionAction = new QAction("New Connection", this);
+    m_sessionAction = new QAction("Connect", this);
     m_fileMenu->addAction(m_sessionAction);
     
     m_saveSessionAction = new QAction("Save Current Session", this);
@@ -450,7 +450,7 @@ void MainWindow::initMainWindowMenu()
     });
 
     m_toolBar = new QToolBar(this);
-    m_toolbarSessionAction = new QAction("New Connection", this);
+    m_toolbarSessionAction = new QAction("Connect", this);
     m_toolBar->addAction(m_toolbarSessionAction);
     m_toolBar->addAction("Print");
     m_debugAction = m_toolBar->addAction("Debug");

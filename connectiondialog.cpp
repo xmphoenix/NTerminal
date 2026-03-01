@@ -40,11 +40,11 @@ ConnectionDialog::ConnectionDialog(QWidget *parent)
     , m_okButton(nullptr)
     , m_cancelButton(nullptr)
 {
-    setWindowTitle("新建连接");
+    setWindowTitle("New Connection");
     setupUi();
-    
+
     m_currentSettings.type = Serial;
-    m_currentSettings.sessionName = "新建连接";
+    m_currentSettings.sessionName = "New Connection";
     m_currentSettings.portName = "";
     m_currentSettings.baudRate = 115200;
     m_currentSettings.dataBits = QSerialPort::Data8;
@@ -66,35 +66,35 @@ ConnectionDialog::~ConnectionDialog()
 void ConnectionDialog::setupUi()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    
+
     // Session name
     QFormLayout *formLayout = new QFormLayout();
-    m_sessionNameEdit = new QLineEdit("新建连接");
-    formLayout->addRow("会话名称:", m_sessionNameEdit);
-    
+    m_sessionNameEdit = new QLineEdit("New Connection");
+    formLayout->addRow("Session Name:", m_sessionNameEdit);
+
     // Connection type
     m_typeComboBox = new QComboBox();
-    m_typeComboBox->addItem("串口", Serial);
+    m_typeComboBox->addItem("Serial", Serial);
     m_typeComboBox->addItem("Telnet", Telnet);
     m_typeComboBox->addItem("SSH", SSH);
-    formLayout->addRow("连接类型:", m_typeComboBox);
-    
+    formLayout->addRow("Connection Type:", m_typeComboBox);
+
     mainLayout->addLayout(formLayout);
-    
+
     // Settings stack
     m_settingsStack = new QStackedWidget();
-    
+
     // Create settings widgets
     createSerialSettingsWidget();
     createTelnetSettingsWidget();
     createSshSettingsWidget();
-    
+
     mainLayout->addWidget(m_settingsStack);
-    
+
     // Buttons
     QHBoxLayout *buttonLayout = new QHBoxLayout();
-    m_okButton = new QPushButton("确定");
-    m_cancelButton = new QPushButton("取消");
+    m_okButton = new QPushButton("OK");
+    m_cancelButton = new QPushButton("Cancel");
     buttonLayout->addStretch();
     buttonLayout->addWidget(m_okButton);
     buttonLayout->addWidget(m_cancelButton);
@@ -115,15 +115,15 @@ void ConnectionDialog::createSerialSettingsWidget()
 {
     QWidget *widget = new QWidget();
     QFormLayout *layout = new QFormLayout(widget);
-    
+
     // Port selection
     m_portComboBox = new QComboBox();
-    QPushButton *refreshButton = new QPushButton("刷新");
+    QPushButton *refreshButton = new QPushButton("Refresh");
     QHBoxLayout *portLayout = new QHBoxLayout();
     portLayout->addWidget(m_portComboBox);
     portLayout->addWidget(refreshButton);
-    layout->addRow("串口设备:", portLayout);
-    
+    layout->addRow("Serial Port:", portLayout);
+
     // Baud rate
     m_baudRateComboBox = new QComboBox();
     m_baudRateComboBox->addItem("1200", 1200);
@@ -135,8 +135,8 @@ void ConnectionDialog::createSerialSettingsWidget()
     m_baudRateComboBox->addItem("57600", 57600);
     m_baudRateComboBox->addItem("115200", 115200);
     m_baudRateComboBox->setCurrentText("115200");
-    layout->addRow("波特率:", m_baudRateComboBox);
-    
+    layout->addRow("Baud Rate:", m_baudRateComboBox);
+
     // Data bits
     m_dataBitsComboBox = new QComboBox();
     m_dataBitsComboBox->addItem("5", QSerialPort::Data5);
@@ -144,30 +144,30 @@ void ConnectionDialog::createSerialSettingsWidget()
     m_dataBitsComboBox->addItem("7", QSerialPort::Data7);
     m_dataBitsComboBox->addItem("8", QSerialPort::Data8);
     m_dataBitsComboBox->setCurrentText("8");
-    layout->addRow("数据位:", m_dataBitsComboBox);
-    
+    layout->addRow("Data Bits:", m_dataBitsComboBox);
+
     // Parity
     m_parityComboBox = new QComboBox();
-    m_parityComboBox->addItem("无", QSerialPort::NoParity);
-    m_parityComboBox->addItem("奇校验", QSerialPort::OddParity);
-    m_parityComboBox->addItem("偶校验", QSerialPort::EvenParity);
-    m_parityComboBox->addItem("标记", QSerialPort::MarkParity);
-    m_parityComboBox->addItem("空格", QSerialPort::SpaceParity);
-    layout->addRow("校验位:", m_parityComboBox);
-    
+    m_parityComboBox->addItem("None", QSerialPort::NoParity);
+    m_parityComboBox->addItem("Odd", QSerialPort::OddParity);
+    m_parityComboBox->addItem("Even", QSerialPort::EvenParity);
+    m_parityComboBox->addItem("Mark", QSerialPort::MarkParity);
+    m_parityComboBox->addItem("Space", QSerialPort::SpaceParity);
+    layout->addRow("Parity:", m_parityComboBox);
+
     // Stop bits
     m_stopBitsComboBox = new QComboBox();
     m_stopBitsComboBox->addItem("1", QSerialPort::OneStop);
     m_stopBitsComboBox->addItem("1.5", QSerialPort::OneAndHalfStop);
     m_stopBitsComboBox->addItem("2", QSerialPort::TwoStop);
-    layout->addRow("停止位:", m_stopBitsComboBox);
-    
+    layout->addRow("Stop Bits:", m_stopBitsComboBox);
+
     // Flow control
     m_flowControlComboBox = new QComboBox();
-    m_flowControlComboBox->addItem("无", QSerialPort::NoFlowControl);
-    m_flowControlComboBox->addItem("硬件", QSerialPort::HardwareControl);
-    m_flowControlComboBox->addItem("软件", QSerialPort::SoftwareControl);
-    layout->addRow("流控制:", m_flowControlComboBox);
+    m_flowControlComboBox->addItem("None", QSerialPort::NoFlowControl);
+    m_flowControlComboBox->addItem("Hardware", QSerialPort::HardwareControl);
+    m_flowControlComboBox->addItem("Software", QSerialPort::SoftwareControl);
+    layout->addRow("Flow Control:", m_flowControlComboBox);
     
     // Connect refresh button
     connect(refreshButton, &QPushButton::clicked, this, &ConnectionDialog::refreshSerialPorts);
@@ -183,21 +183,21 @@ void ConnectionDialog::createTelnetSettingsWidget()
 {
     QWidget *widget = new QWidget();
     QFormLayout *layout = new QFormLayout(widget);
-    
+
     m_telnetHostEdit = new QLineEdit("127.0.0.1");
-    layout->addRow("主机地址:", m_telnetHostEdit);
-    
+    layout->addRow("Host:", m_telnetHostEdit);
+
     m_telnetPortSpinBox = new QSpinBox();
     m_telnetPortSpinBox->setRange(1, 65535);
     m_telnetPortSpinBox->setValue(23);
-    layout->addRow("端口:", m_telnetPortSpinBox);
-    
+    layout->addRow("Port:", m_telnetPortSpinBox);
+
     m_telnetUsernameEdit = new QLineEdit();
-    layout->addRow("用户名:", m_telnetUsernameEdit);
-    
+    layout->addRow("Username:", m_telnetUsernameEdit);
+
     m_telnetPasswordEdit = new QLineEdit();
     m_telnetPasswordEdit->setEchoMode(QLineEdit::Password);
-    layout->addRow("密码:", m_telnetPasswordEdit);
+    layout->addRow("Password:", m_telnetPasswordEdit);
     
     connect(m_telnetHostEdit, &QLineEdit::textChanged, this, &ConnectionDialog::onTelnetHostChanged);
     
@@ -210,29 +210,29 @@ void ConnectionDialog::createSshSettingsWidget()
     QFormLayout *layout = new QFormLayout(widget);
     
     m_sshHostEdit = new QLineEdit("127.0.0.1");
-    layout->addRow("主机地址:", m_sshHostEdit);
+    layout->addRow("Host:", m_sshHostEdit);
     
     m_sshPortSpinBox = new QSpinBox();
     m_sshPortSpinBox->setRange(1, 65535);
     m_sshPortSpinBox->setValue(22);
-    layout->addRow("端口:", m_sshPortSpinBox);
+    layout->addRow("Port:", m_sshPortSpinBox);
     
     m_sshUsernameEdit = new QLineEdit();
-    layout->addRow("用户名:", m_sshUsernameEdit);
+    layout->addRow("Username:", m_sshUsernameEdit);
     
     m_sshPasswordEdit = new QLineEdit();
     m_sshPasswordEdit->setEchoMode(QLineEdit::Password);
-    layout->addRow("密码:", m_sshPasswordEdit);
+    layout->addRow("Password:", m_sshPasswordEdit);
     
-    m_useSshKeyCheckBox = new QCheckBox("使用SSH密钥");
+    m_useSshKeyCheckBox = new QCheckBox("Use SSH Key");
     layout->addRow("", m_useSshKeyCheckBox);
     
     QHBoxLayout *keyLayout = new QHBoxLayout();
     m_sshKeyPathEdit = new QLineEdit();
-    m_browseKeyButton = new QPushButton("浏览...");
+    m_browseKeyButton = new QPushButton("Browse...");
     keyLayout->addWidget(m_sshKeyPathEdit);
     keyLayout->addWidget(m_browseKeyButton);
-    layout->addRow("SSH密钥:", keyLayout);
+    layout->addRow("SSH Key:", keyLayout);
     
     m_sshKeyPathEdit->setEnabled(false);
     m_browseKeyButton->setEnabled(false);
@@ -256,7 +256,7 @@ void ConnectionDialog::onConnectionTypeChanged(int index)
         if (m_portComboBox->isEnabled() && m_portComboBox->currentIndex() >= 0) {
             m_sessionNameEdit->setText(m_portComboBox->currentData().toString());
         } else {
-            m_sessionNameEdit->setText("新建串口连接");
+            m_sessionNameEdit->setText("New Serial Connection");
         }
         break;
     case Telnet:
@@ -278,12 +278,12 @@ void ConnectionDialog::refreshSerialPorts()
     QList<QSerialPortInfo> ports = QSerialPortInfo::availablePorts();
     
     if (ports.isEmpty()) {
-        m_portComboBox->addItem("未检测到串口设备");
+        m_portComboBox->addItem("No serial port detected");
         m_portComboBox->setEnabled(false);
     } else {
         for (const QSerialPortInfo &port : ports) {
             QString description = port.description();
-            if (description.isEmpty()) description = "未知设备";
+            if (description.isEmpty()) description = "Unknown Device";
             m_portComboBox->addItem(QString("%1 (%2)").arg(port.portName(), description), port.portName());
         }
         m_portComboBox->setEnabled(true);
@@ -292,7 +292,7 @@ void ConnectionDialog::refreshSerialPorts()
 
 void ConnectionDialog::browseSshKey()
 {
-    QString fileName = QFileDialog::getOpenFileName(this, "选择SSH密钥文件", "", "All Files (*)");
+    QString fileName = QFileDialog::getOpenFileName(this, "Select SSH Key File", "", "All Files (*)");
     if (!fileName.isEmpty()) {
         m_sshKeyPathEdit->setText(fileName);
     }
@@ -347,13 +347,13 @@ ConnectionDialog::ConnectionSettings ConnectionDialog::getSettings() const
         settings.username = m_telnetUsernameEdit->text();
         settings.password = m_telnetPasswordEdit->text();
         
-        // 端口验证警告
+        // Port Warning
         if (settings.port == 22) {
-            QMessageBox::warning(nullptr, "端口警告", 
-                "您选择了 Telnet 连接类型，但端口设置为 22（SSH 默认端口）。\n\n"
-                "Telnet 默认端口是 23。\n\n"
-                "如果目标服务是 SSH，请将连接类型改为 SSH。\n"
-                "如果目标服务是 Telnet，请将端口改为 23。");
+            QMessageBox::warning(nullptr, "Port Warning",
+                "You have selected Telnet connection type, but the port is set to 22 (default SSH port).\n\n"
+                "Telnet default port is 23.\n\n"
+                "If the target service is SSH, please change the connection type to SSH.\n"
+                "If the target service is Telnet, please change the port to 23.");
         }
     } else if (type == SSH) {
         settings.host = m_sshHostEdit->text();
@@ -362,14 +362,14 @@ ConnectionDialog::ConnectionSettings ConnectionDialog::getSettings() const
         settings.password = m_sshPasswordEdit->text();
         settings.useSshKey = m_useSshKeyCheckBox->isChecked();
         settings.sshKeyPath = m_sshKeyPathEdit->text();
-        
-        // 端口验证警告
+
+        // Port Warning
         if (settings.port == 23) {
-            QMessageBox::warning(nullptr, "端口警告", 
-                "您选择了 SSH 连接类型，但端口设置为 23（Telnet 默认端口）。\n\n"
-                "SSH 默认端口是 22。\n\n"
-                "如果目标服务是 Telnet，请将连接类型改为 Telnet。\n"
-                "如果目标服务是 SSH，请将端口改为 22。");
+            QMessageBox::warning(nullptr, "Port Warning",
+                "You have selected SSH connection type, but the port is set to 23 (default Telnet port).\n\n"
+                "SSH default port is 22.\n\n"
+                "If the target service is Telnet, please change the connection type to Telnet.\n"
+                "If the target service is SSH, please change the port to 22.");
         }
     }
     
