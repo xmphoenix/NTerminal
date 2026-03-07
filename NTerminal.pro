@@ -12,6 +12,7 @@ win32 {
     LIBSSH_ROOT = D:/Ai/NTerminal/libssh-prebuilt
     INCLUDEPATH += $$LIBSSH_ROOT/include
     LIBS += -L$$LIBSSH_ROOT/lib -lssh
+    LIBS += -lws2_32  # For Windows socket API
 }
 
 INCLUDEPATH += $$PWD/common $$PWD/ipc $$PWD/session

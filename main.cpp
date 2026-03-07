@@ -10,6 +10,44 @@
 #include <QLocale>
 #include <QTranslator>
 #include <QDebug>
+#include <QFile>
+#include <QTextStream>
+
+// Custom log file handler
+class LogFile {
+public:
+    static void init(const QString &sessionId) {
+        QString logPath = QCoreApplication::applicationDirPath() + "/rlogin_debug_" + sessionId + ".log";
+        logFile.setFileName(logPath);
+        if (logFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+            ts.setDevice(&logFile);
+            ts << "========== Session Started ==========\n";
+            ts.flush();
+        }
+    }
+    
+    static void log(const QString &msg) {
+        if (ts.device()) {
+            ts << QDateTime::currentDateTime().toString("hh:mm:ss.zzz") << " " << msg << "\n";
+            ts.flush();
+        }
+    }
+    
+    static void close() {
+        if (logFile.isOpen()) {
+            ts << "========== Session Ended ==========\n";
+            ts.flush();
+            logFile.close();
+        }
+    }
+    
+private:
+    static QFile logFile;
+    static QTextStream ts;
+};
+
+QFile LogFile::logFile;
+QTextStream LogFile::ts;
 
 int main(int argc, char *argv[])
 {
@@ -37,39 +75,42 @@ int main(int argc, char *argv[])
         QCoreApplication::setApplicationName("NTerminal-Session");
         QCoreApplication::setApplicationVersion("2.0.0");
 
-        qDebug() << "[SessionProcess] Starting session:" << sessionId;
+        // Initialize log file
+        LogFile::init(sessionId);
+        LogFile::log("Session process starting, ID: " + sessionId);
 
         SessionProcess session(sessionId);
         if (!session.initialize()) {
-            qCritical() << "[SessionProcess] Failed to initialize session process";
+            LogFile::log("ERROR: Failed to initialize session process");
+            LogFile::close();
             return 1;
         }
 
         session.run();
 
-        return app.exec();
+        int result = app.exec();
+        
+        LogFile::log("Session process exiting with code: " + QString::number(result));
+        LogFile::close();
+        
+        return result;
     } else if (isTestMode) {
         // Terminal tester mode
         QApplication app(argc, argv);
         QCoreApplication::setApplicationName("NTerminal-Tester");
         QCoreApplication::setApplicationVersion("1.0.0");
 
-        qDebug() << "[Tester] Starting terminal emulation tester";
-
         TestWindow testWindow;
         testWindow.show();
 
         return app.exec();
     } else {
-        // 启用高 DPI 支持，确保多显示器颜色一致
-        // Note: Qt 6.x automatically enables high DPI scaling
+        // Enable high DPI support
         QCoreApplication::setAttribute(Qt::AA_UseOpenGLES);
 
         QApplication app(argc, argv);
         QCoreApplication::setApplicationName("NTerminal");
         QCoreApplication::setApplicationVersion("2.0.0");
-
-        qDebug() << "[GUI] Starting GUI application";
 
         ThemeManager::instance()->initialize();
         FontManager::instance()->initialize();

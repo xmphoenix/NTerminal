@@ -17,25 +17,32 @@ TerminalParser::~TerminalParser()
 
 void TerminalParser::processByte(unsigned char ch)
 {
+    // Special handling for OSC state - BEL and ESC have special meaning
+    if (m_state == StateOscString) {
+        oscStringState(ch);
+        return;
+    }
+
+    // Handle control characters (except when in special states)
     if (ch <= 0x1F || ch == 0x7F) {
         switch (ch) {
             case 0x07: emit bell(); return;
             case 0x08: emit backspace(); return;
             case 0x09: emit horizontalTab(); return;
-            case 0x0A: 
-                emit lineFeed(); 
+            case 0x0A:
+                emit lineFeed();
                 return;
             case 0x0B: emit verticalTab(); return;
             case 0x0C: emit formFeed(); return;
-            case 0x0D: 
-                emit carriageReturn(); 
+            case 0x0D:
+                emit carriageReturn();
                 return;
             case 0x1B: m_state = StateEscape; return;
             case 0x7F: return;
             default: return;
         }
     }
-    
+
     switch (m_state) {
         case StateGround:
             groundState(ch);
@@ -56,7 +63,7 @@ void TerminalParser::processByte(unsigned char ch)
             csiIgnoreState(ch);
             break;
         case StateOscString:
-            oscStringState(ch);
+            // Already handled above
             break;
         case StateUtf8:
             m_utf8Buffer.append(ch);

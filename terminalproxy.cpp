@@ -108,7 +108,11 @@ TerminalProxy::TerminalProxy(QWidget *parent)
     connect(m_parser, &TerminalParser::cursorPositionReportRequest, this, &TerminalProxy::onCursorPositionReportRequest);
     connect(m_parser, &TerminalParser::primaryDeviceAttributes, this, &TerminalProxy::onPrimaryDeviceAttributes);
     connect(m_parser, &TerminalParser::secondaryDeviceAttributes, this, &TerminalProxy::onSecondaryDeviceAttributes);
-    
+    connect(m_parser, &TerminalParser::setWindowTitle, this, [this](const QString &title) {
+        // OSC window title - can be used to update window title if needed
+        Q_UNUSED(title);
+    });
+
     TerminalTheme initialTheme = ThemeManager::instance()->currentTerminalTheme();
     m_currentTheme = initialTheme;
     m_defaultForeground = initialTheme.defaultForeground;
@@ -140,50 +144,53 @@ bool TerminalProxy::openConnection()
 {
     m_sessionProcess = new QProcess(this);
 
+    // Set process channel mode to merged so we capture all output
+    m_sessionProcess->setProcessChannelMode(QProcess::MergedChannels);
+
     // Capture session process output for debugging
-    connect(m_sessionProcess, &QProcess::readyReadStandardOutput, this, [this]() {
-        QByteArray output = m_sessionProcess->readAllStandardOutput();
-        qDebug().noquote() << "[SessionProcess-stdout]" << QString::fromUtf8(output);
-    });
-    connect(m_sessionProcess, &QProcess::readyReadStandardError, this, [this]() {
-        QByteArray output = m_sessionProcess->readAllStandardError();
-        qDebug().noquote() << "[SessionProcess-stderr]" << QString::fromUtf8(output);
+    connect(m_sessionProcess, &QProcess::readyRead, this, [this]() {
+        QByteArray output = m_sessionProcess->readAll();
+        QString outputStr = QString::fromUtf8(output);
+        // Print each line separately for better readability
+        for (const QString &line : outputStr.split('\n', Qt::SkipEmptyParts)) {
+            qDebug().noquote() << "[SessionProcess]" << line;
+        }
     });
 
     connect(m_sessionProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
             this, &TerminalProxy::onProcessFinished);
     connect(m_sessionProcess, &QProcess::errorOccurred, this, &TerminalProxy::onProcessError);
-    
+
     m_ipcClient = new Ipc::IpcClient(this);
-    
+
     connect(m_ipcClient, &Ipc::IpcClient::connected, this, &TerminalProxy::onIpcConnected);
     connect(m_ipcClient, &Ipc::IpcClient::disconnected, this, &TerminalProxy::onIpcDisconnected);
     connect(m_ipcClient, &Ipc::IpcClient::errorOccurred, this, &TerminalProxy::onIpcError);
     connect(m_ipcClient, &Ipc::IpcClient::messageReceived, this, &TerminalProxy::onIpcMessageReceived);
-    
+
     m_sessionId = QString("session_%1_%2")
                   .arg(QDateTime::currentMSecsSinceEpoch())
                   .arg(QRandomGenerator::global()->bounded(100000));
-    
+
     QString program = QCoreApplication::applicationFilePath();
     QStringList args;
     args << "--session" << m_sessionId;
-    
+
     qDebug() << "[TerminalProxy] Starting session process:" << program << args;
     m_sessionProcess->start(program, args);
-    
+
     if (!m_sessionProcess->waitForStarted(5000)) {
         qWarning() << "[TerminalProxy] Failed to start session process";
         emit connectionError("Failed to start session process");
         return false;
     }
-    
+
     qDebug() << "[TerminalProxy] Session process started, waiting for IPC server...";
-    
+
     QTimer::singleShot(500, [this]() {
         QString serverName = QString("nterminal_%1").arg(m_sessionId);
         qDebug() << "[TerminalProxy] Connecting to IPC server:" << serverName;
-        
+
         if (!m_ipcClient->connectToServer(serverName, 5000)) {
             qWarning() << "[TerminalProxy] Failed to connect to IPC server";
             emit connectionError("Failed to connect to session process");
@@ -193,7 +200,7 @@ bool TerminalProxy::openConnection()
             sendTerminalSize();
         }
     });
-    
+
     return true;
 }
 
@@ -1223,6 +1230,11 @@ void TerminalProxy::handleConnectionStatus(const QByteArray &payload)
 
 void TerminalProxy::handleDataReceived(const QByteArray &payload)
 {
+    qDebug() << "========== TerminalProxy::handleDataReceived ==========";
+    qDebug() << "[TerminalProxy] Received" << payload.size() << "bytes from IPC";
+    qDebug() << "[TerminalProxy] Data hex:" << payload.toHex(' ');
+    qDebug() << "=======================================================";
+
     emit dataReceived(payload);
     m_parser->processData(payload);
 }
