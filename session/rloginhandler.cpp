@@ -333,10 +333,12 @@ void RloginHandler::onReadyRead()
 
 void RloginHandler::processDataWithEscapeSequences()
 {
-    // Process rlogin protocol escape sequences
-    // BSD rlogin protocol:
-    // - 0xff 0xff 's' + window size data from server (skip entire packet)
-    // - 0xff 0xff followed by other = escaped 0xff (output single 0xff)
+    // Process rlogin protocol escape sequences per RFC 1282
+    // Window size change: FF FF 73 73 + 8 bytes (rows, cols, xpixels, ypixels)
+    // Total: 12 bytes
+    //
+    // Note: Server should NOT echo window size commands back to client.
+    // Server uses TCP urgent data for control messages (not FF FF sequences).
 
     QByteArray processedData;
     int i = 0;
@@ -344,160 +346,64 @@ void RloginHandler::processDataWithEscapeSequences()
     while (i < m_pendingData.size()) {
         unsigned char currentByte = static_cast<unsigned char>(m_pendingData[i]);
 
-        // Check for potential escape sequence start
+        // Check for potential escape sequence start (0xFF)
         if (currentByte == 0xff) {
-            // Need at least 2 more bytes to determine what this is
-            if (i + 1 >= m_pendingData.size()) {
+            // Need at least 4 bytes for window size: FF FF 73 73
+            if (i + 3 >= m_pendingData.size()) {
                 // Incomplete sequence - keep it in buffer for next packet
                 debugLog(QString("Incomplete escape at pos %1, keeping %2 bytes in buffer")
                     .arg(i).arg(m_pendingData.size() - i));
-                // Keep the incomplete data from position i onwards
                 m_pendingData = m_pendingData.mid(i);
                 debugLog(QString("Pending buffer after: %1 bytes").arg(m_pendingData.size()));
 
-                // Emit any processed data before returning
                 if (!processedData.isEmpty()) {
                     debugLog(QString("Passing %1 bytes to terminal").arg(processedData.size()));
                     debugLog(QString("Terminal data hex: %1").arg(QString(processedData.toHex(' '))));
-                    debugLog("Emitting dataReceived() signal (before incomplete escape return)...");
                     emit dataReceived(processedData);
-                    debugLog("dataReceived() signal emitted");
                 }
                 return;
             }
 
-            unsigned char nextByte = static_cast<unsigned char>(m_pendingData[i + 1]);
+            unsigned char byte1 = static_cast<unsigned char>(m_pendingData[i + 1]);
+            unsigned char byte2 = static_cast<unsigned char>(m_pendingData[i + 2]);
+            unsigned char byte3 = static_cast<unsigned char>(m_pendingData[i + 3]);
 
-            if (nextByte == 0xff) {
-                // Found ff ff sequence
-                if (i + 2 >= m_pendingData.size()) {
-                    // Incomplete ff ff sequence - keep it in buffer
-                    debugLog(QString("Incomplete ff ff at pos %1, keeping %2 bytes in buffer")
-                        .arg(i).arg(m_pendingData.size() - i));
+            // Check for window size sequence: FF FF 73 73 (or FF FF 's' 's')
+            if (byte1 == 0xff && (byte2 == 0x73 || byte2 == 'S') && (byte3 == 0x73 || byte3 == 'S')) {
+                // This is a window size sequence
+                // Need 12 bytes total: FF FF 73 73 + 8 bytes data
+                if (i + 12 > m_pendingData.size()) {
+                    // Incomplete window size - keep in buffer
+                    debugLog(QString("Incomplete window size at pos %1, keeping in buffer").arg(i));
                     m_pendingData = m_pendingData.mid(i);
                     debugLog(QString("Pending buffer after: %1 bytes").arg(m_pendingData.size()));
 
-                    // Emit any processed data before returning
                     if (!processedData.isEmpty()) {
                         debugLog(QString("Passing %1 bytes to terminal").arg(processedData.size()));
-                        debugLog(QString("Terminal data hex: %1").arg(QString(processedData.toHex(' '))));
                         emit dataReceived(processedData);
                     }
                     return;
                 }
 
-                unsigned char cmd = static_cast<unsigned char>(m_pendingData[i + 2]);
+                // Extract window size data (8 bytes after FF FF 73 73)
+                int dataStart = i + 4;
+                int rows = (static_cast<unsigned char>(m_pendingData[dataStart]) << 8) |
+                          static_cast<unsigned char>(m_pendingData[dataStart + 1]);
+                int cols = (static_cast<unsigned char>(m_pendingData[dataStart + 2]) << 8) |
+                          static_cast<unsigned char>(m_pendingData[dataStart + 3]);
 
-                if (cmd == 's' || cmd == 'S') {
-                    // Window size echo from server
-                    // Some rlogind implementations escape control characters:
-                    // - Standard format: ff ff s + 8 bytes (binary) = 11 bytes total
-                    // - Escaped format: ff ff s + escaped bytes (e.g., 0x00 becomes "^@" = 0x5e 0x40)
-                    //   In escaped format, each null byte becomes 2 bytes, so 8 nulls become 16 bytes
-                    //   Total: ff ff s + 16 bytes = 19 bytes (but may vary)
-                    //
-                    // Strategy: Skip until we find clear terminal data markers
+                debugLog(QString("Server window size echo: %1 cols x %2 rows").arg(cols).arg(rows));
+                debugLog(QString("Skipping 12 bytes at pos %1").arg(i));
 
-                    int skipLen = 3;  // Start with ff ff s
-                    bool foundEnd = false;
-
-                    // Scan forward to find the end of window size data
-                    for (int k = i + 3; k < m_pendingData.size() && k < i + 25; k++) {
-                        unsigned char c = static_cast<unsigned char>(m_pendingData[k]);
-
-                        // Check for invalid window size data characters
-                        // Window size data should be: binary data (0x00-0x1F except ESC) or escaped ^@ (0x5e 0x40)
-                        // If we see BEL (0x07) or other control characters that shouldn't be in window size data,
-                        // this is not a valid window size echo
-                        if (k < i + 11) {  // Within the expected window size data range
-                            if (c == 0x07) {  // BEL character
-                                // This is not valid window size data - only skip ff ff s
-                                skipLen = 3;
-                                foundEnd = true;
-                                debugLog(QString("Found BEL at pos %1, invalid window size data, only skipping ff ff s").arg(k));
-                                break;
-                            }
-                        }
-
-                        // Check for terminal control sequence start
-                        if (c == 0x1B) {
-                            // ESC character - likely start of terminal data
-                            skipLen = k - i;
-                            foundEnd = true;
-                            debugLog(QString("Found ESC at pos %1, ending window size skip").arg(k));
-                            break;
-                        }
-
-                        // Check for carriage return or newline
-                        if (c == 0x0D || c == 0x0A) {
-                            skipLen = k - i;
-                            foundEnd = true;
-                            debugLog(QString("Found CR/LF at pos %1, ending window size skip").arg(k));
-                            break;
-                        }
-
-                        // Check for printable ASCII that's not part of escape sequences
-                        // Window size data is typically: binary nulls, or escaped as ^@ (0x5e 0x40)
-                        // If we see regular letters (not ^ or @), it's probably terminal data
-                        if (k >= i + 11) {  // After minimum window size length
-                            if (c >= 'A' && c <= 'Z' && c != 'W') {  // Capital letters (except W for Welcome)
-                                skipLen = k - i;
-                                foundEnd = true;
-                                debugLog(QString("Found printable char '%1' at pos %2, ending window size skip").arg(QChar(c)).arg(k));
-                                break;
-                            }
-                            if (c >= 'a' && c <= 'z' && c != 'w' && c != 's') {  // Lowercase letters
-                                skipLen = k - i;
-                                foundEnd = true;
-                                debugLog(QString("Found printable char '%1' at pos %2, ending window size skip").arg(QChar(c)).arg(k));
-                                break;
-                            }
-                        }
-                    }
-
-                    // If we didn't find a clear end marker
-                    if (!foundEnd) {
-                        // If we're at the end of the buffer and haven't seen at least 11 bytes,
-                        // this is likely an incomplete window size echo - keep it in buffer
-                        if (i + 11 > m_pendingData.size()) {
-                            debugLog(QString("Incomplete window size at pos %1, need at least 11 bytes, have %2, keeping in buffer")
-                                .arg(i).arg(m_pendingData.size() - i));
-                            m_pendingData = m_pendingData.mid(i);
-                            debugLog(QString("Pending buffer after: %1 bytes").arg(m_pendingData.size()));
-
-                            // Emit any processed data before returning
-                            if (!processedData.isEmpty()) {
-                                debugLog(QString("Passing %1 bytes to terminal").arg(processedData.size()));
-                                debugLog(QString("Terminal data hex: %1").arg(QString(processedData.toHex(' '))));
-                                emit dataReceived(processedData);
-                            }
-                            return;
-                        }
-
-                        // We have at least 11 bytes but no clear end marker
-                        // This might be escaped format - skip everything that looks like window size data
-                        skipLen = qMin(20, m_pendingData.size() - i);
-                        debugLog(QString("No clear end marker found, skipping %1 bytes (max scan)").arg(skipLen));
-                    }
-
-                    debugLog(QString("Window size echo at pos %1, skipping %2 bytes")
-                        .arg(i).arg(skipLen));
-
-                    // Log the window size data for debugging
-                    QByteArray wsData = m_pendingData.mid(i, skipLen);
-                    debugLog(QString("Window size data hex: %1").arg(QString(wsData.toHex(' '))));
-
-                    i += skipLen;
-                    continue;
-                } else {
-                    // ff ff followed by non-'s' means escaped 0xff
-                    // Output single 0xff and skip the second ff
-                    debugLog(QString("Escaped ff at pos %1").arg(i));
-                    processedData.append('\xff');
-                    i += 2;
-                    continue;
-                }
+                // Skip the entire 12-byte window size sequence
+                i += 12;
+                continue;
             }
+
+            // Not a window size sequence - treat as regular data
+            processedData.append(m_pendingData[i]);
+            i++;
+            continue;
         }
 
         // Regular byte - just append it
@@ -562,15 +468,35 @@ void RloginHandler::sendRloginHandshake()
     if (localUser.isEmpty()) {
         localUser = QString::fromLocal8Bit(qgetenv("USER"));
     }
+    
+    // Convert to ASCII, replacing non-ASCII characters with their closest ASCII equivalent
+    // or removing them. rlogin protocol requires ASCII username.
     QString asciiUser;
     for (const QChar &ch : localUser) {
-        if (ch.unicode() < 128) {
+        uint unicode = ch.unicode();
+        if (unicode < 128) {
+            // ASCII character - keep as is
             asciiUser += ch;
+        } else if (unicode >= 0x4E00 && unicode <= 0x9FFF) {
+            // CJK character - skip (no good ASCII mapping)
+            continue;
         } else {
-            asciiUser += '_';
+            // Other non-ASCII - skip
+            continue;
         }
     }
-    localUser = asciiUser.isEmpty() ? "guest" : asciiUser;
+    
+    // If username is empty after filtering, use a reasonable default
+    localUser = asciiUser.isEmpty() ? "user" : asciiUser;
+    
+    // Ensure username only contains valid characters (alphanumeric, _, -)
+    QString sanitizedUser;
+    for (const QChar &ch : localUser) {
+        if (ch.isLetterOrNumber() || ch == '_' || ch == '-') {
+            sanitizedUser += ch;
+        }
+    }
+    localUser = sanitizedUser.isEmpty() ? "user" : sanitizedUser;
 
     QString remoteUser = m_settings.username;
     if (remoteUser.isEmpty()) {
@@ -606,7 +532,7 @@ void RloginHandler::sendRloginHandshake()
 void RloginHandler::sendWindowSize()
 {
     // Send window size using rlogin escape sequence
-    // Format: 0xFF 0xFF 's' rows(2) cols(2) xpixel(2) ypixel(2) = 11 bytes
+    // RFC 1282: Format is 12 bytes: 0xFF 0xFF 's' 's' rows(2) cols(2) xpixel(2) ypixel(2)
 
     if (!m_socket || m_socket->state() != QAbstractSocket::ConnectedState) {
         return;
@@ -616,6 +542,7 @@ void RloginHandler::sendWindowSize()
     windowSize.append('\xFF');
     windowSize.append('\xFF');
     windowSize.append('s');
+    windowSize.append('s');  // RFC 1282 requires two 's' characters
     windowSize.append(static_cast<char>((m_rows >> 8) & 0xFF));
     windowSize.append(static_cast<char>(m_rows & 0xFF));
     windowSize.append(static_cast<char>((m_columns >> 8) & 0xFF));
