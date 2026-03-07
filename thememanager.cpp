@@ -500,7 +500,7 @@ void ThemeManager::initTerminalThemes()
     theme.ansiColors[15] = QColor(229, 229, 229);
     m_terminalThemes[theme.id] = theme;
 
-    m_currentTerminalThemeId = "default";
+    m_currentTerminalThemeId = "solarized-light";
 }
 
 void ThemeManager::initAppThemes()
@@ -684,8 +684,8 @@ void ThemeManager::loadSettings()
 {
     QSettings settings;
     settings.beginGroup("Theme");
-    
-    QString terminalThemeId = settings.value("TerminalTheme", "default").toString();
+
+    QString terminalThemeId = settings.value("TerminalTheme", "solarized-light").toString();
     QString appThemeId = settings.value("AppTheme", "default-light").toString();
     
     if (m_terminalThemes.contains(terminalThemeId)) {

@@ -424,12 +424,12 @@ void TerminalWidget::paintEvent(QPaintEvent *event)
 {
     QPainter painter(viewport());
     painter.fillRect(event->rect(), m_defaultBackground);
-    
+
     QFont font = painter.font();
     font.setFamily("Courier New");
     font.setFixedPitch(true);
     painter.setFont(font);
-    
+
     QFontMetrics fm(font);
     m_charWidth = fm.horizontalAdvance('X');
     m_charHeight = fm.height();
@@ -834,7 +834,7 @@ static QColor ansiColorToQColor(int code, bool isBright)
         Qt::cyan,       // 6: 青
         Qt::white,      // 7: 白
     };
-    
+
     static const QColor brightColors[] = {
         QColor(128, 128, 128),  // 8: 灰（亮黑）
         QColor(255, 128, 128),  // 9: 亮红
@@ -845,7 +845,7 @@ static QColor ansiColorToQColor(int code, bool isBright)
         QColor(128, 255, 255),  // 14: 亮青
         QColor(255, 255, 255),  // 15: 亮白
     };
-    
+
     if (code >= 0 && code < 8) {
         return standardColors[code];
     } else if (code >= 8 && code < 16) {

@@ -95,8 +95,9 @@ void FontManager::initFonts()
     info.isEmbedded = false;
     m_fonts[info.id] = info;
 
-    // 设置为默认字体
-    m_currentFontId = "system-mono";
+    // 设置为默认字体 Cascadia Code
+    m_currentFontId = "cascadia-code";
+    m_currentFontSize = 11;
 }
 
 void FontManager::registerEmbeddedFont(const QString &id, const QString &name,
@@ -230,8 +231,8 @@ void FontManager::loadSettings()
     QSettings settings;
     settings.beginGroup("Font");
 
-    QString fontId = settings.value("FontId", "system-mono").toString();
-    int fontSize = settings.value("FontSize", 10).toInt();
+    QString fontId = settings.value("FontId", "cascadia-code").toString();
+    int fontSize = settings.value("FontSize", 11).toInt();
 
     if (m_fonts.contains(fontId)) {
         m_currentFontId = fontId;
