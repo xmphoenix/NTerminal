@@ -203,10 +203,38 @@ void SessionProcess::handleSessionConfig(const QByteArray &payload)
     qDebug() << "[SessionProcess] Host:" << m_settings.host;
     qDebug() << "[SessionProcess] Port:" << m_settings.port;
     qDebug() << "[SessionProcess] Username:" << m_settings.username;
-    qDebug() << "====================================================";
+
+    // 获取连接类型字符串
+    QString connectionTypeStr;
+    switch (m_settings.type) {
+        case Common::ConnectionType::Serial:
+            connectionTypeStr = "Serial";
+            break;
+        case Common::ConnectionType::Telnet:
+            connectionTypeStr = "Telnet";
+            break;
+        case Common::ConnectionType::SSH:
+            connectionTypeStr = "SSH";
+            break;
+        case Common::ConnectionType::Rlogin:
+            connectionTypeStr = "Rlogin";
+            break;
+        case Common::ConnectionType::SFTP:
+            connectionTypeStr = "SFTP";
+            break;
+        case Common::ConnectionType::FTP:
+            connectionTypeStr = "FTP";
+            break;
+        case Common::ConnectionType::TFTP:
+            connectionTypeStr = "TFTP";
+            break;
+        default:
+            connectionTypeStr = "Unknown";
+            break;
+    }
 
     if (m_logger) {
-        m_logger->startLogging(m_settings.sessionName);
+        m_logger->startLogging(m_settings.sessionName, QString(), connectionTypeStr, m_settings.host);
     }
 
     debugLog("Creating connection handler...");
@@ -218,23 +246,14 @@ void SessionProcess::handleSessionConfig(const QByteArray &payload)
         return;
     }
 
-    debugLog(QString("Connection handler created: %1").arg(m_connectionHandler->metaObject()->className()));
-    debugLog(QString("Connection handler pointer: %1").arg(reinterpret_cast<quintptr>(m_connectionHandler), 0, 16));
-    qDebug() << "[SessionProcess] Connection handler created:" << m_connectionHandler->metaObject()->className();
-
-    debugLog("Connecting signals...");
     connect(m_connectionHandler, &ConnectionHandler::dataReceived, this, &SessionProcess::onConnectionDataReceived);
     connect(m_connectionHandler, &ConnectionHandler::connected, this, &SessionProcess::onConnectionConnected);
     connect(m_connectionHandler, &ConnectionHandler::disconnected, this, &SessionProcess::onConnectionDisconnected);
     connect(m_connectionHandler, &ConnectionHandler::errorOccurred, this, &SessionProcess::onConnectionError);
-    debugLog("Signals connected");
 
     sendConnectionStatus(Ipc::ConnectionStatus::Connecting, "Connecting...");
 
-    debugLog("Calling open() on connection handler...");
-    qDebug() << "[SessionProcess] Calling open() on connection handler...";
     bool openResult = m_connectionHandler->open();
-    debugLog(QString("open() returned: %1").arg(openResult));
     qDebug() << "[SessionProcess] open() returned:" << openResult;
 
     if (!openResult) {

@@ -5,6 +5,7 @@
 #include "thememanager.h"
 #include "fontmanager.h"
 #include "themesettingsdialog.h"
+#include "logconfigdialog.h"
 #include "testwindow.h"
 #include <QSplitter>
 #include <QListWidget>
@@ -413,6 +414,10 @@ void MainWindow::initMainWindowMenu()
     connect(m_themeAction, &QAction::triggered, this, &MainWindow::showThemeSettings);
     m_optMenu->addAction(m_themeAction);
 
+    m_logSettingsAction = new QAction("Log Settings", this);
+    connect(m_logSettingsAction, &QAction::triggered, this, &MainWindow::showLogSettings);
+    m_optMenu->addAction(m_logSettingsAction);
+
     QAction *terminalTestAction = new QAction("Terminal Compatibility Test", this);
     connect(terminalTestAction, &QAction::triggered, this, &MainWindow::openTerminalTester);
     m_optMenu->addAction(terminalTestAction);
@@ -484,10 +489,16 @@ void MainWindow::showThemeSettings()
 {
     ThemeSettingsDialog dialog(this);
     dialog.exec();
-    
+
     for (auto it = m_terminals.begin(); it != m_terminals.end(); ++it) {
         applyTerminalTheme(it.value());
     }
+}
+
+void MainWindow::showLogSettings()
+{
+    LogConfigDialog dialog(this);
+    dialog.exec();
 }
 
 void MainWindow::applyTerminalTheme(TerminalProxy *terminal)

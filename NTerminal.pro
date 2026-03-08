@@ -27,6 +27,7 @@ SOURCES += \
     testwindow.cpp \
     sessionmanager.cpp \
     logger.cpp \
+    logconfigdialog.cpp \
     scriptrecorder.cpp \
     sshclient.cpp \
     thememanager.cpp \
@@ -55,6 +56,7 @@ HEADERS += \
     testwindow.h \
     sessionmanager.h \
     logger.h \
+    logconfigdialog.h \
     scriptrecorder.h \
     sshclient.h \
     thememanager.h \

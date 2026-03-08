@@ -25,6 +25,7 @@ public:
 
 private slots:
     void openTerminalTester();
+    void showLogSettings();
 
 private:
     void initMainWindowLayout();
@@ -75,5 +76,6 @@ private:
     QAction *m_loadSessionAction;
     QAction *m_manageSessionsAction;
     QAction *m_themeAction;
+    QAction *m_logSettingsAction;
 };
 #endif // MAINWINDOW_H
