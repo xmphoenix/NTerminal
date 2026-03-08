@@ -4,6 +4,7 @@
 #include <QDebug>
 #include <QStringConverter>
 #include <QRegularExpression>
+#include <QStringList>
 
 Logger::Logger(QObject *parent)
     : QObject(parent)
@@ -119,46 +120,111 @@ void Logger::log(LogLevel level, const QString &message)
 
 void Logger::logData(const QByteArray &data, bool isReceived, const QString &source)
 {
-    if (data.isEmpty() || !m_isLogging || !m_logDataTraffic) {
+    // 只记录接收到的数据，不记录发送的数据
+    if (!isReceived || data.isEmpty() || !m_isLogging || !m_logDataTraffic) {
         return;
     }
 
     QMutexLocker locker(&m_mutex);
 
-    QString direction = isReceived ? "RECV" : "SEND";
-    QString sourceInfo = source.isEmpty() ? QString() : QString(" [%1]").arg(source);
+    // 使用状态机处理 ANSI 转义序列
+    enum State {
+        Ground,           // 普通文本
+        Escape,           // ESC 后
+        CSI,              // ESC [ 后（CSI 序列）
+        OSC,              // ESC ] 后（OSC 序列）
+        Charset           // ESC ( 或 ESC ) 后（字符集选择）
+    };
 
-    log(Debug, QString("%1%2: %3 字节").arg(direction, sourceInfo).arg(data.size()));
+    static State state = Ground;
+    QString text;
 
-    if (data.size() <= 256) {
-        QString hexString;
-        QString asciiString;
-
-        for (int i = 0; i < data.size(); ++i) {
-            unsigned char ch = data[i];
-
-            hexString.append(QString("%1 ").arg(ch, 2, 16, QLatin1Char('0')).toUpper());
-
-            if (ch >= 32 && ch <= 126) {
-                asciiString.append(QChar(ch));
-            } else if (ch == '\r') {
-                asciiString.append("\\r");
+    for (unsigned char ch : data) {
+        switch (state) {
+        case Ground:
+            if (ch == 0x1B) {  // ESC
+                state = Escape;
             } else if (ch == '\n') {
-                asciiString.append("\\n");
+                text.append('\n');
+            } else if (ch == '\r') {
+                // \r 只是回车到行首，不产生换行
+                // 忽略 \r，只有 \n 才产生换行
+                // 这样 \r\n 组合只产生一个换行（由 \n 产生）
             } else if (ch == '\t') {
-                asciiString.append("\\t");
-            } else if (ch == 0x1B) {
-                asciiString.append("\\e");
-            } else {
-                asciiString.append('.');
+                text.append('\t');
+            } else if (ch == 0x07) {  // BEL
+                // 忽略响铃
+            } else if (ch >= 32 && ch <= 126) {
+                text.append(QChar(ch));
             }
+            // 其他控制字符忽略
+            break;
 
-            if ((i + 1) % 16 == 0 || i == data.size() - 1) {
-                log(Debug, QString("  %1 | %2").arg(hexString.leftJustified(48, ' '), asciiString));
-                hexString.clear();
-                asciiString.clear();
+        case Escape:
+            if (ch == '[') {
+                state = CSI;  // CSI 序列
+            } else if (ch == ']') {
+                state = OSC;  // OSC 序列
+            } else if (ch == '(' || ch == ')') {
+                state = Charset;  // 字符集选择
+            } else if (ch >= 0x40 && ch <= 0x5F) {
+                // Fe 序列（如 ESC D, ESC M 等），直接结束
+                state = Ground;
+            } else {
+                // 其他情况，返回 Ground
+                state = Ground;
             }
+            break;
+
+        case CSI:
+            // CSI 序列：ESC [ 参数 中间字符 终止字符
+            // 参数字符：0x30-0x3F (0-9 ; < = > ?)
+            // 中间字符：0x20-0x2F (空格 ! " # $ % & ' ( ) * + , - . /)
+            // 终止字符：0x40-0x7E (@ A-Z [ \ ] ^ _ ` a-z { | } ~)
+            if (ch >= 0x40 && ch <= 0x7E) {
+                // 终止字符，CSI 序列结束
+                state = Ground;
+            } else if (ch >= 0x20 && ch <= 0x3F) {
+                // 参数或中间字符，继续
+            } else {
+                // 非法字符，退出 CSI
+                state = Ground;
+            }
+            break;
+
+        case OSC:
+            // OSC 序列：ESC ] ... BEL 或 ESC ] ... ST
+            if (ch == 0x07) {  // BEL
+                state = Ground;
+            } else if (ch == 0x1B) {  // ESC（可能是 ST 结束）
+                state = Escape;
+            }
+            // 其他字符继续在 OSC 中
+            break;
+
+        case Charset:
+            // 字符集选择序列：ESC ( X 或 ESC ) X
+            // 直接忽略下一个字符并返回 Ground
+            state = Ground;
+            break;
         }
+    }
+    
+    // 压缩连续的空行（最多保留一个空行）
+    text.replace(QRegularExpression("\n{2,}"), "\n");
+    
+    // 移除每行末尾的空格
+    QStringList lines = text.split('\n');
+    for (int i = 0; i < lines.size(); ++i) {
+        lines[i] = lines[i].trimmed();
+    }
+    text = lines.join('\n');
+    
+
+    // 只记录有实际内容的文本（包括只有换行符的情况）
+    if (!text.isEmpty()) {
+        m_logStream << text;
+        m_logStream.flush();
     }
 }
 
