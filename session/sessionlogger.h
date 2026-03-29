@@ -50,6 +50,19 @@ private:
     QString m_timestampFormat;
     QString m_connectionType;
     QString m_host;
+
+    // Line buffering for proper terminal output
+    QString m_lineBuffer;
+    enum AnsiState {
+        Ground,
+        Escape,
+        CSI,
+        OSC,
+        Charset
+    };
+    AnsiState m_ansiState;
+    bool m_inAlternateScreen;  // 是否在备用屏幕模式（vim/less等全屏应用）
+    QString m_csiParams;       // 用于收集 CSI 参数
 };
 
 #endif // SESSIONLOGGER_H

@@ -117,6 +117,19 @@ private:
     LogLevel m_logLevel;
     bool m_logDataTraffic;
 
+    // Line buffering for proper terminal output
+    QString m_lineBuffer;
+    enum AnsiState {
+        Ground,
+        Escape,
+        CSI,
+        OSC,
+        Charset
+    };
+    AnsiState m_ansiState;
+    bool m_inAlternateScreen;  // 是否在备用屏幕模式（vim/less等全屏应用）
+    QString m_csiParams;       // 用于收集 CSI 参数
+
     static const qint64 DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
     static const int DEFAULT_MAX_BACKUP_FILES = 5;
 };

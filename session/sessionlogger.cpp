@@ -13,6 +13,8 @@ SessionLogger::SessionLogger(const QString &sessionId, QObject *parent)
     , m_encoding("utf-8")
     , m_enableTimestamp(true)
     , m_timestampFormat("[%Y-%m-%d %h:%M:%s]")
+    , m_ansiState(Ground)
+    , m_inAlternateScreen(false)
 {
     loadSettings();
 
@@ -61,6 +63,17 @@ void SessionLogger::stopLogging()
         return;
     }
 
+    // 刷新行缓冲区中的剩余内容
+    if (!m_lineBuffer.isEmpty()) {
+        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+        QString line = m_lineBuffer.trimmed();
+        if (!line.isEmpty()) {
+            m_logStream << "[" << timestamp << "] " << line << "\n";
+            m_logStream.flush();
+        }
+        m_lineBuffer.clear();
+    }
+
     logMessage("INFO", "Session ended");
     closeLogFile();
     m_isLogging = false;
@@ -86,77 +99,116 @@ void SessionLogger::logData(const QByteArray &data, bool isReceived)
 
     QMutexLocker locker(&m_mutex);
 
-    // 使用状态机处理 ANSI 转义序列
-    enum State {
-        Ground,           // 普通文本
-        Escape,           // ESC 后
-        CSI,              // ESC [ 后（CSI 序列）
-        OSC,              // ESC ] 后（OSC 序列）
-        Charset           // ESC ( 或 ESC ) 后（字符集选择）
-    };
-
-    static State state = Ground;
-    QString text;
-
+    // 逐字符处理数据，使用行缓冲
     for (unsigned char ch : data) {
-        switch (state) {
+        switch (m_ansiState) {
         case Ground:
             if (ch == 0x1B) {  // ESC
-                state = Escape;
-            } else if (ch == '\n') {
-                text.append('\n');
-            } else if (ch == '\r') {
-                // \r 只是回车到行首，不产生换行
-                // 忽略 \r，只有 \n 才产生换行
-                // 这样 \r\n 组合只产生一个换行（由 \n 产生）
-            } else if (ch == '\t') {
-                text.append('\t');
-            } else if (ch == 0x07) {  // BEL
-                // 忽略响铃
-            } else if (ch >= 32 && ch <= 126) {
-                text.append(QChar(ch));
+                m_ansiState = Escape;
+                m_csiParams.clear();
+            } else if (!m_inAlternateScreen) {
+                // 只在非备用屏幕模式下记录内容
+                if (ch == '\n') {
+                    // 遇到换行符，输出当前行（如果缓冲区不为空）
+                    if (!m_lineBuffer.isEmpty()) {
+                        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+                        QString line = m_lineBuffer.trimmed();
+                        if (!line.isEmpty()) {
+                            m_logStream << "[" << timestamp << "] " << line << "\n";
+                            m_logStream.flush();
+                        }
+                        m_lineBuffer.clear();
+                    }
+                } else if (ch == '\r') {
+                    // \r 回车到行首
+                    // 如果缓冲区不为空，输出当前行（top等程序用\r来更新显示）
+                    if (!m_lineBuffer.isEmpty()) {
+                        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+                        QString line = m_lineBuffer.trimmed();
+                        if (!line.isEmpty()) {
+                            m_logStream << "[" << timestamp << "] " << line << "\n";
+                        }
+                        m_logStream.flush();
+                        m_lineBuffer.clear();
+                    }
+                } else if (ch == '\t') {
+                    m_lineBuffer.append('\t');
+                } else if (ch == 0x07) {  // BEL
+                    // 忽略响铃
+                } else if (ch == 0x08) {  // Backspace
+                    // 处理退格键
+                    if (!m_lineBuffer.isEmpty()) {
+                        m_lineBuffer.chop(1);
+                    }
+                } else if (ch >= 32 && ch <= 126) {
+                    // 可打印字符
+                    m_lineBuffer.append(QChar(ch));
+                } else if (ch >= 128) {
+                    // UTF-8 多字节字符
+                    m_lineBuffer.append(QChar(ch));
+                }
             }
             // 其他控制字符忽略
             break;
 
         case Escape:
             if (ch == '[') {
-                state = CSI;  // CSI 序列
+                m_ansiState = CSI;  // CSI 序列
+                m_csiParams.clear();
             } else if (ch == ']') {
-                state = OSC;  // OSC 序列
+                m_ansiState = OSC;  // OSC 序列
             } else if (ch == '(' || ch == ')') {
-                state = Charset;  // 字符集选择
+                m_ansiState = Charset;  // 字符集选择
             } else if (ch >= 0x40 && ch <= 0x5F) {
                 // Fe 序列（如 ESC D, ESC M 等），直接结束
-                state = Ground;
+                m_ansiState = Ground;
             } else {
                 // 其他情况，返回 Ground
-                state = Ground;
+                m_ansiState = Ground;
             }
             break;
 
         case CSI:
             // CSI 序列：ESC [ 参数 中间字符 终止字符
-            // 参数字符：0x30-0x3F (0-9 ; < = > ?)
-            // 中间字符：0x20-0x2F (空格 ! " # $ % & ' ( ) * + , - . /)
-            // 终止字符：0x40-0x7E (@ A-Z [ \ ] ^ _ ` a-z { | } ~)
             if (ch >= 0x40 && ch <= 0x7E) {
                 // 终止字符，CSI 序列结束
-                state = Ground;
+                // 检查是否是备用屏幕切换命令
+                if (ch == 'h' || ch == 'l') {
+                    // 检查参数是否包含 ?1049 或 ?47（备用屏幕）
+                    if (m_csiParams.contains("?1049") || m_csiParams.contains("?47")) {
+                        m_inAlternateScreen = (ch == 'h');  // h=进入, l=退出
+                        if (m_inAlternateScreen) {
+                            // 进入备用屏幕前，先输出当前行缓冲区
+                            if (!m_lineBuffer.isEmpty()) {
+                                QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+                                QString line = m_lineBuffer.trimmed();
+                                if (!line.isEmpty()) {
+                                    m_logStream << "[" << timestamp << "] " << line << "\n";
+                                    m_logStream.flush();
+                                }
+                                m_lineBuffer.clear();
+                            }
+                        }
+                    }
+                }
+                m_ansiState = Ground;
+                m_csiParams.clear();
             } else if (ch >= 0x20 && ch <= 0x3F) {
-                // 参数或中间字符，继续
+                // 参数或中间字符，收集参数
+                m_csiParams.append(QChar(ch));
             } else {
                 // 非法字符，退出 CSI
-                state = Ground;
+                m_ansiState = Ground;
+                m_csiParams.clear();
             }
             break;
 
         case OSC:
             // OSC 序列：ESC ] ... BEL 或 ESC ] ... ST
             if (ch == 0x07) {  // BEL
-                state = Ground;
+                m_ansiState = Ground;
             } else if (ch == 0x1B) {  // ESC（可能是 ST 结束）
-                state = Escape;
+                m_ansiState = Escape;
             }
             // 其他字符继续在 OSC 中
             break;
@@ -164,28 +216,9 @@ void SessionLogger::logData(const QByteArray &data, bool isReceived)
         case Charset:
             // 字符集选择序列：ESC ( X 或 ESC ) X
             // 直接忽略下一个字符并返回 Ground
-            state = Ground;
+            m_ansiState = Ground;
             break;
         }
-    }
-    
-    // 压缩连续的空行（最多保留一个空行）
-    text.replace(QRegularExpression("\n{3,}"), "\n\n");
-    
-    // 移除每行末尾的空格
-    QStringList lines = text.split('\n');
-    for (int i = 0; i < lines.size(); ++i) {
-        lines[i] = lines[i].trimmed();
-    }
-    text = lines.join('\n');
-    
-    // 再次压缩连续空行
-    text.replace(QRegularExpression("\n{3,}"), "\n\n");
-    
-    // 只记录有实际内容的文本（包括只有换行符的情况）
-    if (!text.isEmpty()) {
-        m_logStream << text;
-        m_logStream.flush();
     }
 }
 
