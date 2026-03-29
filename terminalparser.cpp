@@ -6,9 +6,14 @@ TerminalParser::TerminalParser(QObject *parent)
     , m_state(StateGround)
     , m_utf8Remaining(0)
     , m_privateMode(false)
+    , m_charsetState(CharsetNone)
+    , m_g0Charset('B')  // 默认 ASCII
+    , m_g1Charset('0')  // 默认 DEC graphics
+    , m_useG1(false)
 {
     resetCsi();
     resetOsc();
+    resetDcs();
 }
 
 TerminalParser::~TerminalParser()
@@ -65,6 +70,21 @@ void TerminalParser::processByte(unsigned char ch)
         case StateOscString:
             // Already handled above
             break;
+        case StateDcsEntry:
+            dcsEntryState(ch);
+            break;
+        case StateDcsParam:
+            dcsParamState(ch);
+            break;
+        case StateDcsIntermediate:
+            dcsIntermediateState(ch);
+            break;
+        case StateDcsPassthrough:
+            dcsPassthroughState(ch);
+            break;
+        case StateDcsIgnore:
+            dcsIgnoreState(ch);
+            break;
         case StateUtf8:
             m_utf8Buffer.append(ch);
             m_utf8Remaining--;
@@ -91,6 +111,13 @@ void TerminalParser::processData(const QByteArray &data)
 
 void TerminalParser::groundState(unsigned char ch)
 {
+    // 处理字符集切换命令
+    if (m_charsetState != CharsetNone) {
+        processCharsetCommand(ch);
+        m_charsetState = CharsetNone;
+        return;
+    }
+
     if (ch >= 0x20 && ch <= 0x7E) {
         emit textReceived(QString(QChar(ch)));
     } else if (ch >= 0xA0) {
@@ -120,6 +147,18 @@ void TerminalParser::escapeState(unsigned char ch)
     } else if (ch == ']') {
         m_state = StateOscString;
         resetOsc();
+    } else if (ch == 'P') {
+        // ESC P - DCS (Device Control String)
+        m_state = StateDcsEntry;
+        resetDcs();
+    } else if (ch == '(') {
+        // ESC ( - 设置 G0 字符集
+        m_charsetState = CharsetG0;
+        m_state = StateGround;  // 下一个字符将被 processCharsetCommand 处理
+    } else if (ch == ')') {
+        // ESC ) - 设置 G1 字符集
+        m_charsetState = CharsetG1;
+        m_state = StateGround;
     } else if (ch >= 0x40 && ch <= 0x5F) {
         processEscapeCommand(ch);
         m_state = StateGround;
@@ -165,12 +204,21 @@ void TerminalParser::csiParamState(unsigned char ch)
     if (ch >= 0x30 && ch <= 0x3F) {
         // 参数字符
         if (ch == ';') {
+            if (m_csiParams.size() >= MAX_CSI_PARAMS) {
+                // 参数过多，进入忽略状态
+                qDebug() << "[TerminalParser] CSI 参数过多，忽略";
+                m_state = StateCsiIgnore;
+                return;
+            }
             m_csiParams.append(0); // 默认值
         } else if (ch >= '0' && ch <= '9') {
             if (m_csiParams.isEmpty()) {
                 m_csiParams.append(0);
             }
-            m_csiParams.last() = m_csiParams.last() * 10 + (ch - '0');
+            // 防止参数值溢出
+            if (m_csiParams.last() < 100000) {
+                m_csiParams.last() = m_csiParams.last() * 10 + (ch - '0');
+            }
         } else if (ch == ':') {
             // 参数分隔符（特殊处理）
             m_csiParams.append(0);
@@ -224,6 +272,13 @@ void TerminalParser::oscStringState(unsigned char ch)
             // 这里简化处理，直接回到地面状态
         }
     } else {
+        // 检查 OSC 缓冲区长度
+        if (m_oscBuffer.length() >= MAX_OSC_LENGTH) {
+            qDebug() << "[TerminalParser] OSC 缓冲区溢出，重置";
+            m_state = StateGround;
+            resetOsc();
+            return;
+        }
         m_oscBuffer.append(QChar(ch));
     }
 }
@@ -255,6 +310,26 @@ void TerminalParser::processCsiCommand(unsigned char ch)
         case 'B': emit cursorDown(param1); break;
         case 'C': emit cursorForward(param1); break;
         case 'D': emit cursorBackward(param1); break;
+        case 'E':
+            // CNL - Cursor Next Line
+            qDebug() << "[TerminalParser] CSI命令 'E' (Cursor Next Line)，参数:" << param1;
+            emit cursorNextLine(param1 > 0 ? param1 : 1);
+            break;
+        case 'F':
+            // CPL - Cursor Previous Line
+            qDebug() << "[TerminalParser] CSI命令 'F' (Cursor Previous Line)，参数:" << param1;
+            emit cursorPreviousLine(param1 > 0 ? param1 : 1);
+            break;
+        case 'G':
+            // CHA - Cursor Horizontal Absolute
+            qDebug() << "[TerminalParser] CSI命令 'G' (Cursor Horizontal Absolute)，参数:" << param1;
+            emit cursorHorizontalAbsolute(param1 > 0 ? param1 : 1);
+            break;
+        case 'd':
+            // VPA - Vertical Position Absolute
+            qDebug() << "[TerminalParser] CSI命令 'd' (Vertical Position Absolute)，参数:" << param1;
+            emit verticalPositionAbsolute(param1 > 0 ? param1 : 1);
+            break;
         case 'H': emit cursorPosition(param1, param2); break;
         case 'J': 
             qDebug() << "[TerminalParser] CSI命令 'J'，参数:" << param1;
@@ -348,13 +423,43 @@ void TerminalParser::processCsiCommand(unsigned char ch)
             qDebug() << "[TerminalParser] CSI命令 'M' (Delete Lines)，参数:" << param1;
             emit deleteLines(param1 > 0 ? param1 : 1);
             break;
-        case 'r': 
+        case 'r':
             {
                 int top = param1 > 0 ? param1 : 1;
                 int bottom = param2 > 0 ? param2 : 0;
                 qDebug() << "[TerminalParser] CSI命令 'r' (Set Scroll Region)，参数:" << top << bottom;
                 emit setScrollRegion(top, bottom);
             }
+            break;
+        case '@':
+            // ICH - Insert Character
+            qDebug() << "[TerminalParser] CSI命令 '@' (Insert Chars)，参数:" << param1;
+            emit insertChars(param1 > 0 ? param1 : 1);
+            break;
+        case 'P':
+            // DCH - Delete Character
+            qDebug() << "[TerminalParser] CSI命令 'P' (Delete Chars)，参数:" << param1;
+            emit deleteChars(param1 > 0 ? param1 : 1);
+            break;
+        case 'X':
+            // ECH - Erase Character
+            qDebug() << "[TerminalParser] CSI命令 'X' (Erase Chars)，参数:" << param1;
+            emit eraseChars(param1 > 0 ? param1 : 1);
+            break;
+        case 'I':
+            // CHT - Cursor Forward Tab
+            qDebug() << "[TerminalParser] CSI命令 'I' (Cursor Forward Tab)，参数:" << param1;
+            emit cursorForwardTab(param1 > 0 ? param1 : 1);
+            break;
+        case 'Z':
+            // CBT - Cursor Backward Tab
+            qDebug() << "[TerminalParser] CSI命令 'Z' (Cursor Backward Tab)，参数:" << param1;
+            emit cursorBackwardTab(param1 > 0 ? param1 : 1);
+            break;
+        case 'g':
+            // TBC - Tab Clear
+            qDebug() << "[TerminalParser] CSI命令 'g' (Tab Clear)，参数:" << param1;
+            emit tabClear(param1);
             break;
         default:
             // 未实现的CSI命令
@@ -391,6 +496,11 @@ void TerminalParser::processEscapeCommand(unsigned char ch)
         case '7': emit cursorSave(); break;
         case '8': emit cursorRestore(); break;
         case 'c': emit resetAttributes(); break;
+        case 'H':
+            // HTS - Horizontal Tab Set
+            qDebug() << "[TerminalParser] ESC H (Tab Set)";
+            emit tabSet();
+            break;
         default:
             // 未实现的转义命令
             qDebug() << "Unimplemented escape command:" << ch;
@@ -425,6 +535,30 @@ void TerminalParser::processOscCommand()
             // 这里简化处理
             qDebug() << "OSC color command:" << oscNum << dataStr;
             break;
+        case 52: // 剪贴板操作
+            {
+                // OSC 52 格式: ESC ] 52 ; c ; <base64_data> BEL/ST
+                // c 是剪贴板标识符 (通常是 'c' 或 's')
+                // 如果 data 为空或 '?'，表示读取剪贴板
+                int sepIndex2 = dataStr.indexOf(';');
+                if (sepIndex2 > 0) {
+                    QString clipboardId = dataStr.left(sepIndex2);
+                    QString clipboardData = dataStr.mid(sepIndex2 + 1);
+
+                    if (clipboardData.isEmpty() || clipboardData == "?") {
+                        // 读取剪贴板请求
+                        qDebug() << "[TerminalParser] OSC 52 读取剪贴板请求";
+                        emit clipboardRead();
+                    } else {
+                        // 写入剪贴板 (base64 编码)
+                        QByteArray decoded = QByteArray::fromBase64(clipboardData.toUtf8());
+                        QString text = QString::fromUtf8(decoded);
+                        qDebug() << "[TerminalParser] OSC 52 写入剪贴板:" << text.left(50);
+                        emit clipboardWrite(text);
+                    }
+                }
+            }
+            break;
         default:
             qDebug() << "Unimplemented OSC command:" << oscNum << dataStr;
             break;
@@ -443,4 +577,116 @@ void TerminalParser::resetCsi()
 void TerminalParser::resetOsc()
 {
     m_oscBuffer.clear();
+}
+
+void TerminalParser::processCharsetCommand(unsigned char ch)
+{
+    int gset = 0;
+    switch (m_charsetState) {
+        case CharsetG0: gset = 0; m_g0Charset = ch; break;
+        case CharsetG1: gset = 1; m_g1Charset = ch; break;
+        case CharsetG2: gset = 2; break;
+        case CharsetG3: gset = 3; break;
+        default: return;
+    }
+
+    qDebug() << "[TerminalParser] 设置字符集 G" << gset << "为:" << QChar(ch);
+    emit setCharacterSet(gset, ch);
+}
+
+void TerminalParser::dcsEntryState(unsigned char ch)
+{
+    if (ch >= 0x30 && ch <= 0x3F) {
+        m_state = StateDcsParam;
+        dcsParamState(ch);
+    } else if (ch >= 0x20 && ch <= 0x2F) {
+        m_state = StateDcsIntermediate;
+        m_dcsIntermediate.append(QChar(ch));
+    } else if (ch >= 0x40 && ch <= 0x7E) {
+        m_state = StateDcsPassthrough;
+    } else {
+        m_state = StateDcsIgnore;
+    }
+}
+
+void TerminalParser::dcsParamState(unsigned char ch)
+{
+    if (ch >= 0x30 && ch <= 0x3F) {
+        if (ch == ';') {
+            m_dcsParams.append(0);
+        } else if (ch >= '0' && ch <= '9') {
+            if (m_dcsParams.isEmpty()) {
+                m_dcsParams.append(0);
+            }
+            m_dcsParams.last() = m_dcsParams.last() * 10 + (ch - '0');
+        }
+    } else if (ch >= 0x20 && ch <= 0x2F) {
+        m_state = StateDcsIntermediate;
+        m_dcsIntermediate.append(QChar(ch));
+    } else if (ch >= 0x40 && ch <= 0x7E) {
+        m_state = StateDcsPassthrough;
+    } else {
+        m_state = StateDcsIgnore;
+    }
+}
+
+void TerminalParser::dcsIntermediateState(unsigned char ch)
+{
+    if (ch >= 0x20 && ch <= 0x2F) {
+        m_dcsIntermediate.append(QChar(ch));
+    } else if (ch >= 0x40 && ch <= 0x7E) {
+        m_state = StateDcsPassthrough;
+    } else {
+        m_state = StateDcsIgnore;
+    }
+}
+
+void TerminalParser::dcsPassthroughState(unsigned char ch)
+{
+    if (ch == 0x1B) {
+        // ESC - 可能是 DCS 结束序列 (ESC \)
+        // 简化处理：直接处理 DCS 命令
+        processDcsCommand();
+        m_state = StateGround;
+    } else if (ch == 0x9C) {
+        // ST (String Terminator) - DCS 结束
+        processDcsCommand();
+        m_state = StateGround;
+    } else {
+        // 检查 DCS 数据长度
+        if (m_dcsData.size() >= MAX_DCS_LENGTH) {
+            qDebug() << "[TerminalParser] DCS 数据溢出，忽略";
+            m_state = StateDcsIgnore;
+            return;
+        }
+        // 收集 DCS 数据
+        m_dcsData.append(ch);
+    }
+}
+
+void TerminalParser::dcsIgnoreState(unsigned char ch)
+{
+    if (ch == 0x1B || ch == 0x9C) {
+        // ESC 或 ST - DCS 结束
+        m_state = StateGround;
+    }
+    // 其他字符继续忽略
+}
+
+void TerminalParser::processDcsCommand()
+{
+    // 基本的 DCS 命令处理
+    // 目前只记录日志，不做实际处理
+    qDebug() << "[TerminalParser] DCS 命令 - 参数:" << m_dcsParams
+             << "中间字符:" << m_dcsIntermediate
+             << "数据长度:" << m_dcsData.size();
+
+    // 未来可以在这里添加 SIXEL 图形支持等
+}
+
+void TerminalParser::resetDcs()
+{
+    m_dcsParams.clear();
+    m_dcsIntermediate.clear();
+    m_dcsData.clear();
 }
