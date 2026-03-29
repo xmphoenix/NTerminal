@@ -7,9 +7,13 @@
 #include "themesettingsdialog.h"
 #include "logconfigdialog.h"
 #include "testwindow.h"
+#include "calculatordialog.h"
+#include "asciitabledialog.h"
+#include "portscannerdialog.h"
 #include <QSplitter>
 #include <QListWidget>
 #include <QTabWidget>
+#include <QTabBar>
 #include <QTextEdit>
 #include <QMenuBar>
 #include <QTimer>
@@ -76,6 +80,8 @@ MainWindow::MainWindow(QWidget *parent)
     , m_optMenu(nullptr)
     , m_transmitMenu(nullptr)
     , m_scriptMenu(nullptr)
+    , m_toolsMenu(nullptr)
+    , m_pluginMenu(nullptr)
     , m_helpMenu(nullptr)
     , m_sessionAction(nullptr)
     , m_exitAction(nullptr)
@@ -353,6 +359,11 @@ void MainWindow::initMainWindowLayout()
     m_screenTabWidget->setTabsClosable(true);
     m_screenTabWidget->setMovable(true);
 
+    // 设置tab bar的上下文菜单策略
+    m_screenTabWidget->tabBar()->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_screenTabWidget->tabBar(), &QTabBar::customContextMenuRequested,
+            this, &MainWindow::onTabContextMenu);
+
     connect(m_screenTabWidget, &QTabWidget::tabCloseRequested,
             this, &MainWindow::onTabCloseRequested);
     connect(m_screenTabWidget, &QTabWidget::currentChanged,
@@ -391,6 +402,8 @@ void MainWindow::initMainWindowMenu()
     m_optMenu = m_menuBar->addMenu("Settings");
     m_transmitMenu = m_menuBar->addMenu("Transmit");
     m_scriptMenu = m_menuBar->addMenu("Script");
+    m_toolsMenu = m_menuBar->addMenu("Tools");
+    m_pluginMenu = m_menuBar->addMenu("Plugin");
     m_helpMenu = m_menuBar->addMenu("Help");
 
     m_sessionAction = new QAction("Connect", this);
@@ -422,12 +435,31 @@ void MainWindow::initMainWindowMenu()
     connect(terminalTestAction, &QAction::triggered, this, &MainWindow::openTerminalTester);
     m_optMenu->addAction(terminalTestAction);
 
+    // Tools 菜单
+    QAction *calculatorAction = new QAction("Calculator", this);
+    connect(calculatorAction, &QAction::triggered, this, &MainWindow::showCalculator);
+    m_toolsMenu->addAction(calculatorAction);
+
+    QAction *portScannerAction = new QAction("Port Scanner", this);
+    connect(portScannerAction, &QAction::triggered, this, &MainWindow::showPortScanner);
+    m_toolsMenu->addAction(portScannerAction);
+
+    QAction *networkServicesAction = new QAction("Network Services", this);
+    connect(networkServicesAction, &QAction::triggered, this, &MainWindow::showNetworkServices);
+    m_toolsMenu->addAction(networkServicesAction);
+
+    QAction *asciiTableAction = new QAction("ASCII Table", this);
+    connect(asciiTableAction, &QAction::triggered, this, &MainWindow::showAsciiTable);
+    m_toolsMenu->addAction(asciiTableAction);
+
     m_menuBar->addMenu(m_fileMenu);
     m_menuBar->addMenu(m_editMenu);
     m_menuBar->addMenu(m_viewMenu);
     m_menuBar->addMenu(m_optMenu);
     m_menuBar->addMenu(m_transmitMenu);
     m_menuBar->addMenu(m_scriptMenu);
+    m_menuBar->addMenu(m_toolsMenu);
+    m_menuBar->addMenu(m_pluginMenu);
     m_menuBar->addMenu(m_helpMenu);
 
     setMenuBar(m_menuBar);
@@ -526,4 +558,89 @@ void MainWindow::openTerminalTester()
     testWindow->show();
     testWindow->raise();
     testWindow->activateWindow();
+}
+
+void MainWindow::onTabContextMenu(const QPoint &pos)
+{
+    int tabIndex = m_screenTabWidget->tabBar()->tabAt(pos);
+    if (tabIndex < 0) {
+        return;
+    }
+
+    // 获取该tab对应的terminal
+    QString terminalId = m_screenTabWidget->tabBar()->tabData(tabIndex).toString();
+    TerminalProxy *terminal = getTerminalById(terminalId);
+    if (!terminal) {
+        return;
+    }
+
+    // 获取连接设置
+    Common::ConnectionSettings settings = terminal->getConnectionSettings();
+
+    // 创建上下文菜单
+    QMenu contextMenu(this);
+
+    // 只有非串口会话才显示"复制会话"选项
+    if (settings.type != Common::ConnectionType::Serial) {
+        QAction *duplicateAction = contextMenu.addAction("复制会话");
+        connect(duplicateAction, &QAction::triggered, this, [this, settings]() {
+            // 创建新的tab，使用相同的连接设置
+            QString tabName = settings.sessionName.isEmpty() ?
+                QString("Terminal %1").arg(m_terminals.size() + 1) :
+                settings.sessionName + " (Copy)";
+
+            TerminalProxy *newTerminal = createNewTerminalTab(tabName);
+            if (newTerminal) {
+                newTerminal->setConnectionSettings(settings);
+                applyTerminalTheme(newTerminal);
+                if (newTerminal->openConnection()) {
+                    qDebug() << "Duplicated session opened successfully";
+                } else {
+                    qDebug() << "Duplicated session failed to open";
+                }
+            }
+        });
+    }
+
+    contextMenu.addSeparator();
+    QAction *closeAction = contextMenu.addAction("关闭");
+    connect(closeAction, &QAction::triggered, this, [this, tabIndex]() {
+        closeTerminalTab(tabIndex);
+    });
+
+    // 显示菜单
+    contextMenu.exec(m_screenTabWidget->tabBar()->mapToGlobal(pos));
+}
+
+void MainWindow::duplicateSession()
+{
+    // This function is kept for potential future use
+    // The actual duplication is handled in onTabContextMenu
+}
+
+void MainWindow::showCalculator()
+{
+    CalculatorDialog *dialog = new CalculatorDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
+void MainWindow::showPortScanner()
+{
+    PortScannerDialog *dialog = new PortScannerDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
+void MainWindow::showNetworkServices()
+{
+    qDebug() << "Network Services - To be implemented";
+    // TODO: 实现网络服务对话框
+}
+
+void MainWindow::showAsciiTable()
+{
+    AsciiTableDialog *dialog = new AsciiTableDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
 }

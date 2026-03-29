@@ -63,6 +63,11 @@ TerminalProxy::TerminalProxy(QWidget *parent)
     , m_charHeight(20)
     , m_selecting(false)
     , m_hasSelection(false)
+    , m_mouseTrackingEnabled(false)
+    , m_mouseButtonTracking(false)
+    , m_mouseAnyEventTracking(false)
+    , m_mouseSgrMode(false)
+    , m_mouseFocusTracking(false)
 {
     setFocusPolicy(Qt::StrongFocus);
     setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -498,6 +503,24 @@ void TerminalProxy::keyPressEvent(QKeyEvent *event)
 
 void TerminalProxy::mousePressEvent(QMouseEvent *event)
 {
+    // 如果启用了鼠标跟踪，发送鼠标事件到终端
+    if (m_mouseTrackingEnabled || m_mouseButtonTracking || m_mouseAnyEventTracking) {
+        SelectionPoint point = viewportToBuffer(event->pos());
+        int button = 0;
+
+        if (event->button() == Qt::LeftButton) {
+            button = 0;
+        } else if (event->button() == Qt::MiddleButton) {
+            button = 1;
+        } else if (event->button() == Qt::RightButton) {
+            button = 2;
+        }
+
+        sendMouseEvent(button, point.column, point.line, true);
+        return;
+    }
+
+    // 正常的选择模式
     if (event->button() == Qt::LeftButton) {
         m_selecting = true;
         m_hasSelection = false;
@@ -509,6 +532,26 @@ void TerminalProxy::mousePressEvent(QMouseEvent *event)
 
 void TerminalProxy::mouseMoveEvent(QMouseEvent *event)
 {
+    // 如果启用了任意事件跟踪，发送移动事件
+    if (m_mouseAnyEventTracking) {
+        SelectionPoint point = viewportToBuffer(event->pos());
+        int button = 32; // 移动事件标记
+
+        if (event->buttons() & Qt::LeftButton) {
+            button = 32; // 拖动左键
+        } else if (event->buttons() & Qt::MiddleButton) {
+            button = 33; // 拖动中键
+        } else if (event->buttons() & Qt::RightButton) {
+            button = 34; // 拖动右键
+        } else {
+            button = 35; // 无按钮移动
+        }
+
+        sendMouseEvent(button, point.column, point.line, true);
+        return;
+    }
+
+    // 正常的选择模式
     if (m_selecting) {
         updateSelection(event->pos());
         viewport()->update();
@@ -517,7 +560,24 @@ void TerminalProxy::mouseMoveEvent(QMouseEvent *event)
 
 void TerminalProxy::mouseReleaseEvent(QMouseEvent *event)
 {
-    Q_UNUSED(event);
+    // 如果启用了鼠标跟踪，发送释放事件
+    if (m_mouseTrackingEnabled || m_mouseButtonTracking || m_mouseAnyEventTracking) {
+        SelectionPoint point = viewportToBuffer(event->pos());
+        int button = 0;
+
+        if (event->button() == Qt::LeftButton) {
+            button = 0;
+        } else if (event->button() == Qt::MiddleButton) {
+            button = 1;
+        } else if (event->button() == Qt::RightButton) {
+            button = 2;
+        }
+
+        sendMouseEvent(button, point.column, point.line, false);
+        return;
+    }
+
+    // 正常的选择模式
     m_selecting = false;
 }
 
@@ -549,12 +609,28 @@ void TerminalProxy::contextMenuEvent(QContextMenuEvent *event)
 void TerminalProxy::focusInEvent(QFocusEvent *event)
 {
     Q_UNUSED(event);
+
+    // 如果启用了焦点事件跟踪，发送焦点获得事件
+    if (m_mouseFocusTracking) {
+        QByteArray focusIn = "\033[I";
+        qDebug() << "[TerminalProxy] Sending focus in event";
+        sendData(focusIn);
+    }
+
     viewport()->update();
 }
 
 void TerminalProxy::focusOutEvent(QFocusEvent *event)
 {
     Q_UNUSED(event);
+
+    // 如果启用了焦点事件跟踪，发送焦点失去事件
+    if (m_mouseFocusTracking) {
+        QByteArray focusOut = "\033[O";
+        qDebug() << "[TerminalProxy] Sending focus out event";
+        sendData(focusOut);
+    }
+
     viewport()->update();
 }
 
@@ -1032,7 +1108,7 @@ void TerminalProxy::onParserResetMode(int param)
 void TerminalProxy::onParserSetPrivateMode(int param)
 {
     qDebug() << "[TerminalProxy] SetPrivateMode - param:" << param;
-    
+
     if (param == 1049) {
         // Alternate Screen Buffer (xterm)
         qDebug() << "[TerminalProxy] Entering alternate screen buffer (vi/vim mode)";
@@ -1077,6 +1153,26 @@ void TerminalProxy::onParserSetPrivateMode(int param)
         qDebug() << "[TerminalProxy] Application cursor keys enabled (private)";
     } else if (param == 25) {
         qDebug() << "[TerminalProxy] Cursor visible (private mode)";
+    } else if (param == 1000) {
+        // X11 鼠标报告
+        m_mouseTrackingEnabled = true;
+        qDebug() << "[TerminalProxy] X11 mouse tracking enabled";
+    } else if (param == 1002) {
+        // 按钮事件鼠标跟踪
+        m_mouseButtonTracking = true;
+        qDebug() << "[TerminalProxy] Mouse button event tracking enabled";
+    } else if (param == 1003) {
+        // 任意事件鼠标跟踪
+        m_mouseAnyEventTracking = true;
+        qDebug() << "[TerminalProxy] Mouse any event tracking enabled";
+    } else if (param == 1004) {
+        // 焦点事件报告
+        m_mouseFocusTracking = true;
+        qDebug() << "[TerminalProxy] Focus event tracking enabled";
+    } else if (param == 1006) {
+        // SGR 鼠标模式
+        m_mouseSgrMode = true;
+        qDebug() << "[TerminalProxy] SGR mouse mode enabled";
     }
 }
 
@@ -1115,6 +1211,26 @@ void TerminalProxy::onParserResetPrivateMode(int param)
         qDebug() << "[TerminalProxy] Normal cursor keys enabled (private)";
     } else if (param == 25) {
         qDebug() << "[TerminalProxy] Cursor invisible (private mode)";
+    } else if (param == 1000) {
+        // X11 鼠标报告
+        m_mouseTrackingEnabled = false;
+        qDebug() << "[TerminalProxy] X11 mouse tracking disabled";
+    } else if (param == 1002) {
+        // 按钮事件鼠标跟踪
+        m_mouseButtonTracking = false;
+        qDebug() << "[TerminalProxy] Mouse button event tracking disabled";
+    } else if (param == 1003) {
+        // 任意事件鼠标跟踪
+        m_mouseAnyEventTracking = false;
+        qDebug() << "[TerminalProxy] Mouse any event tracking disabled";
+    } else if (param == 1004) {
+        // 焦点事件报告
+        m_mouseFocusTracking = false;
+        qDebug() << "[TerminalProxy] Focus event tracking disabled";
+    } else if (param == 1006) {
+        // SGR 鼠标模式
+        m_mouseSgrMode = false;
+        qDebug() << "[TerminalProxy] SGR mouse mode disabled";
     }
 }
 
@@ -1682,3 +1798,49 @@ void TerminalProxy::setFont(const QFont &font)
     sendTerminalSize();
     viewport()->update();
 }
+
+void TerminalProxy::sendMouseEvent(int button, int x, int y, bool pressed)
+{
+    if (!m_mouseTrackingEnabled && !m_mouseButtonTracking && !m_mouseAnyEventTracking) {
+        return;
+    }
+
+    // 转换为终端坐标（1-based）
+    int termX = x + 1;
+    int termY = y + 1;
+
+    // 限制坐标范围
+    termX = qBound(1, termX, 223);
+    termY = qBound(1, termY, 223);
+
+    QByteArray mouseReport;
+
+    if (m_mouseSgrMode) {
+        // SGR 鼠标模式: CSI < button ; x ; y M/m
+        int cb = button;
+        if (!pressed) {
+            // 释放事件
+            mouseReport = QString("\033[<%1;%2;%3m").arg(cb).arg(termX).arg(termY).toLatin1();
+        } else {
+            // 按下事件
+            mouseReport = QString("\033[<%1;%2;%3M").arg(cb).arg(termX).arg(termY).toLatin1();
+        }
+    } else {
+        // X11 鼠标模式: CSI M button x y
+        int cb = button + 32;
+        if (!pressed) {
+            cb = 3 + 32; // 释放按钮
+        }
+
+        mouseReport.append('\033');
+        mouseReport.append('[');
+        mouseReport.append('M');
+        mouseReport.append(static_cast<char>(cb));
+        mouseReport.append(static_cast<char>(termX + 32));
+        mouseReport.append(static_cast<char>(termY + 32));
+    }
+
+    qDebug() << "[TerminalProxy] Sending mouse event:" << mouseReport.toHex();
+    sendData(mouseReport);
+}
+

@@ -33,6 +33,9 @@ SOURCES += \
     thememanager.cpp \
     themesettingsdialog.cpp \
     fontmanager.cpp \
+    calculatordialog.cpp \
+    asciitabledialog.cpp \
+    portscannerdialog.cpp \
     ipc/ipcprotocol.cpp \
     ipc/ipcclient.cpp \
     ipc/ipcserver.cpp \
@@ -62,6 +65,9 @@ HEADERS += \
     thememanager.h \
     themesettingsdialog.h \
     fontmanager.h \
+    calculatordialog.h \
+    asciitabledialog.h \
+    portscannerdialog.h \
     common/messagetypes.h \
     common/connectionsettings.h \
     ipc/ipcprotocol.h \

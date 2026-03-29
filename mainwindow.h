@@ -26,6 +26,12 @@ public:
 private slots:
     void openTerminalTester();
     void showLogSettings();
+    void onTabContextMenu(const QPoint &pos);
+    void duplicateSession();
+    void showCalculator();
+    void showPortScanner();
+    void showNetworkServices();
+    void showAsciiTable();
 
 private:
     void initMainWindowLayout();
@@ -64,6 +70,8 @@ private:
     QMenu *m_optMenu;
     QMenu *m_transmitMenu;
     QMenu *m_scriptMenu;
+    QMenu *m_toolsMenu;
+    QMenu *m_pluginMenu;
     QMenu *m_helpMenu;
     QAction *m_sessionAction;
     QAction *m_exitAction;

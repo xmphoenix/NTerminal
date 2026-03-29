@@ -206,6 +206,15 @@ private:
     mutable SelectionPoint m_selectionEnd;
     bool m_selecting;
     bool m_hasSelection;
+
+    // 鼠标报告模式
+    bool m_mouseTrackingEnabled;      // ?1000 - X11 鼠标报告
+    bool m_mouseButtonTracking;       // ?1002 - 按钮事件跟踪
+    bool m_mouseAnyEventTracking;     // ?1003 - 任意事件跟踪
+    bool m_mouseSgrMode;              // ?1006 - SGR 鼠标模式
+    bool m_mouseFocusTracking;        // ?1004 - 焦点事件报告
+
+    void sendMouseEvent(int button, int x, int y, bool pressed);
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(TerminalProxy::Attributes)
