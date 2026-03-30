@@ -45,6 +45,10 @@ TerminalProxy::TerminalProxy(QWidget *parent)
     , m_cursorRow(0)
     , m_insertMode(false)
     , m_applicationCursorKeys(false)
+    , m_useDecGraphics(false)
+    , m_g0Charset('B')
+    , m_g1Charset('0')
+    , m_useG1(false)
     , m_scrollTop(0)
     , m_scrollBottom(0)
     , m_historyStart(0)
@@ -113,6 +117,31 @@ TerminalProxy::TerminalProxy(QWidget *parent)
     connect(m_parser, &TerminalParser::cursorPositionReportRequest, this, &TerminalProxy::onCursorPositionReportRequest);
     connect(m_parser, &TerminalParser::primaryDeviceAttributes, this, &TerminalProxy::onPrimaryDeviceAttributes);
     connect(m_parser, &TerminalParser::secondaryDeviceAttributes, this, &TerminalProxy::onSecondaryDeviceAttributes);
+
+    // 字符编辑命令
+    connect(m_parser, &TerminalParser::insertChars, this, &TerminalProxy::onParserInsertChars);
+    connect(m_parser, &TerminalParser::deleteChars, this, &TerminalProxy::onParserDeleteChars);
+    connect(m_parser, &TerminalParser::eraseChars, this, &TerminalProxy::onParserEraseChars);
+
+    // 光标定位命令
+    connect(m_parser, &TerminalParser::cursorNextLine, this, &TerminalProxy::onParserCursorNextLine);
+    connect(m_parser, &TerminalParser::cursorPreviousLine, this, &TerminalProxy::onParserCursorPreviousLine);
+    connect(m_parser, &TerminalParser::cursorHorizontalAbsolute, this, &TerminalProxy::onParserCursorHorizontalAbsolute);
+    connect(m_parser, &TerminalParser::verticalPositionAbsolute, this, &TerminalProxy::onParserVerticalPositionAbsolute);
+
+    // 制表符处理
+    connect(m_parser, &TerminalParser::tabSet, this, &TerminalProxy::onParserTabSet);
+    connect(m_parser, &TerminalParser::tabClear, this, &TerminalProxy::onParserTabClear);
+    connect(m_parser, &TerminalParser::cursorForwardTab, this, &TerminalProxy::onParserCursorForwardTab);
+    connect(m_parser, &TerminalParser::cursorBackwardTab, this, &TerminalProxy::onParserCursorBackwardTab);
+
+    // 剪贴板操作
+    connect(m_parser, &TerminalParser::clipboardRead, this, &TerminalProxy::onParserClipboardRead);
+    connect(m_parser, &TerminalParser::clipboardWrite, this, &TerminalProxy::onParserClipboardWrite);
+
+    // 字符集切换
+    connect(m_parser, &TerminalParser::setCharacterSet, this, &TerminalProxy::onParserSetCharacterSet);
+
     connect(m_parser, &TerminalParser::setWindowTitle, this, [this](const QString &title) {
         // OSC window title - can be used to update window title if needed
         Q_UNUSED(title);
@@ -130,7 +159,13 @@ TerminalProxy::TerminalProxy(QWidget *parent)
     pal.setColor(QPalette::Window, initialTheme.defaultBackground);
     pal.setColor(QPalette::Base, initialTheme.defaultBackground);
     viewport()->setPalette(pal);
-    
+
+    // 初始化制表位
+    m_tabStops.resize(m_columns);
+    for (int i = 0; i < m_columns; ++i) {
+        m_tabStops[i] = (i % DEFAULT_TAB_WIDTH == 0);
+    }
+
     allocateBuffers();
     updateScrollBars();
 }
@@ -693,31 +728,56 @@ void TerminalProxy::onIpcMessageReceived(Ipc::MessageType type, const QByteArray
 void TerminalProxy::onParserTextReceived(const QString &text)
 {
     for (const QChar &ch : text) {
-        bool isWide = isWideCharacter(ch);
+        // DEC 图形字符集转换
+        QChar displayChar = ch;
+        if (m_useDecGraphics && m_g0Charset == '0') {
+            static const QMap<ushort, QChar> decGraphicsMap = {
+                {'j', QChar(0x2518)},  // ┘
+                {'k', QChar(0x2510)},  // ┐
+                {'l', QChar(0x250C)},  // ┌
+                {'m', QChar(0x2514)},  // └
+                {'n', QChar(0x253C)},  // ┼
+                {'q', QChar(0x2500)},  // ─
+                {'t', QChar(0x251C)},  // ├
+                {'u', QChar(0x2524)},  // ┤
+                {'v', QChar(0x2534)},  // ┴
+                {'w', QChar(0x252C)},  // ┬
+                {'x', QChar(0x2502)},  // │
+                {'a', QChar(0x2592)},  // ▒
+                {'`', QChar(0x25C6)},  // ◆
+                {'~', QChar(0x00B7)},  // ·
+            };
+
+            if (decGraphicsMap.contains(ch.unicode())) {
+                displayChar = decGraphicsMap[ch.unicode()];
+            }
+        }
+
+        bool isWide = isWideCharacter(displayChar);
         int charWidth = isWide ? 2 : 1;
-        
+
         if (m_cursorColumn + charWidth > m_columns) {
             m_cursorColumn = 0;
             m_cursorRow++;
         }
-        
+
         if (m_cursorRow >= m_terminalRows) {
             scrollTerminalUp();
             m_cursorRow = m_terminalRows - 1;
         }
-        
+
         if (m_cursorRow >= 0 && m_cursorRow < m_terminalRows &&
             m_cursorColumn >= 0 && m_cursorColumn < m_columns &&
             m_cursorRow < m_terminalBuffer.size() &&
             m_cursorColumn < m_terminalBuffer[m_cursorRow].size()) {
             Cell &cell = m_terminalBuffer[m_cursorRow][m_cursorColumn];
-            cell.character = ch;
+            cell.character = displayChar;
             cell.foreground = m_currentForeground;
             cell.background = m_currentBackground;
             cell.attributes = m_currentAttributes;
             cell.isWide = isWide;
             m_cursorColumn++;
-            
+
             if (isWide && m_cursorColumn < m_columns && m_cursorColumn < m_terminalBuffer[m_cursorRow].size()) {
                 Cell &placeholder = m_terminalBuffer[m_cursorRow][m_cursorColumn];
                 placeholder.character = QChar(0);
@@ -729,7 +789,7 @@ void TerminalProxy::onParserTextReceived(const QString &text)
             }
         }
     }
-    
+
     updateScrollBars();
     viewport()->update();
     ensureCursorVisible();
@@ -1279,6 +1339,243 @@ void TerminalProxy::onParserSetBackgroundColor256(int colorIndex)
 {
     qDebug() << "[TerminalProxy] Setting 256 color background:" << colorIndex;
     m_currentBackground = ansi256ColorToQColor(colorIndex);
+}
+
+// 字符编辑命令实现
+
+void TerminalProxy::onParserInsertChars(int count)
+{
+    if (count <= 0) count = 1;
+
+    QVector<QVector<Cell>> &buffer = m_useAlternateScreen ? m_alternateBuffer : m_terminalBuffer;
+    if (m_cursorRow >= 0 && m_cursorRow < m_terminalRows) {
+        QVector<Cell> &line = buffer[m_cursorRow];
+
+        for (int i = m_columns - 1; i >= m_cursorColumn + count; --i) {
+            if (i - count >= 0 && i - count < m_columns) {
+                line[i] = line[i - count];
+            }
+        }
+
+        Cell emptyCell;
+        emptyCell.character = ' ';
+        emptyCell.foreground = m_currentForeground;
+        emptyCell.background = m_currentBackground;
+        emptyCell.attributes = m_currentAttributes;
+        emptyCell.isWide = false;
+
+        for (int i = 0; i < count && m_cursorColumn + i < m_columns; ++i) {
+            line[m_cursorColumn + i] = emptyCell;
+        }
+
+        viewport()->update();
+    }
+}
+
+void TerminalProxy::onParserDeleteChars(int count)
+{
+    if (count <= 0) count = 1;
+
+    QVector<QVector<Cell>> &buffer = m_useAlternateScreen ? m_alternateBuffer : m_terminalBuffer;
+    if (m_cursorRow >= 0 && m_cursorRow < m_terminalRows) {
+        QVector<Cell> &line = buffer[m_cursorRow];
+
+        for (int i = m_cursorColumn; i < m_columns - count; ++i) {
+            if (i + count < m_columns) {
+                line[i] = line[i + count];
+            }
+        }
+
+        Cell emptyCell;
+        emptyCell.character = ' ';
+        emptyCell.foreground = m_currentForeground;
+        emptyCell.background = m_currentBackground;
+        emptyCell.attributes = m_currentAttributes;
+        emptyCell.isWide = false;
+
+        for (int i = m_columns - count; i < m_columns; ++i) {
+            if (i >= 0) {
+                line[i] = emptyCell;
+            }
+        }
+
+        viewport()->update();
+    }
+}
+
+void TerminalProxy::onParserEraseChars(int count)
+{
+    if (count <= 0) count = 1;
+
+    QVector<QVector<Cell>> &buffer = m_useAlternateScreen ? m_alternateBuffer : m_terminalBuffer;
+    if (m_cursorRow >= 0 && m_cursorRow < m_terminalRows) {
+        QVector<Cell> &line = buffer[m_cursorRow];
+
+        Cell emptyCell;
+        emptyCell.character = ' ';
+        emptyCell.foreground = m_currentForeground;
+        emptyCell.background = m_currentBackground;
+        emptyCell.attributes = m_currentAttributes;
+        emptyCell.isWide = false;
+
+        for (int i = 0; i < count && m_cursorColumn + i < m_columns; ++i) {
+            line[m_cursorColumn + i] = emptyCell;
+        }
+
+        viewport()->update();
+    }
+}
+
+// 光标定位命令实现
+
+void TerminalProxy::onParserCursorNextLine(int count)
+{
+    if (count <= 0) count = 1;
+    int newRow = m_cursorRow + count;
+    if (newRow >= m_terminalRows) newRow = m_terminalRows - 1;
+    m_cursorRow = newRow;
+    m_cursorColumn = 0;
+    ensureCursorVisible();
+    viewport()->update();
+}
+
+void TerminalProxy::onParserCursorPreviousLine(int count)
+{
+    if (count <= 0) count = 1;
+    int newRow = m_cursorRow - count;
+    if (newRow < 0) newRow = 0;
+    m_cursorRow = newRow;
+    m_cursorColumn = 0;
+    ensureCursorVisible();
+    viewport()->update();
+}
+
+void TerminalProxy::onParserCursorHorizontalAbsolute(int col)
+{
+    int actualCol = qMax(0, col - 1);
+    if (actualCol >= m_columns) actualCol = m_columns - 1;
+    m_cursorColumn = actualCol;
+    ensureCursorVisible();
+    viewport()->update();
+}
+
+void TerminalProxy::onParserVerticalPositionAbsolute(int row)
+{
+    int actualRow = qMax(0, row - 1);
+    if (actualRow >= m_terminalRows) actualRow = m_terminalRows - 1;
+    m_cursorRow = actualRow;
+    ensureCursorVisible();
+    viewport()->update();
+}
+
+// 制表符处理实现
+
+void TerminalProxy::onParserTabSet()
+{
+    if (m_cursorColumn >= 0 && m_cursorColumn < m_tabStops.size()) {
+        m_tabStops[m_cursorColumn] = true;
+    }
+}
+
+void TerminalProxy::onParserTabClear(int param)
+{
+    if (param == 0) {
+        if (m_cursorColumn >= 0 && m_cursorColumn < m_tabStops.size()) {
+            m_tabStops[m_cursorColumn] = false;
+        }
+    } else if (param == 3) {
+        m_tabStops.fill(false);
+    }
+}
+
+void TerminalProxy::onParserCursorForwardTab(int count)
+{
+    if (count <= 0) count = 1;
+    int currentCol = m_cursorColumn;
+
+    for (int i = 0; i < count; ++i) {
+        bool found = false;
+        for (int col = currentCol + 1; col < m_columns; ++col) {
+            if (col < m_tabStops.size() && m_tabStops[col]) {
+                currentCol = col;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            currentCol = m_columns - 1;
+            break;
+        }
+    }
+
+    m_cursorColumn = currentCol;
+    ensureCursorVisible();
+    viewport()->update();
+}
+
+void TerminalProxy::onParserCursorBackwardTab(int count)
+{
+    if (count <= 0) count = 1;
+    int currentCol = m_cursorColumn;
+
+    for (int i = 0; i < count; ++i) {
+        bool found = false;
+        for (int col = currentCol - 1; col >= 0; --col) {
+            if (col < m_tabStops.size() && m_tabStops[col]) {
+                currentCol = col;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            currentCol = 0;
+            break;
+        }
+    }
+
+    m_cursorColumn = currentCol;
+    ensureCursorVisible();
+    viewport()->update();
+}
+
+// 剪贴板操作实现
+
+void TerminalProxy::onParserClipboardRead()
+{
+    QClipboard *clipboard = QApplication::clipboard();
+    QString text = clipboard->text();
+
+    if (!text.isEmpty()) {
+        QByteArray base64 = text.toUtf8().toBase64();
+        QByteArray response = "\033]52;c;" + base64 + "\007";
+        sendData(response);
+    }
+}
+
+void TerminalProxy::onParserClipboardWrite(const QString &data)
+{
+    if (!data.isEmpty()) {
+        QClipboard *clipboard = QApplication::clipboard();
+        clipboard->setText(data);
+        qDebug() << "[TerminalProxy] 剪贴板已更新:" << data.left(50);
+    }
+}
+
+// 字符集切换实现
+
+void TerminalProxy::onParserSetCharacterSet(int gset, char charset)
+{
+    switch (gset) {
+        case 0:
+            m_g0Charset = charset;
+            break;
+        case 1:
+            m_g1Charset = charset;
+            break;
+        default:
+            break;
+    }
+    m_useDecGraphics = (m_g0Charset == '0' || m_g1Charset == '0');
 }
 
 void TerminalProxy::onDeviceStatusReport()

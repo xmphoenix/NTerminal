@@ -144,6 +144,16 @@ private:
     bool m_insertMode;
     bool m_applicationCursorKeys;
 
+    // 制表位管理
+    QVector<bool> m_tabStops;  // 每列是否为制表位
+    static const int DEFAULT_TAB_WIDTH = 8;  // 默认制表位宽度
+
+    // DEC 图形字符集
+    bool m_useDecGraphics;  // 是否使用 DEC 图形字符集
+    char m_g0Charset;       // G0 字符集
+    char m_g1Charset;       // G1 字符集
+    bool m_useG1;           // 当前是否使用 G1 字符集
+
     QVector<QVector<Cell>> m_historyBuffer;
     QVector<QVector<Cell>> m_terminalBuffer;
     int m_historyStart;
@@ -227,7 +237,31 @@ private slots:
     void onClearLine();
     void onSetMode(int param);
     void onResetMode(int param);
-    
+
+    // 字符编辑命令
+    void onInsertChars(int count);
+    void onDeleteChars(int count);
+    void onEraseChars(int count);
+
+    // 光标定位命令
+    void onCursorNextLine(int count);
+    void onCursorPreviousLine(int count);
+    void onCursorHorizontalAbsolute(int col);
+    void onVerticalPositionAbsolute(int row);
+
+    // 制表符处理
+    void onTabSet();
+    void onTabClear(int param);
+    void onCursorForwardTab(int count);
+    void onCursorBackwardTab(int count);
+
+    // 剪贴板操作
+    void onClipboardRead();
+    void onClipboardWrite(const QString &data);
+
+    // 字符集切换
+    void onSetCharacterSet(int gset, char charset);
+
     // 终端能力查询响应
     void onDeviceStatusReport();
     void onCursorPositionReportRequest();

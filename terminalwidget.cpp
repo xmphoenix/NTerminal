@@ -25,6 +25,10 @@ TerminalWidget::TerminalWidget(QWidget *parent)
     , m_cursorRow(0)
     , m_insertMode(false)
     , m_applicationCursorKeys(false)  // 默认使用普通模式
+    , m_useDecGraphics(false)
+    , m_g0Charset('B')  // 默认 ASCII
+    , m_g1Charset('0')  // 默认 DEC graphics
+    , m_useG1(false)
     , m_historyStart(0)
     , m_historySize(0)
     , m_defaultForeground(Qt::white)
@@ -51,6 +55,12 @@ TerminalWidget::TerminalWidget(QWidget *parent)
 
     // 设置视口也接收鼠标事件
     viewport()->setMouseTracking(true);
+
+    // 初始化制表位（每8列一个制表位）
+    m_tabStops.resize(m_columns);
+    for (int i = 0; i < m_columns; ++i) {
+        m_tabStops[i] = (i % DEFAULT_TAB_WIDTH == 0);
+    }
 
     allocateBuffers();
     updateScrollBars();
@@ -128,7 +138,35 @@ void TerminalWidget::writeChar(QChar ch)
     if (m_cursorRow >= 0 && m_cursorRow < m_terminalRows &&
         m_cursorColumn >= 0 && m_cursorColumn < m_columns) {
         Cell &cell = m_terminalBuffer[m_cursorRow][m_cursorColumn];
-        cell.character = ch;
+
+        // DEC 图形字符集转换
+        QChar displayChar = ch;
+        if (m_useDecGraphics && m_g0Charset == '0') {
+            // DEC 特殊图形字符集映射
+            // 用于绘制表格边框等
+            static const QMap<ushort, QChar> decGraphicsMap = {
+                {'j', QChar(0x2518)},  // ┘ 右下角
+                {'k', QChar(0x2510)},  // ┐ 右上角
+                {'l', QChar(0x250C)},  // ┌ 左上角
+                {'m', QChar(0x2514)},  // └ 左下角
+                {'n', QChar(0x253C)},  // ┼ 十字
+                {'q', QChar(0x2500)},  // ─ 水平线
+                {'t', QChar(0x251C)},  // ├ 左T
+                {'u', QChar(0x2524)},  // ┤ 右T
+                {'v', QChar(0x2534)},  // ┴ 下T
+                {'w', QChar(0x252C)},  // ┬ 上T
+                {'x', QChar(0x2502)},  // │ 垂直线
+                {'a', QChar(0x2592)},  // ▒ 方块
+                {'`', QChar(0x25C6)},  // ◆ 菱形
+                {'~', QChar(0x00B7)},  // · 中点
+            };
+
+            if (decGraphicsMap.contains(ch.unicode())) {
+                displayChar = decGraphicsMap[ch.unicode()];
+            }
+        }
+
+        cell.character = displayChar;
         cell.foreground = m_currentForeground;
         cell.background = m_currentBackground;
         cell.attributes = m_currentAttributes;
@@ -1533,6 +1571,66 @@ void TerminalWidget::onCursorHome()
     setCursor(0, 0);
 }
 
+// 光标定位命令实现
+
+void TerminalWidget::onCursorNextLine(int count)
+{
+    if (count <= 0) count = 1;
+
+    // 移动到下N行的开头
+    int newRow = m_cursorRow + count;
+    if (newRow >= m_terminalRows) {
+        newRow = m_terminalRows - 1;
+    }
+
+    m_cursorRow = newRow;
+    m_cursorColumn = 0;
+    ensureCursorVisible();
+    viewport()->update();
+}
+
+void TerminalWidget::onCursorPreviousLine(int count)
+{
+    if (count <= 0) count = 1;
+
+    // 移动到上N行的开头
+    int newRow = m_cursorRow - count;
+    if (newRow < 0) {
+        newRow = 0;
+    }
+
+    m_cursorRow = newRow;
+    m_cursorColumn = 0;
+    ensureCursorVisible();
+    viewport()->update();
+}
+
+void TerminalWidget::onCursorHorizontalAbsolute(int col)
+{
+    // 移动到指定列（1-based）
+    int actualCol = qMax(0, col - 1);
+    if (actualCol >= m_columns) {
+        actualCol = m_columns - 1;
+    }
+
+    m_cursorColumn = actualCol;
+    ensureCursorVisible();
+    viewport()->update();
+}
+
+void TerminalWidget::onVerticalPositionAbsolute(int row)
+{
+    // 移动到指定行（1-based）
+    int actualRow = qMax(0, row - 1);
+    if (actualRow >= m_terminalRows) {
+        actualRow = m_terminalRows - 1;
+    }
+
+    m_cursorRow = actualRow;
+    ensureCursorVisible();
+    viewport()->update();
+}
+
 void TerminalWidget::onBackspace()
 {
     qDebug() << "[TerminalWidget] onBackspace - 当前光标位置: (" << m_cursorRow << "," << m_cursorColumn << ")";
@@ -1867,6 +1965,224 @@ void TerminalWidget::onEraseStartOfLine()
 void TerminalWidget::onClearLine()
 {
     clearLine();
+}
+
+// 字符编辑命令实现
+
+void TerminalWidget::onInsertChars(int count)
+{
+    if (count <= 0) count = 1;
+
+    // 在光标位置插入空白字符
+    if (m_cursorRow >= 0 && m_cursorRow < m_terminalRows) {
+        QVector<Cell> &line = m_terminalBuffer[m_cursorRow];
+
+        // 从光标位置开始，将后面的字符右移
+        for (int i = m_columns - 1; i >= m_cursorColumn + count; --i) {
+            if (i - count >= 0 && i - count < m_columns) {
+                line[i] = line[i - count];
+            }
+        }
+
+        // 在光标位置插入空白字符
+        Cell emptyCell;
+        emptyCell.character = ' ';
+        emptyCell.foreground = m_currentForeground;
+        emptyCell.background = m_currentBackground;
+        emptyCell.attributes = m_currentAttributes;
+
+        for (int i = 0; i < count && m_cursorColumn + i < m_columns; ++i) {
+            line[m_cursorColumn + i] = emptyCell;
+        }
+
+        viewport()->update();
+    }
+}
+
+void TerminalWidget::onDeleteChars(int count)
+{
+    if (count <= 0) count = 1;
+
+    // 删除光标位置的字符
+    if (m_cursorRow >= 0 && m_cursorRow < m_terminalRows) {
+        QVector<Cell> &line = m_terminalBuffer[m_cursorRow];
+
+        // 从光标位置开始，将后面的字符左移
+        for (int i = m_cursorColumn; i < m_columns - count; ++i) {
+            if (i + count < m_columns) {
+                line[i] = line[i + count];
+            }
+        }
+
+        // 在行尾填充空白字符
+        Cell emptyCell;
+        emptyCell.character = ' ';
+        emptyCell.foreground = m_currentForeground;
+        emptyCell.background = m_currentBackground;
+        emptyCell.attributes = m_currentAttributes;
+
+        for (int i = m_columns - count; i < m_columns; ++i) {
+            if (i >= 0) {
+                line[i] = emptyCell;
+            }
+        }
+
+        viewport()->update();
+    }
+}
+
+void TerminalWidget::onEraseChars(int count)
+{
+    if (count <= 0) count = 1;
+
+    // 擦除光标位置的字符（用空格替换）
+    if (m_cursorRow >= 0 && m_cursorRow < m_terminalRows) {
+        QVector<Cell> &line = m_terminalBuffer[m_cursorRow];
+
+        Cell emptyCell;
+        emptyCell.character = ' ';
+        emptyCell.foreground = m_currentForeground;
+        emptyCell.background = m_currentBackground;
+        emptyCell.attributes = m_currentAttributes;
+
+        for (int i = 0; i < count && m_cursorColumn + i < m_columns; ++i) {
+            line[m_cursorColumn + i] = emptyCell;
+        }
+
+        viewport()->update();
+    }
+}
+
+// 制表符处理实现
+
+void TerminalWidget::onTabSet()
+{
+    // 在当前光标位置设置制表位
+    if (m_cursorColumn >= 0 && m_cursorColumn < m_tabStops.size()) {
+        m_tabStops[m_cursorColumn] = true;
+    }
+}
+
+void TerminalWidget::onTabClear(int param)
+{
+    // param = 0: 清除当前列的制表位
+    // param = 3: 清除所有制表位
+    if (param == 0) {
+        if (m_cursorColumn >= 0 && m_cursorColumn < m_tabStops.size()) {
+            m_tabStops[m_cursorColumn] = false;
+        }
+    } else if (param == 3) {
+        m_tabStops.fill(false);
+    }
+}
+
+void TerminalWidget::onCursorForwardTab(int count)
+{
+    if (count <= 0) count = 1;
+
+    // 前进到下N个制表位
+    int currentCol = m_cursorColumn;
+    for (int i = 0; i < count; ++i) {
+        // 查找下一个制表位
+        bool found = false;
+        for (int col = currentCol + 1; col < m_columns; ++col) {
+            if (col < m_tabStops.size() && m_tabStops[col]) {
+                currentCol = col;
+                found = true;
+                break;
+            }
+        }
+
+        // 如果没有找到制表位，移动到行尾
+        if (!found) {
+            currentCol = m_columns - 1;
+            break;
+        }
+    }
+
+    m_cursorColumn = currentCol;
+    ensureCursorVisible();
+    viewport()->update();
+}
+
+void TerminalWidget::onCursorBackwardTab(int count)
+{
+    if (count <= 0) count = 1;
+
+    // 后退到上N个制表位
+    int currentCol = m_cursorColumn;
+    for (int i = 0; i < count; ++i) {
+        // 查找上一个制表位
+        bool found = false;
+        for (int col = currentCol - 1; col >= 0; --col) {
+            if (col < m_tabStops.size() && m_tabStops[col]) {
+                currentCol = col;
+                found = true;
+                break;
+            }
+        }
+
+        // 如果没有找到制表位，移动到行首
+        if (!found) {
+            currentCol = 0;
+            break;
+        }
+    }
+
+    m_cursorColumn = currentCol;
+    ensureCursorVisible();
+    viewport()->update();
+}
+
+// 剪贴板操作实现
+
+void TerminalWidget::onClipboardRead()
+{
+    // OSC 52 读取剪贴板请求
+    // 读取系统剪贴板内容并发送回终端
+    QClipboard *clipboard = QApplication::clipboard();
+    QString text = clipboard->text();
+
+    if (!text.isEmpty()) {
+        // 将文本编码为 base64
+        QByteArray base64 = text.toUtf8().toBase64();
+
+        // 发送 OSC 52 响应: ESC ] 52 ; c ; <base64> BEL
+        QByteArray response = "\033]52;c;" + base64 + "\007";
+        sendData(response);
+    }
+}
+
+void TerminalWidget::onClipboardWrite(const QString &data)
+{
+    // OSC 52 写入剪贴板
+    // 将接收到的文本写入系统剪贴板
+    if (!data.isEmpty()) {
+        QClipboard *clipboard = QApplication::clipboard();
+        clipboard->setText(data);
+        qDebug() << "[TerminalWidget] 剪贴板已更新:" << data.left(50);
+    }
+}
+
+// 字符集切换实现
+
+void TerminalWidget::onSetCharacterSet(int gset, char charset)
+{
+    // 设置 G0/G1/G2/G3 字符集
+    switch (gset) {
+        case 0:
+            m_g0Charset = charset;
+            break;
+        case 1:
+            m_g1Charset = charset;
+            break;
+        default:
+            // G2/G3 暂不支持
+            break;
+    }
+
+    // 如果设置的是 DEC 图形字符集 ('0')，启用图形模式
+    m_useDecGraphics = (m_g0Charset == '0' || m_g1Charset == '0');
 }
 
 // 文本选择和复制功能实现

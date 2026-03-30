@@ -132,6 +132,30 @@ private slots:
     void onParserSetForegroundColor256(int colorIndex);
     void onParserSetBackgroundColor256(int colorIndex);
 
+    // 字符编辑命令
+    void onParserInsertChars(int count);
+    void onParserDeleteChars(int count);
+    void onParserEraseChars(int count);
+
+    // 光标定位命令
+    void onParserCursorNextLine(int count);
+    void onParserCursorPreviousLine(int count);
+    void onParserCursorHorizontalAbsolute(int col);
+    void onParserVerticalPositionAbsolute(int row);
+
+    // 制表符处理
+    void onParserTabSet();
+    void onParserTabClear(int param);
+    void onParserCursorForwardTab(int count);
+    void onParserCursorBackwardTab(int count);
+
+    // 剪贴板操作
+    void onParserClipboardRead();
+    void onParserClipboardWrite(const QString &data);
+
+    // 字符集切换
+    void onParserSetCharacterSet(int gset, char charset);
+
     void onDeviceStatusReport();
     void onCursorPositionReportRequest();
     void onPrimaryDeviceAttributes();
@@ -174,7 +198,17 @@ private:
     
     bool m_insertMode;
     bool m_applicationCursorKeys;
-    
+
+    // 制表位管理
+    QVector<bool> m_tabStops;
+    static const int DEFAULT_TAB_WIDTH = 8;
+
+    // DEC 图形字符集
+    bool m_useDecGraphics;
+    char m_g0Charset;
+    char m_g1Charset;
+    bool m_useG1;
+
     int m_scrollTop;
     int m_scrollBottom;
     
