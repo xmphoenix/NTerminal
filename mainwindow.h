@@ -33,6 +33,12 @@ private slots:
     void showNetworkServices();
     void showAsciiTable();
 
+    // 脚本相关槽函数
+    void loadScript();
+    void stopScript();
+    void showScriptLog();
+    void showScriptControlPanel();
+
 private:
     void initMainWindowLayout();
     void initMainWindowMenu();
@@ -85,5 +91,11 @@ private:
     QAction *m_manageSessionsAction;
     QAction *m_themeAction;
     QAction *m_logSettingsAction;
+
+    // 脚本相关 Action
+    QAction *m_loadScriptAction;
+    QAction *m_stopScriptAction;
+    QAction *m_scriptLogAction;
+    QAction *m_scriptControlAction;
 };
 #endif // MAINWINDOW_H

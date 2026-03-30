@@ -6,12 +6,15 @@
 #include <QColor>
 #include <QVector>
 #include <QFont>
+#include <QDateTime>
 #include "common/connectionsettings.h"
 #include "common/messagetypes.h"
 #include "ipc/ipcclient.h"
 #include "terminalparser.h"
 #include "thememanager.h"
 #include "fontmanager.h"
+
+class PythonScriptEngine;
 
 class TerminalProxy : public QAbstractScrollArea
 {
@@ -71,12 +74,26 @@ public:
 
     QString sessionId() const { return m_sessionId; }
 
+    // Python 脚本支持
+    bool loadScript(const QString &scriptPath);
+    void stopScript();
+    bool isScriptRunning() const;
+    QString currentScript() const;
+    QString currentScriptName() const;
+    QDateTime scriptStartTime() const;
+
 signals:
     void connectionOpened();
     void connectionClosed();
     void connectionError(const QString &error);
     void dataReceived(const QByteArray &data);
     void dataSent(const QByteArray &data);
+
+    // Python 脚本信号
+    void scriptStateChanged();
+    void scriptStarted();
+    void scriptStopped(int exitCode);
+    void scriptError(const QString &error);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -249,6 +266,11 @@ private:
     bool m_mouseFocusTracking;        // ?1004 - 焦点事件报告
 
     void sendMouseEvent(int button, int x, int y, bool pressed);
+
+    // Python 脚本引擎
+    PythonScriptEngine *m_scriptEngine;
+    QString m_currentScriptPath;
+    QDateTime m_scriptStartTime;
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(TerminalProxy::Attributes)

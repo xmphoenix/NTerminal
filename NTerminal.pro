@@ -36,6 +36,11 @@ SOURCES += \
     calculatordialog.cpp \
     asciitabledialog.cpp \
     portscannerdialog.cpp \
+    pythonscriptengine.cpp \
+    scriptdialog.cpp \
+    scriptlogviewer.cpp \
+    scriptcontrolpanel.cpp \
+    scriptstatuswidget.cpp \
     ipc/ipcprotocol.cpp \
     ipc/ipcclient.cpp \
     ipc/ipcserver.cpp \
@@ -68,6 +73,11 @@ HEADERS += \
     calculatordialog.h \
     asciitabledialog.h \
     portscannerdialog.h \
+    pythonscriptengine.h \
+    scriptdialog.h \
+    scriptlogviewer.h \
+    scriptcontrolpanel.h \
+    scriptstatuswidget.h \
     common/messagetypes.h \
     common/connectionsettings.h \
     ipc/ipcprotocol.h \

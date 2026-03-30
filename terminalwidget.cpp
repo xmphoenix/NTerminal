@@ -45,6 +45,7 @@ TerminalWidget::TerminalWidget(QWidget *parent)
     , m_sshProcess(nullptr)
     , m_sshClient(nullptr)
     , m_isConnected(false)
+    , m_scriptEngine(nullptr)
     , m_telnetLoginState(TelnetLoginNone)
     , m_sshLoginState(SshLoginNone)
 {
@@ -61,6 +62,19 @@ TerminalWidget::TerminalWidget(QWidget *parent)
     for (int i = 0; i < m_columns; ++i) {
         m_tabStops[i] = (i % DEFAULT_TAB_WIDTH == 0);
     }
+
+    // 初始化 Python 脚本引擎
+    m_scriptEngine = new PythonScriptEngine(this);
+    connect(m_scriptEngine, &PythonScriptEngine::sendCommand,
+            this, &TerminalWidget::onScriptSendCommand);
+    connect(m_scriptEngine, &PythonScriptEngine::logMessage,
+            this, &TerminalWidget::onScriptLogMessage);
+    connect(m_scriptEngine, &PythonScriptEngine::scriptStarted,
+            this, &TerminalWidget::onScriptStarted);
+    connect(m_scriptEngine, &PythonScriptEngine::scriptStopped,
+            this, &TerminalWidget::onScriptStopped);
+    connect(m_scriptEngine, &PythonScriptEngine::scriptError,
+            this, &TerminalWidget::onScriptError);
 
     allocateBuffers();
     updateScrollBars();
@@ -2625,4 +2639,65 @@ void TerminalWidget::setApplicationCursorKeys(bool enabled)
         qDebug() << "[TerminalWidget] setApplicationCursorKeys - 设置为:" << enabled
                  << "(" << (enabled ? "应用程序模式" : "普通模式") << ")";
     }
+}
+
+// Python 脚本引擎实现
+
+bool TerminalWidget::loadScript(const QString &scriptPath)
+{
+    if (!m_scriptEngine) {
+        qDebug() << "[TerminalWidget] Script engine not initialized";
+        return false;
+    }
+
+    return m_scriptEngine->loadScript(scriptPath);
+}
+
+void TerminalWidget::stopScript()
+{
+    if (m_scriptEngine) {
+        m_scriptEngine->stopScript();
+    }
+}
+
+bool TerminalWidget::isScriptRunning() const
+{
+    return m_scriptEngine && m_scriptEngine->isRunning();
+}
+
+QString TerminalWidget::currentScript() const
+{
+    return m_scriptEngine ? m_scriptEngine->currentScript() : QString();
+}
+
+void TerminalWidget::onScriptSendCommand(const QString &command)
+{
+    // 脚本请求发送命令到终端
+    qDebug() << "[TerminalWidget] Script sending command:" << command.left(50);
+    sendText(command);
+}
+
+void TerminalWidget::onScriptLogMessage(const QString &level, const QString &message)
+{
+    // 脚本记录日志
+    qDebug() << "[TerminalWidget] Script log [" << level << "]:" << message;
+    emit scriptLogMessage(level, message);
+}
+
+void TerminalWidget::onScriptStarted()
+{
+    qDebug() << "[TerminalWidget] Script started";
+    emit scriptStarted();
+}
+
+void TerminalWidget::onScriptStopped(int exitCode)
+{
+    qDebug() << "[TerminalWidget] Script stopped with exit code:" << exitCode;
+    emit scriptStopped(exitCode);
+}
+
+void TerminalWidget::onScriptError(const QString &error)
+{
+    qDebug() << "[TerminalWidget] Script error:" << error;
+    emit scriptError(error);
 }

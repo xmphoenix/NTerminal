@@ -9,6 +9,7 @@
 #include <QProcess>
 #include "connectiondialog.h"
 #include "sshclient.h"
+#include "pythonscriptengine.h"
 
 class TerminalWidget : public QAbstractScrollArea
 {
@@ -77,12 +78,27 @@ public:
     bool hasSelection() const;
     QString getSelectedText() const;
 
+    // Python 脚本引擎
+    bool loadScript(const QString &scriptPath);
+    void stopScript();
+    bool isScriptRunning() const;
+    QString currentScript() const;
+    QString currentScriptName() const;
+    QDateTime scriptStartTime() const;
+
 signals:
     void connectionOpened();
     void connectionClosed();
     void connectionError(const QString &error);
     void dataReceived(const QByteArray &data);
     void dataSent(const QByteArray &data);
+
+    // Python 脚本信号
+    void scriptStateChanged();  // 脚本状态改变
+    void scriptStarted();
+    void scriptStopped(int exitCode);
+    void scriptError(const QString &error);
+    void scriptLogMessage(const QString &level, const QString &message);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -182,7 +198,13 @@ private:
     SshClient *m_sshClient;      // 使用libssh（推荐方案）
     // Terminal parser removed
     bool m_isConnected;
-    
+
+    // Python 脚本引擎
+    PythonScriptEngine *m_scriptEngine;
+    QString m_scriptPath;
+    QString m_scriptName;
+    QDateTime m_scriptStartTime;
+
     // Telnet自动登录状态
     enum TelnetLoginState {
         TelnetLoginNone,        // 未开始登录
@@ -264,9 +286,16 @@ private slots:
 
     // 终端能力查询响应
     void onDeviceStatusReport();
-    void onCursorPositionReportRequest();
+    void onClaude CodePositionReportRequest();
     void onPrimaryDeviceAttributes();
-    
+
+    // Python 脚本引擎槽函数
+    void onScriptSendCommand(const QString &command);
+    void onScriptLogMessage(const QString &level, const QString &message);
+    void onScriptStarted();
+    void onScriptStopped(int exitCode);
+    void onScriptError(const QString &error);
+
     // Telnet自动登录
     void sendTelnetCredentials();
     void checkLoginPrompt(const QString &text);

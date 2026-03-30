@@ -1,4 +1,5 @@
 #include "terminalproxy.h"
+#include "pythonscriptengine.h"
 #include <QPainter>
 #include <QScrollBar>
 #include <QFontMetrics>
@@ -14,6 +15,7 @@
 #include <QJsonObject>
 #include <QTimer>
 #include <QRandomGenerator>
+#include <QFileInfo>
 
 static QColor ansiColorToQColor(int code, bool isBright);
 [[maybe_unused]] static QColor ansi256ColorToQColor(int code);
@@ -72,6 +74,7 @@ TerminalProxy::TerminalProxy(QWidget *parent)
     , m_mouseAnyEventTracking(false)
     , m_mouseSgrMode(false)
     , m_mouseFocusTracking(false)
+    , m_scriptEngine(nullptr)
 {
     setFocusPolicy(Qt::StrongFocus);
     setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -172,6 +175,11 @@ TerminalProxy::TerminalProxy(QWidget *parent)
 
 TerminalProxy::~TerminalProxy()
 {
+    if (m_scriptEngine) {
+        m_scriptEngine->stopScript();
+        delete m_scriptEngine;
+        m_scriptEngine = nullptr;
+    }
     closeConnection();
 }
 
@@ -2141,3 +2149,87 @@ void TerminalProxy::sendMouseEvent(int button, int x, int y, bool pressed)
     sendData(mouseReport);
 }
 
+// Python 脚本支持实现
+bool TerminalProxy::loadScript(const QString &scriptPath)
+{
+    if (!QFileInfo::exists(scriptPath)) {
+        qWarning() << "[TerminalProxy] Script file not found:" << scriptPath;
+        return false;
+    }
+
+    // 如果已有脚本在运行，先停止
+    if (m_scriptEngine && m_scriptEngine->isRunning()) {
+        stopScript();
+    }
+
+    // 创建脚本引擎（如果还没有）
+    if (!m_scriptEngine) {
+        m_scriptEngine = new PythonScriptEngine(this);
+
+        // 连接脚本引擎信号
+        connect(m_scriptEngine, &PythonScriptEngine::sendCommand,
+                this, [this](const QString &command) {
+            sendText(command);
+        });
+
+        connect(m_scriptEngine, &PythonScriptEngine::scriptStarted,
+                this, [this]() {
+            m_scriptStartTime = QDateTime::currentDateTime();
+            emit scriptStarted();
+            emit scriptStateChanged();
+        });
+
+        connect(m_scriptEngine, &PythonScriptEngine::scriptStopped,
+                this, [this](int exitCode) {
+            emit scriptStopped(exitCode);
+            emit scriptStateChanged();
+        });
+
+        connect(m_scriptEngine, &PythonScriptEngine::scriptError,
+                this, [this](const QString &error) {
+            emit scriptError(error);
+        });
+    }
+
+    // 加载脚本
+    if (m_scriptEngine->loadScript(scriptPath)) {
+        m_currentScriptPath = scriptPath;
+        qDebug() << "[TerminalProxy] Script loaded successfully:" << scriptPath;
+        return true;
+    }
+
+    return false;
+}
+
+
+void TerminalProxy::stopScript()
+{
+    if (m_scriptEngine) {
+        m_scriptEngine->stopScript();
+        m_currentScriptPath.clear();
+        qDebug() << "[TerminalProxy] Script stopped";
+    }
+}
+
+bool TerminalProxy::isScriptRunning() const
+{
+    return m_scriptEngine && m_scriptEngine->isRunning();
+}
+
+QString TerminalProxy::currentScript() const
+{
+    return m_currentScriptPath;
+}
+
+QString TerminalProxy::currentScriptName() const
+{
+    if (m_currentScriptPath.isEmpty()) {
+        return QString();
+    }
+    return QFileInfo(m_currentScriptPath).fileName();
+}
+
+QDateTime TerminalProxy::scriptStartTime() const
+{
+    return m_scriptStartTime;
+}

@@ -10,6 +10,9 @@
 #include "calculatordialog.h"
 #include "asciitabledialog.h"
 #include "portscannerdialog.h"
+#include "scriptdialog.h"
+#include "scriptlogviewer.h"
+#include "scriptcontrolpanel.h"
 #include <QSplitter>
 #include <QListWidget>
 #include <QTabWidget>
@@ -23,6 +26,7 @@
 #include <QFrame>
 #include <QVBoxLayout>
 #include <QDebug>
+#include <QMessageBox>
 
 namespace {
 ConnectionDialog::ConnectionSettings toDialogSettings(const Common::ConnectionSettings &s) {
@@ -92,6 +96,10 @@ MainWindow::MainWindow(QWidget *parent)
     , m_saveSessionAction(nullptr)
     , m_loadSessionAction(nullptr)
     , m_manageSessionsAction(nullptr)
+    , m_loadScriptAction(nullptr)
+    , m_stopScriptAction(nullptr)
+    , m_scriptLogAction(nullptr)
+    , m_scriptControlAction(nullptr)
 {
     initMainWindowMenu();
     initMainWindowLayout();
@@ -452,6 +460,26 @@ void MainWindow::initMainWindowMenu()
     connect(asciiTableAction, &QAction::triggered, this, &MainWindow::showAsciiTable);
     m_toolsMenu->addAction(asciiTableAction);
 
+    // Script 菜单
+    m_loadScriptAction = new QAction("Load Script...", this);
+    connect(m_loadScriptAction, &QAction::triggered, this, &MainWindow::loadScript);
+    m_scriptMenu->addAction(m_loadScriptAction);
+
+    m_stopScriptAction = new QAction("Stop Script", this);
+    m_stopScriptAction->setEnabled(false);
+    connect(m_stopScriptAction, &QAction::triggered, this, &MainWindow::stopScript);
+    m_scriptMenu->addAction(m_stopScriptAction);
+
+    m_scriptMenu->addSeparator();
+
+    m_scriptLogAction = new QAction("View Script Log", this);
+    connect(m_scriptLogAction, &QAction::triggered, this, &MainWindow::showScriptLog);
+    m_scriptMenu->addAction(m_scriptLogAction);
+
+    m_scriptControlAction = new QAction("Script Control Panel", this);
+    connect(m_scriptControlAction, &QAction::triggered, this, &MainWindow::showScriptControlPanel);
+    m_scriptMenu->addAction(m_scriptControlAction);
+
     m_menuBar->addMenu(m_fileMenu);
     m_menuBar->addMenu(m_editMenu);
     m_menuBar->addMenu(m_viewMenu);
@@ -643,4 +671,78 @@ void MainWindow::showAsciiTable()
     AsciiTableDialog *dialog = new AsciiTableDialog(this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
+}
+
+void MainWindow::loadScript()
+{
+    TerminalProxy *terminal = getCurrentTerminal();
+    if (!terminal) {
+        QMessageBox::warning(this, tr("警告"), tr("请先打开一个终端连接"));
+        return;
+    }
+
+    ScriptDialog dialog(this);
+    // TODO: 设置最近使用的脚本列表
+    // dialog.setRecentScripts(recentScripts);
+
+    if (dialog.exec() == QDialog::Accepted) {
+        QString scriptPath = dialog.selectedScriptPath();
+        if (!scriptPath.isEmpty()) {
+            if (terminal->loadScript(scriptPath)) {
+                m_stopScriptAction->setEnabled(true);
+                qDebug() << "Script loaded:" << scriptPath;
+            } else {
+                QMessageBox::critical(this, tr("错误"),
+                    tr("无法加载脚本: %1").arg(scriptPath));
+            }
+        }
+    }
+}
+
+void MainWindow::stopScript()
+{
+    TerminalProxy *terminal = getCurrentTerminal();
+    if (!terminal) {
+        return;
+    }
+
+    terminal->stopScript();
+    m_stopScriptAction->setEnabled(false);
+    qDebug() << "Script stopped";
+}
+
+void MainWindow::showScriptLog()
+{
+    ScriptLogViewer *viewer = new ScriptLogViewer(this);
+    viewer->setAttribute(Qt::WA_DeleteOnClose);
+    viewer->show();
+}
+
+void MainWindow::showScriptControlPanel()
+{
+    TerminalProxy *terminal = getCurrentTerminal();
+    if (!terminal) {
+        QMessageBox::warning(this, tr("警告"), tr("请先打开一个终端连接"));
+        return;
+    }
+
+    ScriptControlPanel *panel = new ScriptControlPanel(this);
+    panel->setAttribute(Qt::WA_DeleteOnClose);
+
+    // 设置当前脚本状态
+    panel->setScriptRunning(terminal->isScriptRunning());
+    panel->setScriptName(terminal->currentScriptName());
+    if (terminal->isScriptRunning()) {
+        panel->setScriptStartTime(terminal->scriptStartTime());
+    }
+
+    // 连接信号
+    connect(panel, &ScriptControlPanel::loadScriptRequested,
+            this, &MainWindow::loadScript);
+    connect(panel, &ScriptControlPanel::stopScriptRequested,
+            this, &MainWindow::stopScript);
+    connect(panel, &ScriptControlPanel::viewLogRequested,
+            this, &MainWindow::showScriptLog);
+
+    panel->show();
 }
