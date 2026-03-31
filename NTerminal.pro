@@ -98,7 +98,8 @@ RESOURCES += \
     resources/resources.qrc
 
 TRANSLATIONS += \
-    NTerminal_en_US.ts
+    NTerminal_en_US.ts \
+    NTerminal_zh_CN.ts
 CONFIG += lrelease
 CONFIG += embed_translations
 

@@ -115,15 +115,19 @@ int main(int argc, char *argv[])
         ThemeManager::instance()->initialize();
         FontManager::instance()->initialize();
 
+        // Detect system language: if Chinese, load Chinese translation; otherwise use English source
         QTranslator translator;
-        const QStringList uiLanguages = QLocale::system().uiLanguages();
-        for (const QString &locale : uiLanguages) {
-            const QString baseName = "NTerminal_" + QLocale(locale).name();
-            if (translator.load(":/i18n/" + baseName)) {
+        QLocale systemLocale = QLocale::system();
+        QString languageName = systemLocale.name(); // e.g. "zh_CN", "en_US", "zh_TW"
+
+        if (languageName.startsWith("zh")) {
+            // Try to load Chinese translation
+            if (translator.load(":/i18n/NTerminal_zh_CN")) {
                 app.installTranslator(&translator);
-                break;
             }
+            // If zh_CN.qm not found, falls through to source strings
         }
+        // Non-Chinese locales: no translator installed, English source strings used as-is
 
         MainWindow window;
         window.show();
