@@ -9,10 +9,41 @@ unix {
 }
 
 win32 {
-    LIBSSH_ROOT = D:/Ai/NTerminal/libssh-prebuilt
+    LIBSSH_SRC = $$PWD/libssh
+    LIBSSH_PREBUILT = $$PWD/libssh-prebuilt
+    LIBSSH_SOURCE_DIR = $$PWD/libssh-src
+    LIBSSH_BUILD_DIR = $$PWD/libssh-build
+
+    exists($$LIBSSH_SRC/include/libssh/libssh.h) {
+        message("Using compiled libssh from source")
+        LIBSSH_ROOT = $$LIBSSH_SRC
+    } else {
+        message("Using prebuilt libssh")
+        LIBSSH_ROOT = $$LIBSSH_PREBUILT
+    }
+
     INCLUDEPATH += $$LIBSSH_ROOT/include
     LIBS += -L$$LIBSSH_ROOT/lib -lssh
-    LIBS += -lws2_32  # For Windows socket API
+    LIBS += -lws2_32
+
+    DESTDIR = $$PWD/bin
+
+    build_libssh.commands = $$quote(powershell -ExecutionPolicy Bypass -File \"$$shell_path($$PWD/build_libssh.ps1)\")
+    build_libssh.target = $$LIBSSH_SRC/include/libssh/libssh.h
+    build_libssh.depends = $$PWD/build_libssh.ps1
+
+    QMAKE_EXTRA_TARGETS += build_libssh
+
+    !exists($$LIBSSH_SRC/include/libssh/libssh.h) {
+        PRE_TARGETDEPS += $$LIBSSH_SRC/include/libssh/libssh.h
+    }
+
+    # Copy DLLs using PowerShell for reliable Windows file operations
+    copy_libssh_dlls.commands = powershell -ExecutionPolicy Bypass -Command \"Copy-Item -Path '$$shell_path($$LIBSSH_ROOT/bin/*.dll)' -Destination '$$shell_path($$DESTDIR)' -Force -ErrorAction SilentlyContinue\"
+    copy_libssh_dlls.depends = build_libssh
+    QMAKE_EXTRA_TARGETS += copy_libssh_dlls
+
+    QMAKE_POST_LINK += powershell -ExecutionPolicy Bypass -Command \"Copy-Item -Path '$$shell_path($$LIBSSH_ROOT/bin/*.dll)' -Destination '$$shell_path($$DESTDIR)' -Force -ErrorAction SilentlyContinue\" $$escape_expand(\\n\\t)
 }
 
 INCLUDEPATH += $$PWD/common $$PWD/ipc $$PWD/session
