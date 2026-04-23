@@ -10,7 +10,7 @@ unix {
 
 win32 {
     LIBSSH_SRC = $$PWD/libssh
-    LIBSSH_PREBUILT = $$PWD/libssh-prebuilt
+    LIBSSH_DEPS = $$PWD/openssl-deps
     LIBSSH_SOURCE_DIR = $$PWD/libssh-src
     LIBSSH_BUILD_DIR = $$PWD/libssh-build
 
@@ -19,7 +19,7 @@ win32 {
         LIBSSH_ROOT = $$LIBSSH_SRC
     } else {
         message("Using prebuilt libssh")
-        LIBSSH_ROOT = $$LIBSSH_PREBUILT
+        LIBSSH_ROOT = $$LIBSSH_DEPS
     }
 
     INCLUDEPATH += $$LIBSSH_ROOT/include

@@ -78,7 +78,7 @@ build_libssh.bat
 | :--- | :--- | :--- |
 | BuildType | Release | 构建类型 (Release/Debug) |
 | Generator | MinGW Makefiles | CMake 生成器 |
-| OpenSSLRoot | ..\libssh-prebuilt | OpenSSL 安装路径 |
+| OpenSSLRoot | ..\openssl-deps | OpenSSL 安装路径 |
 | ParallelJobs | 8 | 并行编译任务数 |
 
 ## 目录结构
@@ -99,13 +99,13 @@ NTerminal/
 │   │   └── libssh.dll.a
 │   └── include/        # 头文件
 │       └── libssh/
-├── libssh-prebuilt/     # OpenSSL 依赖（保留）
+├── openssl-deps/        # OpenSSL/zlib 依赖（保留）
 └── build_libssh.ps1     # 编译脚本
 ```
 
 ## 依赖说明
 
-libssh 依赖以下库（已包含在 libssh-prebuilt 中）：
+libssh 依赖以下库（已包含在 openssl-deps 中）：
 
 | 库 | 版本 | 说明 |
 | :--- | :--- | :--- |
@@ -129,19 +129,19 @@ win32 {
 
 ### 1. CMake 找不到 OpenSSL
 
-确保 `libssh-prebuilt` 目录存在且包含 OpenSSL 头文件和库文件。
+确保 `openssl-deps` 目录存在且包含 OpenSSL 头文件和库文件。
 
 ### 2. 编译错误：找不到 zlib
 
-检查 `libssh-prebuilt/lib` 目录是否包含 `libzlib.dll.a`。
+检查 `openssl-deps/lib` 目录是否包含 `libz.dll.a`。
 
 ### 3. 运行时错误：找不到 DLL
 
 将以下 DLL 复制到可执行文件目录：
 - `libssh/bin/ssh.dll`
-- `libssh-prebuilt/bin/libcrypto-*.dll`
-- `libssh-prebuilt/bin/libssl-*.dll`
-- `libssh-prebuilt/bin/zlib*.dll`
+- `openssl-deps/bin/libcrypto-*.dll`
+- `openssl-deps/bin/libssl-*.dll`
+- `openssl-deps/bin/zlib*.dll`
 
 ### 4. MinGW 版本不兼容
 
@@ -163,7 +163,7 @@ cd libssh-build
 cmake -G "MinGW Makefiles" ^
     -DCMAKE_BUILD_TYPE=Release ^
     -DCMAKE_INSTALL_PREFIX=../libssh ^
-    -DOPENSSL_ROOT_DIR=../libssh-prebuilt ^
+    -DOPENSSL_ROOT_DIR=../openssl-deps ^
     -DWITH_EXAMPLES=OFF ^
     -DWITH_TESTING=OFF ^
     -DWITH_SERVER=OFF ^

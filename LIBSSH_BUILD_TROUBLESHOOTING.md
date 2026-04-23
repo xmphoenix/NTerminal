@@ -38,12 +38,12 @@ building platform.
 
 ### 解决方案
 
-**使用项目已有的预编译 OpenSSL 库（libssh-prebuilt 目录）**
+**使用项目已有的预编译 OpenSSL 库（openssl-deps 目录）**
 
 项目已包含预编译的 OpenSSL 和 zlib：
-- `libssh-prebuilt/lib/libcrypto.dll.a`
-- `libssh-prebuilt/lib/libssl.dll.a`
-- `libssh-prebuilt/lib/libz.dll.a`
+- `openssl-deps/lib/libcrypto.dll.a`
+- `openssl-deps/lib/libssl.dll.a`
+- `openssl-deps/lib/libz.dll.a`
 
 修改 `build_libssh.ps1` 脚本，直接使用预编译库编译 libssh，跳过 OpenSSL 的编译。
 
@@ -82,7 +82,7 @@ $CMakeArgs = $CMakeArgs | ForEach-Object { $_ -replace '\\', '/' }
 ### 问题现象
 
 ```
-mingw32-make[2]: *** No rule to make target 'D:\\Ai\\NTerminal\\libssh-prebuilt\\lib\\libzlib.dll.a'
+mingw32-make[2]: *** No rule to make target 'D:\\Ai\\NTerminal\\openssl-deps\\lib\\libz.dll.a'
 ```
 
 ### 问题原因
@@ -108,7 +108,7 @@ mingw32-make[2]: *** No rule to make target 'D:\\Ai\\NTerminal\\libssh-prebuilt\
 ### 问题现象
 
 ```
-ld.exe: cannot find D:AiNTerminallibssh-prebuiltliblibz.dll.a: No such file or directory
+ld.exe: cannot find D:AiNTerminalopenssl-depsliblibz.dll.a: No such file or directory
 ```
 
 路径中的反斜杠 `\` 全部丢失。
@@ -197,7 +197,7 @@ cmake --build . --parallel 8
 
 修改后的 `build_libssh.ps1` 简化为：
 
-1. **检查预编译 OpenSSL**（libssh-prebuilt）
+1. **检查预编译 OpenSSL**（openssl-deps）
 2. **克隆 libssh 源码**（如不存在）
 3. **CMake 配置**（使用正斜杠路径）
 4. **多线程编译**（mingw32-make -j）
@@ -244,7 +244,7 @@ NTerminal/
 │   │   └── libssh.dll.a     # 导入库
 │   └── include/
 │       └── libssh/          # 头文件
-├── libssh-prebuilt/         # 预编译 OpenSSL/zlib
+├── openssl-deps/            # 预编译 OpenSSL/zlib
 ├── libssh-src/              # libssh 源码
 └── libssh-build/            # 构建临时文件
 ```

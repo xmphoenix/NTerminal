@@ -13,6 +13,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 function Find-QtTool {
     param([string]$ToolName)
@@ -93,39 +94,7 @@ function Invoke-ExternalCommand {
 function Download-PrebuiltDependencies {
     param([string]$TargetDir)
 
-    Write-Log "Downloading prebuilt OpenSSL and zlib..." -Level Info
-
-    # Use MSYS2 packages as source (MinGW64 binaries)
-    # OpenSSL and zlib from MSYS2 repo
-    $MsysRepo = "https://repo.msys2.org/mingw/mingw64"
-    $Packages = @(
-        "mingw-w64-x86_64-openssl-3.4.0-1-any.pkg.tar.zst",
-        "mingw-w64-x86_64-zlib-1.3.1-1-any.pkg.tar.zst",
-        "mingw-w64-x86_64-libgpg-error-1.47-1-any.pkg.tar.zst"
-    )
-
-    $TempDir = Join-Path $env:TEMP "libssh-deps-download"
-    if (Test-Path $TempDir) { Remove-Item -Recurse -Force $TempDir }
-    New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
-
-    # Download packages
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-
-    foreach ($Package in $Packages) {
-        $Url = "$MsysRepo/$Package"
-        $Dest = Join-Path $TempDir $Package
-        Write-Host "  Downloading: $Package" -ForegroundColor Gray
-        
-        try {
-            Invoke-WebRequest -Uri $Url -OutFile $Dest -UseBasicParsing
-        } catch {
-            Write-Log "Failed to download $Package" -Level Warning
-            # Try alternative source or continue
-        }
-    }
-
-    # Extract packages (zst format needs special handling)
-    Write-Host "  Extracting packages..." -ForegroundColor Gray
+    Write-Log "Setting up prebuilt OpenSSL and zlib for MinGW64..." -Level Info
 
     # Create target directories
     $BinDir = Join-Path $TargetDir "bin"
@@ -135,46 +104,195 @@ function Download-PrebuiltDependencies {
     New-Item -ItemType Directory -Path $LibDir -Force | Out-Null
     New-Item -ItemType Directory -Path $IncludeDir -Force | Out-Null
 
-    # Use tar to extract (Windows 10+ has built-in tar)
-    foreach ($Package in $Packages) {
-        $Dest = Join-Path $TempDir $Package
-        if (Test-Path $Dest) {
-            # Extract tar.zst using tar (Windows 10+ supports zstd)
-            & tar -xzf $Dest -C $TempDir 2>&1 | Out-Null
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+    # Attempt 1: Check for existing MSYS2 installation
+    $MsysPaths = @(
+        "C:\msys64\mingw64",
+        "D:\msys64\mingw64",
+        "${env:MSYS64_ROOT}\mingw64"
+    )
+
+    foreach ($MsysPath in $MsysPaths) {
+        if (Test-Path "$MsysPath\lib\libcrypto.dll.a") {
+            Write-Host "  Found MSYS2 installation at: $MsysPath" -ForegroundColor Green
+            Write-Host "  Copying files from MSYS2..." -ForegroundColor Gray
+
+            try {
+                # Copy DLLs
+                Get-ChildItem -Path "$MsysPath\bin" -Filter "*.dll" -ErrorAction SilentlyContinue | Where-Object {
+                    $_.Name -match "^(libcrypto|libssl|zlib)" -or $_.Name -match "-3-x64\.dll$"
+                } | ForEach-Object {
+                    Copy-Item -Path $_.FullName -Destination $BinDir -Force
+                    Write-Host "    Copied: $($_.Name)" -ForegroundColor Gray
+                }
+
+                # Copy libs
+                Copy-Item -Path "$MsysPath\lib\libcrypto.dll.a" -Destination $LibDir -Force -ErrorAction SilentlyContinue
+                Copy-Item -Path "$MsysPath\lib\libssl.dll.a" -Destination $LibDir -Force -ErrorAction SilentlyContinue
+                Copy-Item -Path "$MsysPath\lib\libz.dll.a" -Destination $LibDir -Force -ErrorAction SilentlyContinue
+                Copy-Item -Path "$MsysPath\lib\libcrypto.a" -Destination $LibDir -Force -ErrorAction SilentlyContinue
+                Copy-Item -Path "$MsysPath\lib\libssl.a" -Destination $LibDir -Force -ErrorAction SilentlyContinue
+                Copy-Item -Path "$MsysPath\lib\libz.a" -Destination $LibDir -Force -ErrorAction SilentlyContinue
+
+                # Copy headers
+                if (Test-Path "$MsysPath\include\openssl") {
+                    Copy-Item -Path "$MsysPath\include\openssl" -Destination $IncludeDir -Recurse -Force
+                }
+                Copy-Item -Path "$MsysPath\include\zlib.h" -Destination $IncludeDir -Force -ErrorAction SilentlyContinue
+                Copy-Item -Path "$MsysPath\include\zconf.h" -Destination $IncludeDir -Force -ErrorAction SilentlyContinue
+
+                if (Test-Path "$LibDir\libcrypto.dll.a") {
+                    Write-Log "Files copied from MSYS2 successfully." -Level Success
+                    return $true
+                }
+            } catch {
+                Write-Host "  Failed to copy from MSYS2: $($_.Exception.Message)" -ForegroundColor Gray
+            }
         }
     }
 
-    # Copy files from extracted mingw64 directory
-    $MingwDir = Join-Path $TempDir "mingw64"
-    if (Test-Path $MingwDir) {
-        # Copy DLLs
-        $SrcBin = Join-Path $MingwDir "bin"
-        if (Test-Path $SrcBin) {
-            Copy-Item -Path "$SrcBin\libcrypto*.dll" -Destination $BinDir -Force -ErrorAction SilentlyContinue
-            Copy-Item -Path "$SrcBin\libssl*.dll" -Destination $BinDir -Force -ErrorAction SilentlyContinue
-            Copy-Item -Path "$SrcBin\zlib*.dll" -Destination $BinDir -Force -ErrorAction SilentlyContinue
-            Copy-Item -Path "$SrcBin\libgpg-error*.dll" -Destination $BinDir -Force -ErrorAction SilentlyContinue
+    # Attempt 2: Download from GitHub releases
+    $TempDir = Join-Path $env:TEMP "libssh-deps-download"
+    if (Test-Path $TempDir) { Remove-Item -Recurse -Force $TempDir }
+    New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
+
+    $DownloadSuccess = $false
+
+    # Try curl-for-win prebuilt binaries (reliable source)
+    $DownloadUrls = @(
+        @{
+            Name = "curl-for-win OpenSSL"
+            Url = "https://curl.se/windows/latest.cgi?p=mingw64/openssl-3.4.0-win64-mingw.zip"
+            File = "openssl.zip"
+        },
+        @{
+            Name = "GitHub mirror"
+            Url = "https://github.com/AntonyBlare/openssl-mingw64/releases/download/v3.4.0/openssl-3.4.0-mingw64.zip"
+            File = "openssl.zip"
+        }
+    )
+
+    foreach ($Source in $DownloadUrls) {
+        if ($DownloadSuccess) { break }
+
+        Write-Host "  Trying: $($Source.Name)..." -ForegroundColor Gray
+        $DestFile = Join-Path $TempDir $Source.File
+
+        try {
+            Invoke-WebRequest -Uri $Source.Url -OutFile $DestFile -UseBasicParsing -TimeoutSec 60
+
+            if (Test-Path $DestFile) {
+                Expand-Archive -Path $DestFile -DestinationPath $TempDir -Force
+                $DownloadSuccess = $true
+                Write-Host "  Download successful from $($Source.Name)" -ForegroundColor Green
+            }
+        } catch {
+            Write-Host "  Failed: $($_.Exception.Message)" -ForegroundColor Gray
+        }
+    }
+
+    # Attempt 3: Extract from MSYS2 .zst packages (requires zstd or 7zip)
+    if (-not $DownloadSuccess) {
+        Write-Host "  Trying: MSYS2 repository (zst packages)..." -ForegroundColor Gray
+
+        $HasZstd = Get-Command "zstd" -ErrorAction SilentlyContinue
+
+        # Check for 7zip in PATH or local portable version
+        $Has7zip = Get-Command "7z" -ErrorAction SilentlyContinue
+        $Local7zip = Join-Path $ScriptDir "7zr.exe"
+        if (-not $Has7zip -and (Test-Path $Local7zip)) {
+            $Has7zip = $Local7zip
         }
 
-        # Copy libs
-        $SrcLib = Join-Path $MingwDir "lib"
-        if (Test-Path $SrcLib) {
-            Copy-Item -Path "$SrcLib\libcrypto.dll.a" -Destination $LibDir -Force -ErrorAction SilentlyContinue
-            Copy-Item -Path "$SrcLib\libcrypto.a" -Destination $LibDir -Force -ErrorAction SilentlyContinue
-            Copy-Item -Path "$SrcLib\libssl.dll.a" -Destination $LibDir -Force -ErrorAction SilentlyContinue
-            Copy-Item -Path "$SrcLib\libssl.a" -Destination $LibDir -Force -ErrorAction SilentlyContinue
-            Copy-Item -Path "$SrcLib\libz.dll.a" -Destination $LibDir -Force -ErrorAction SilentlyContinue
-            Copy-Item -Path "$SrcLib\libz.a" -Destination $LibDir -Force -ErrorAction SilentlyContinue
-            Copy-Item -Path "$SrcLib\libgpg-error.dll.a" -Destination $LibDir -Force -ErrorAction SilentlyContinue
+        if ($HasZstd -or $Has7zip) {
+            $MsysRepo = "https://repo.msys2.org/mingw/mingw64"
+
+            # Get latest package versions dynamically
+            try {
+                $PackageList = Invoke-WebRequest -Uri "$MsysRepo/" -UseBasicParsing -TimeoutSec 30
+                $OpenSSLMatch = [regex]::Match($PackageList.Content, 'href="(mingw-w64-x86_64-openssl-[^"]+\.zst)"')
+                $ZlibMatch = [regex]::Match($PackageList.Content, 'href="(mingw-w64-x86_64-zlib-[^"]+\.zst)"')
+
+                $Packages = @()
+                if ($OpenSSLMatch.Success) { $Packages += $OpenSSLMatch.Groups[1].Value }
+                if ($ZlibMatch.Success) { $Packages += $ZlibMatch.Groups[1].Value }
+            } catch {
+                # Fallback to known versions
+                $Packages = @(
+                    "mingw-w64-x86_64-openssl-3.4.0-1-any.pkg.tar.zst",
+                    "mingw-w64-x86_64-zlib-1.3.1-1-any.pkg.tar.zst"
+                )
+            }
+
+            foreach ($Package in $Packages) {
+                $Url = "$MsysRepo/$Package"
+                $Dest = Join-Path $TempDir $Package
+                Write-Host "    Downloading: $Package" -ForegroundColor Gray
+
+                try {
+                    Invoke-WebRequest -Uri $Url -OutFile $Dest -UseBasicParsing -TimeoutSec 120
+
+                    if ($HasZstd) {
+                        & zstd -d $Dest -o "$Dest.tar" 2>&1 | Out-Null
+                        & tar -xf "$Dest.tar" -C $TempDir 2>&1 | Out-Null
+                        $DownloadSuccess = $true
+                    } elseif ($Has7zip) {
+                        $7zipCmd = if ($Has7zip -is [string]) { $Has7zip } else { "7z" }
+                        & $7zipCmd x $Dest -o"$TempDir" -y 2>&1 | Out-Null
+                        $DownloadSuccess = $true
+                    }
+                } catch {
+                    Write-Host "    Failed: $($_.Exception.Message)" -ForegroundColor Gray
+                }
+            }
+        } else {
+            Write-Host "  Skipping MSYS2 packages (zstd/7zip not found)" -ForegroundColor Gray
+        }
+    }
+
+    # Copy extracted files to target directory
+    if ($DownloadSuccess) {
+        $ExtractedDirs = Get-ChildItem -Path $TempDir -Directory | Where-Object {
+            $_.Name -like "*mingw*" -or $_.Name -like "*openssl*" -or $_.Name -eq "mingw64"
         }
 
-        # Copy headers
-        $SrcInclude = Join-Path $MingwDir "include"
-        if (Test-Path $SrcInclude) {
-            Copy-Item -Path "$SrcInclude\openssl" -Destination $IncludeDir -Recurse -Force -ErrorAction SilentlyContinue
-            Copy-Item -Path "$SrcInclude\zlib.h" -Destination $IncludeDir -Force -ErrorAction SilentlyContinue
-            Copy-Item -Path "$SrcInclude\zconf.h" -Destination $IncludeDir -Force -ErrorAction SilentlyContinue
-            Copy-Item -Path "$SrcInclude\gpg-error.h" -Destination $IncludeDir -Force -ErrorAction SilentlyContinue
+        foreach ($ExtractedDir in $ExtractedDirs) {
+            Write-Host "  Processing: $($ExtractedDir.Name)" -ForegroundColor Gray
+
+            # Copy DLLs
+            $SrcBin = Join-Path $ExtractedDir.FullName "bin"
+            if (Test-Path $SrcBin) {
+                Get-ChildItem -Path $SrcBin -Filter "*.dll" | Where-Object {
+                    $_.Name -match "^(libcrypto|libssl|zlib)" -or $_.Name -match "-3-x64\.dll$"
+                } | ForEach-Object {
+                    Copy-Item -Path $_.FullName -Destination $BinDir -Force
+                    Write-Host "    Copied DLL: $($_.Name)" -ForegroundColor Gray
+                }
+            }
+
+            # Copy libs
+            $SrcLib = Join-Path $ExtractedDir.FullName "lib"
+            if (Test-Path $SrcLib) {
+                Copy-Item -Path "$SrcLib\libcrypto.dll.a" -Destination $LibDir -Force -ErrorAction SilentlyContinue
+                Copy-Item -Path "$SrcLib\libcrypto.a" -Destination $LibDir -Force -ErrorAction SilentlyContinue
+                Copy-Item -Path "$SrcLib\libssl.dll.a" -Destination $LibDir -Force -ErrorAction SilentlyContinue
+                Copy-Item -Path "$SrcLib\libssl.a" -Destination $LibDir -Force -ErrorAction SilentlyContinue
+                Copy-Item -Path "$SrcLib\libz.dll.a" -Destination $LibDir -Force -ErrorAction SilentlyContinue
+                Copy-Item -Path "$SrcLib\libz.a" -Destination $LibDir -Force -ErrorAction SilentlyContinue
+                Write-Host "    Copied library files" -ForegroundColor Gray
+            }
+
+            # Copy headers
+            $SrcInclude = Join-Path $ExtractedDir.FullName "include"
+            if (Test-Path $SrcInclude) {
+                if (Test-Path "$SrcInclude\openssl") {
+                    Copy-Item -Path "$SrcInclude\openssl" -Destination $IncludeDir -Recurse -Force
+                }
+                Copy-Item -Path "$SrcInclude\zlib.h" -Destination $IncludeDir -Force -ErrorAction SilentlyContinue
+                Copy-Item -Path "$SrcInclude\zconf.h" -Destination $IncludeDir -Force -ErrorAction SilentlyContinue
+                Write-Host "    Copied header files" -ForegroundColor Gray
+            }
         }
     }
 
@@ -183,18 +301,42 @@ function Download-PrebuiltDependencies {
 
     # Verify
     if (Test-Path "$LibDir\libcrypto.dll.a") {
-        Write-Log "Prebuilt dependencies downloaded successfully" -Level Success
+        Write-Log "Prebuilt dependencies setup successfully." -Level Success
         return $true
-    } else {
-        Write-Log "Failed to download prebuilt dependencies" -Level Error
-        return $false
     }
+
+    # If all else failed, show manual instructions
+    Write-Log "Failed to setup prebuilt OpenSSL automatically." -Level Warning
+    Write-Host ""
+    Write-Host "Please setup OpenSSL manually:" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  Option 1: Install MSYS2 (recommended)" -ForegroundColor White
+    Write-Host "    1. Download from https://www.msys2.org/" -ForegroundColor Gray
+    Write-Host "    2. Run in MSYS2 terminal:" -ForegroundColor Gray
+    Write-Host "       pacman -S mingw-w64-x86_64-openssl mingw-w64-x86_64-zlib" -ForegroundColor Cyan
+    Write-Host "    3. Copy files from C:\msys64\mingw64 to:" -ForegroundColor Gray
+    Write-Host "       $TargetDir" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  Option 2: Install zstd or 7zip for automatic extraction" -ForegroundColor White
+    Write-Host "    choco install zstd" -ForegroundColor Gray
+    Write-Host "    or" -ForegroundColor Gray
+    Write-Host "    choco install 7zip" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  Required files in openssl-deps:" -ForegroundColor Yellow
+    Write-Host "    bin/libcrypto-3-x64.dll" -ForegroundColor Gray
+    Write-Host "    bin/libssl-3-x64.dll" -ForegroundColor Gray
+    Write-Host "    bin/zlib1.dll" -ForegroundColor Gray
+    Write-Host "    lib/libcrypto.dll.a" -ForegroundColor Gray
+    Write-Host "    lib/libssl.dll.a" -ForegroundColor Gray
+    Write-Host "    lib/libz.dll.a" -ForegroundColor Gray
+    Write-Host "    include/openssl/*.h" -ForegroundColor Gray
+
+    return $false
 }
 
 Write-Log "libssh Build Script for NTerminal" -Level Header
 
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$OpenSSLPrebuiltDir = Join-Path $ScriptDir "libssh-prebuilt"
+$OpenSSLPrebuiltDir = Join-Path $ScriptDir "openssl-deps"
 $LibsshSrcDir = Join-Path $ScriptDir "libssh-src"
 $LibsshBuildDir = Join-Path $ScriptDir "libssh-build"
 $LibsshInstallDir = Join-Path $ScriptDir "libssh"
@@ -213,8 +355,6 @@ if (-not (Test-Path "$OpenSSLPrebuiltDir/lib/libcrypto.dll.a")) {
     Write-Log "Prebuilt OpenSSL not found. Downloading..." -Level Warning
     $Result = Download-PrebuiltDependencies -TargetDir $OpenSSLPrebuiltDir
     if (-not $Result) {
-        Write-Log "Please manually download OpenSSL from: https://slproweb.com/products/Win32OpenSSL.html" -Level Warning
-        Write-Log "Or use MSYS2: pacman -S mingw-w64-x86_64-openssl mingw-w64-x86_64-zlib" -Level Warning
         exit 1
     }
 } else {
@@ -455,8 +595,8 @@ Write-Host ""
 Write-Log "Build Summary" -Level Header
 
 Write-Host "Installation Directories:" -ForegroundColor Yellow
-Write-Host "  OpenSSL (prebuilt): $OpenSSLPrebuiltDir"
-Write-Host "  libssh:             $LibsshInstallDir"
+Write-Host "  OpenSSL (auto-download): $OpenSSLPrebuiltDir"
+Write-Host "  libssh:                  $LibsshInstallDir"
 Write-Host ""
 
 Write-Host "libssh Directory Structure:" -ForegroundColor Yellow

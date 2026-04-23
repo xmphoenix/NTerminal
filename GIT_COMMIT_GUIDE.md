@@ -25,9 +25,30 @@ git add LIBSSH_BUILD_GUIDE.md   # 编译指南（如有）
 | `libssh-src/` | libssh 源码 | 编译时自动从 git.libssh.org 克隆 |
 | `libssh-build/` | 编译临时文件 | 编译时自动创建 |
 | `libssh/` | 编译输出产物 | 编译时自动生成 |
-| `libssh-prebuilt/` | 预编译 OpenSSL | 脚本自动从 MSYS2 repo 下载 |
+| `openssl-deps/` | 预编译 OpenSSL/zlib | 需手动准备（见下方说明） |
 | `deps/` | 依赖库源码 | 编译时自动下载 |
 | `bin/` | 输出 DLL 目录 | 编译后自动复制 |
+
+## 准备预编译 OpenSSL（openssl-deps）
+
+由于 Windows 上自动下载 `.zst` 格式文件较复杂，推荐以下方式：
+
+### 方式一：使用 MSYS2（推荐）
+
+```bash
+# 1. 安装 MSYS2: https://www.msys2.org/
+# 2. 在 MSYS2 终端中运行：
+pacman -S mingw-w64-x86_64-openssl mingw-w64-x86_64-zlib
+
+# 3. 复制文件到项目目录（在 PowerShell 中）：
+Copy-Item "C:\msys64\mingw64\bin\*.dll" "D:\Ai\NTerminal\openssl-deps\bin" -Force
+Copy-Item "C:\msys64\mingw64\lib\*.a" "D:\Ai\NTerminal\openssl-deps\lib" -Force
+Copy-Item "C:\msys64\mingw64\include\openssl" "D:\Ai\NTerminal\openssl-deps\include" -Recurse -Force
+```
+
+### 方式二：手动下载
+
+从 https://slproweb.com/products/Win32OpenSSL.html 下载 Win64 OpenSSL，安装后复制 mingw64 相关文件。
 
 ## 编译流程
 
@@ -68,7 +89,7 @@ NTerminal/
 ├── NTerminal.pro         ✅ 需提交（项目配置）
 ├── .gitignore            ✅ 需提交（忽略规则）
 │
-├── libssh-prebuilt/      ❌ 自动下载（预编译 OpenSSL）
+├── openssl-deps/         ❌ 自动下载（预编译 OpenSSL/zlib）
 │   ├── bin/              # OpenSSL DLL
 │   ├── lib/              # OpenSSL 库文件
 │   └── include/          # OpenSSL 头文件
@@ -95,7 +116,7 @@ git status
 
 # 确认忽略的文件
 git check-ignore -v libssh-src/
-git check-ignore -v libssh-prebuilt/
+git check-ignore -v openssl-deps/
 git check-ignore -v libssh/
 ```
 
