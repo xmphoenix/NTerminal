@@ -1,0 +1,140 @@
+#include "ui/mainwindow.h"
+#include "session/sessionprocess.h"
+#include "theme/thememanager.h"
+#include "theme/fontmanager.h"
+#include "ui/testwindow.h"
+#include "app/launchoptions.h"
+
+#include <QApplication>
+#include <QCoreApplication>
+#include <QStringList>
+#include <QLocale>
+#include <QTranslator>
+#include <QDebug>
+#include <QFile>
+#include <QTextStream>
+
+// 会话进程调试日志（写入 rlogin_debug_<sessionId>.log）
+class LogFile {
+public:
+    static void init(const QString &sessionId) {
+        QString logPath = QCoreApplication::applicationDirPath() + "/rlogin_debug_" + sessionId + ".log";
+        logFile.setFileName(logPath);
+        if (logFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+            ts.setDevice(&logFile);
+            ts << "========== Session Started ==========\n";
+            ts.flush();
+        }
+    }
+
+    static void log(const QString &msg) {
+        if (ts.device()) {
+            ts << QDateTime::currentDateTime().toString("hh:mm:ss.zzz") << " " << msg << "\n";
+            ts.flush();
+        }
+    }
+
+    static void close() {
+        if (logFile.isOpen()) {
+            ts << "========== Session Ended ==========\n";
+            ts.flush();
+            logFile.close();
+        }
+    }
+
+private:
+    static QFile logFile;
+    static QTextStream ts;
+};
+
+QFile LogFile::logFile;
+QTextStream LogFile::ts;
+
+static int runSessionProcess(const QString &sessionId, int argc, char *argv[])
+{
+    QCoreApplication app(argc, argv);
+    QCoreApplication::setApplicationName("NTerminal-Session");
+    QCoreApplication::setApplicationVersion("2.0.0");
+
+    LogFile::init(sessionId);
+    LogFile::log("Session process starting, ID: " + sessionId);
+
+    SessionProcess session(sessionId);
+    if (!session.initialize()) {
+        LogFile::log("ERROR: Failed to initialize session process");
+        LogFile::close();
+        return 1;
+    }
+
+    session.run();
+
+    int result = app.exec();
+
+    LogFile::log("Session process exiting with code: " + QString::number(result));
+    LogFile::close();
+
+    return result;
+}
+
+static int runTestWindow(int argc, char *argv[])
+{
+    QApplication app(argc, argv);
+    QCoreApplication::setApplicationName("NTerminal-Tester");
+    QCoreApplication::setApplicationVersion("1.0.0");
+
+    TestWindow testWindow;
+    testWindow.show();
+
+    return app.exec();
+}
+
+static int runGui(int argc, char *argv[])
+{
+    // Enable high DPI support
+    QCoreApplication::setAttribute(Qt::AA_UseOpenGLES);
+
+    QApplication app(argc, argv);
+    QCoreApplication::setApplicationName("NTerminal");
+    QCoreApplication::setApplicationVersion("2.0.0");
+
+    ThemeManager::instance()->initialize();
+    FontManager::instance()->initialize();
+
+    // Detect system language: if Chinese, load Chinese translation; otherwise use English source
+    QTranslator translator;
+    QLocale systemLocale = QLocale::system();
+    QString languageName = systemLocale.name(); // e.g. "zh_CN", "en_US", "zh_TW"
+
+    if (languageName.startsWith("zh")) {
+        // Try to load Chinese translation
+        if (translator.load(":/i18n/NTerminal_zh_CN")) {
+            app.installTranslator(&translator);
+        }
+        // If zh_CN.qm not found, falls through to source strings
+    }
+    // Non-Chinese locales: no translator installed, English source strings used as-is
+
+    MainWindow window;
+    window.show();
+    return app.exec();
+}
+
+int main(int argc, char *argv[])
+{
+    QStringList args;
+    for (int i = 0; i < argc; ++i) {
+        args << QString::fromLocal8Bit(argv[i]);
+    }
+
+    const App::LaunchOptions options = App::LaunchOptions::parse(args.mid(1));
+
+    switch (options.mode) {
+        case App::LaunchMode::Session:
+            return runSessionProcess(options.sessionId, argc, argv);
+        case App::LaunchMode::Test:
+            return runTestWindow(argc, argv);
+        case App::LaunchMode::Gui:
+        default:
+            return runGui(argc, argv);
+    }
+}
