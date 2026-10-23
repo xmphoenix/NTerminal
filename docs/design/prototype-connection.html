@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>NTerminal Redesign — Connection Dialog</title>
+<style>
+  :root{
+    --bg:#17181B; --panel:#1E2024; --panel-2:#26282D; --panel-3:#2C2F35;
+    --border:#2E3138; --border-strong:#3A3E46;
+    --text:#D7DBE0; --text-dim:#8B919A; --text-faint:#5C626B;
+    --accent:#4C8DFF; --accent-soft:rgba(76,141,255,.14);
+    --success:#3FB950; --warn:#D29922;
+    --radius:6px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:1280px;height:800px;overflow:hidden;}
+  body{background:linear-gradient(135deg,#101114 0%,#15171B 60%,#101216 100%);
+       font-family:"Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI",sans-serif;
+       font-size:12.5px;color:var(--text);display:flex;align-items:center;justify-content:center;
+       -webkit-font-smoothing:antialiased;}
+  svg.ic{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.7;
+         stroke-linecap:round;stroke-linejoin:round;flex:none;}
+
+  .dialog{width:520px;background:var(--panel);border:1px solid var(--border-strong);
+          border-radius:10px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.6);}
+  .dlg-head{height:46px;display:flex;align-items:center;gap:8px;padding:0 16px;
+            border-bottom:1px solid var(--border);}
+  .dlg-head .t{font-size:13.5px;font-weight:600;flex:1;}
+  .dlg-head .close{width:26px;height:26px;border-radius:5px;display:flex;align-items:center;
+                   justify-content:center;color:var(--text-dim);}
+  .dlg-head .close:hover{background:var(--panel-2);color:var(--text);}
+
+  .dlg-body{padding:16px;}
+  .seg{display:flex;background:var(--panel-2);border:1px solid var(--border);
+       border-radius:7px;padding:3px;gap:2px;margin-bottom:16px;}
+  .seg .s{flex:1;height:28px;display:flex;align-items:center;justify-content:center;gap:5px;
+          border-radius:5px;font-size:11.5px;color:var(--text-dim);white-space:nowrap;}
+  .seg .s.on{background:var(--accent);color:#fff;font-weight:600;
+             box-shadow:0 1px 4px rgba(0,0,0,.35);}
+  .seg .s:hover:not(.on){background:var(--panel-3);color:var(--text);}
+
+  .sec{margin-bottom:14px;}
+  .sec-t{font-size:10.5px;font-weight:700;letter-spacing:.6px;color:var(--text-faint);
+         text-transform:uppercase;margin-bottom:7px;display:flex;align-items:center;gap:6px;}
+  .sec-t::after{content:"";flex:1;height:1px;background:var(--border);}
+  .row{display:flex;gap:10px;margin-bottom:9px;}
+  .field{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0;}
+  .field label{font-size:11px;color:var(--text-dim);}
+  .inp{height:30px;display:flex;align-items:center;gap:6px;background:var(--panel-2);
+       border:1px solid var(--border);border-radius:var(--radius);padding:0 9px;color:var(--text);}
+  .inp input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:var(--text);
+             font-size:12.5px;}
+  .inp input::placeholder{color:var(--text-faint);}
+  .inp.mono input{font-family:"JetBrains Mono",Consolas,monospace;font-size:12px;}
+  .inp.focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(76,141,255,.15);}
+  .inp .suffix{font-size:11px;color:var(--text-faint);}
+  .inp .act{color:var(--text-dim);display:flex;align-items:center;}
+  .inp .act:hover{color:var(--text);}
+  .inp.small{width:88px;flex:none;}
+  .hint{font-size:10.5px;color:var(--text-faint);margin-top:2px;}
+  .browse{height:30px;padding:0 11px;border-radius:var(--radius);border:1px solid var(--border-strong);
+          background:var(--panel-2);color:var(--text);font-size:12px;flex:none;}
+  .browse:hover{background:var(--panel-3);}
+
+  .dlg-foot{height:56px;display:flex;align-items:center;gap:10px;padding:0 16px;
+            background:var(--panel-2);border-top:1px solid var(--border);}
+  .chk{display:flex;align-items:center;gap:7px;color:var(--text-dim);font-size:12px;}
+  .box{width:15px;height:15px;border-radius:4px;background:var(--accent);
+       display:flex;align-items:center;justify-content:center;color:#fff;}
+  .flex1{flex:1;}
+  .btn{height:30px;padding:0 16px;border-radius:var(--radius);border:1px solid var(--border-strong);
+       background:transparent;color:var(--text);font-size:12.5px;}
+  .btn:hover{background:var(--panel-3);}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;
+               padding:0 22px;}
+  .btn.primary:hover{background:#5B99FF;}
+</style>
+</head>
+<body>
+<div class="dialog">
+  <div class="dlg-head">
+    <svg class="ic" viewBox="0 0 24 24" style="color:var(--accent)"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></svg>
+    <div class="t">新建会话</div>
+    <div class="close"><svg class="ic" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+  </div>
+
+  <div class="dlg-body">
+    <!-- 协议选择 -->
+    <div class="seg">
+      <div class="s on"><svg class="ic" viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/></svg>SSH</div>
+      <div class="s">Telnet</div>
+      <div class="s">Rlogin</div>
+      <div class="s">Serial</div>
+      <div class="s">SFTP</div>
+      <div class="s">FTP</div>
+      <div class="s">TFTP</div>
+    </div>
+
+    <!-- 连接 -->
+    <div class="sec">
+      <div class="sec-t">连接</div>
+      <div class="row">
+        <div class="field">
+          <label>会话名称</label>
+          <div class="inp"><input value="生产环境 web-01"></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>主机</label>
+          <div class="inp mono focus"><input value="192.168.1.10"></div>
+        </div>
+        <div class="field" style="flex:none">
+          <label>端口</label>
+          <div class="inp mono small"><input value="22"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 认证 -->
+    <div class="sec">
+      <div class="sec-t">认证</div>
+      <div class="row">
+        <div class="field">
+          <label>用户名</label>
+          <div class="inp mono"><input value="admin"></div>
+        </div>
+        <div class="field">
+          <label>密码</label>
+          <div class="inp mono">
+            <input type="password" value="secret123">
+            <span class="act"><svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>私钥文件（可选）</label>
+          <div class="inp mono">
+            <svg class="ic" viewBox="0 0 24 24" style="width:13px;height:13px;color:var(--text-faint)"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m11 12 8-8 3 3-2 2-2-2"/></svg>
+            <input value="~/.ssh/id_ed25519">
+          </div>
+        </div>
+        <button class="browse">浏览…</button>
+      </div>
+      <div class="hint">优先级：私钥 > 密码；密钥密码短语将在连接时询问</div>
+    </div>
+
+    <!-- 终端 -->
+    <div class="sec" style="margin-bottom:0">
+      <div class="sec-t">终端</div>
+      <div class="row" style="margin-bottom:0">
+        <div class="field">
+          <label>编码</label>
+          <div class="inp"><input value="UTF-8"></div>
+        </div>
+        <div class="field">
+          <label>终端类型</label>
+          <div class="inp mono"><input value="xterm-256color"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dlg-foot">
+    <div class="chk">
+      <div class="box"><svg class="ic" viewBox="0 0 24 24" style="width:11px;height:11px;stroke-width:3"><path d="m5 12 5 5L20 7"/></svg></div>
+      保存会话
+    </div>
+    <div class="flex1"></div>
+    <button class="btn">取消</button>
+    <button class="btn primary">连接</button>
+  </div>
+</div>
+</body>
+</html>

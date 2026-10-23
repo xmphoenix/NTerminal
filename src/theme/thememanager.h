@@ -16,7 +16,7 @@
 struct AppTheme {
     QString name;
     QString id;
-    
+
     QColor windowBackground;
     QColor windowText;
     QColor buttonBackground;
@@ -28,6 +28,22 @@ struct AppTheme {
     QColor menuText;
     QColor toolTipBase;
     QColor toolTipText;
+
+    // ---- 外壳扩展色板（GUI 重设计：统一深色/浅色设计语言） ----
+    QColor panel;          // 菜单/工具栏/侧栏/状态栏底色
+    QColor panelHover;     // 悬停背景
+    QColor panelRaised;    // 输入框/浮层底
+    QColor border;         // 1px 分隔线
+    QColor borderStrong;   // 输入框/按钮描边
+    QColor textDim;        // 次文字/未激活
+    QColor textFaint;      // 占位符/弱提示
+    QColor accent;         // 主强调（选中/焦点/主按钮）
+    QColor accentHover;    // 主强调悬停
+    QColor success;        // 已连接
+    QColor warning;        // 串口/告警
+    QColor danger;         // 错误/断开
+    int radius = 6;        // 控件圆角（px）
+    bool dark = true;      // 暗色主题（图标着色/派生用）
 };
 
 class ThemeManager : public QObject
@@ -56,6 +72,11 @@ public:
     
     void saveSettings();
     void loadSettings();
+
+    // 将当前应用主题渲染为 QSS（占位符替换）并应用到 qApp；主题切换时自动调用
+    void applyStylesheet();
+    // 图标基础色（由当前应用主题的次文字色决定）
+    QColor iconColor() const;
 
 signals:
     void terminalThemeChanged(const TerminalTheme &theme);

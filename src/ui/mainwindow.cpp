@@ -1,6 +1,9 @@
 #include "ui/mainwindow.h"
 #include "terminal/terminalproxy.h"
 #include "ui/connectiondialog.h"
+#include "ui/iconprovider.h"
+#include "ui/sessionitemdelegate.h"
+#include "ui/terminaltabbar.h"
 #include "services/sessionmanager.h"
 #include "theme/thememanager.h"
 #include "theme/fontmanager.h"
@@ -14,18 +17,28 @@
 #include "ui/scriptlogviewer.h"
 #include "ui/scriptcontrolpanel.h"
 #include <QSplitter>
-#include <QListWidget>
+#include <QTreeWidget>
 #include <QTabWidget>
 #include <QTabBar>
-#include <QTextEdit>
+#include <QLineEdit>
+#include <QComboBox>
+#include <QLabel>
+#include <QPushButton>
+#include <QToolButton>
+#include <QStatusBar>
 #include <QMenuBar>
 #include <QTimer>
 #include <QMenu>
-#include <QToolBar>
 #include <QAction>
 #include <QFrame>
+#include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QKeyEvent>
+#include <QGuiApplication>
+#include <QScreen>
+#include <QWindow>
+#include <QShowEvent>
+#include <QStyle>
 #include <QDebug>
 #include <QMessageBox>
 
@@ -33,11 +46,22 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , m_verticalSplitter(nullptr)
     , m_horizontalSplitter(nullptr)
-    , m_listWidget(nullptr)
+    , m_topBar(nullptr)
+    , m_sidebar(nullptr)
+    , m_sessionTree(nullptr)
+    , m_sessionSearch(nullptr)
+    , m_quickProtocolCombo(nullptr)
+    , m_quickConnectEdit(nullptr)
+    , m_terminalTabBar(nullptr)
     , m_screenTabWidget(nullptr)
-    , m_commandTextEdit(nullptr)
+    , m_commandLineEdit(nullptr)
     , m_currentTerminal(nullptr)
     , m_nextTerminalId(1)
+    , m_statusConnection(nullptr)
+    , m_statusProtocol(nullptr)
+    , m_statusEncoding(nullptr)
+    , m_statusSize(nullptr)
+    , m_statusLatency(nullptr)
     , m_menuBar(nullptr)
     , m_fileMenu(nullptr)
     , m_editMenu(nullptr)
@@ -50,9 +74,6 @@ MainWindow::MainWindow(QWidget *parent)
     , m_helpMenu(nullptr)
     , m_sessionAction(nullptr)
     , m_exitAction(nullptr)
-    , m_toolBar(nullptr)
-    , m_toolbarSessionAction(nullptr)
-    , m_debugAction(nullptr)
     , m_sessionManager(nullptr)
     , m_saveSessionAction(nullptr)
     , m_loadSessionAction(nullptr)
@@ -66,6 +87,14 @@ MainWindow::MainWindow(QWidget *parent)
     initMainWindowMenu();
     initMainWindowLayout();
     setupSessionManager();
+
+    // 应用主题切换：刷新图标着色与状态栏颜色（QSS 由 ThemeManager 统一更新）
+    connect(ThemeManager::instance(), &ThemeManager::appThemeChanged,
+            this, [this](const AppTheme &) {
+        refreshIcons();
+        updateStatusBar();
+        updateTabStates();
+    });
 }
 
 MainWindow::~MainWindow()
@@ -128,23 +157,9 @@ void MainWindow::manageSessions()
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
-    // 命令输入区：回车将整行命令发送到当前终端并清空输入
-    if (watched == m_commandTextEdit && event->type() == QEvent::KeyPress) {
-        QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
-        if (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) {
-            const QString command = m_commandTextEdit->toPlainText().trimmed();
-            if (!command.isEmpty()) {
-                TerminalProxy *terminal = getCurrentTerminal();
-                if (terminal) {
-                    terminal->sendText(command + QStringLiteral("\n"));
-                } else {
-                    QMessageBox::information(this, tr("提示"), tr("请先打开一个终端连接"));
-                }
-            }
-            m_commandTextEdit->clear();
-            return true;  // 阻止 QTextEdit 自身插入换行
-        }
-    }
+    Q_UNUSED(watched);
+    Q_UNUSED(event);
+    // 命令发送由 QLineEdit::returnPressed 处理（见 buildTerminalArea）
     return QMainWindow::eventFilter(watched, event);
 }
 
@@ -162,6 +177,7 @@ void MainWindow::populateSessionMenu()
     if (sessions.isEmpty()) {
         QAction *noSessionsAction = m_loadSessionMenu->addAction("No sessions available");
         noSessionsAction->setEnabled(false);
+        populateSessionTree();
         return;
     }
 
@@ -192,6 +208,9 @@ void MainWindow::populateSessionMenu()
 
         m_loadSessionMenu->addAction(sessionAction);
     }
+
+    // 同步侧栏会话树
+    populateSessionTree();
 }
 
 TerminalProxy* MainWindow::createNewTerminalTab(const QString &tabName)
@@ -203,6 +222,21 @@ TerminalProxy* MainWindow::createNewTerminalTab(const QString &tabName)
 
     // 注入当前主题/字体（TerminalProxy 构造不访问单例，由创建方负责注入）
     applyTerminalTheme(terminal);
+
+    // 连接状态变化 -> 标签状态点 + 状态栏
+    connect(terminal, &TerminalProxy::connectionOpened, this, [this]() {
+        updateTabStates();
+        updateStatusBar();
+    });
+    connect(terminal, &TerminalProxy::connectionClosed, this, [this]() {
+        updateTabStates();
+        updateStatusBar();
+    });
+    connect(terminal, &TerminalProxy::connectionError, this, [this](const QString &error) {
+        Q_UNUSED(error);
+        updateTabStates();
+        updateStatusBar();
+    });
 
     int tabIndex = m_screenTabWidget->addTab(terminal, displayName);
     
@@ -284,6 +318,303 @@ void MainWindow::updateCurrentTerminal(TerminalProxy *terminal)
         m_currentTerminal = terminal;
         qDebug() << "Current terminal updated";
     }
+    updateStatusBar();
+    updateTabStates();
+}
+
+// ============================================================================
+// GUI 重设计：侧栏会话树 / 快速连接 / 状态栏
+// ============================================================================
+
+namespace {
+
+// QTabWidget::setTabBar 为 protected，用最小子类暴露以安装自绘标签栏
+class TerminalTabWidget : public QTabWidget
+{
+public:
+    using QTabWidget::QTabWidget;
+    void installTabBar(QTabBar *bar) { setTabBar(bar); }
+};
+
+QString protocolName(Common::ConnectionType type)
+{
+    switch (type) {
+    case Common::ConnectionType::Serial: return QStringLiteral("Serial");
+    case Common::ConnectionType::Telnet: return QStringLiteral("Telnet");
+    case Common::ConnectionType::SSH:    return QStringLiteral("SSH");
+    case Common::ConnectionType::Rlogin: return QStringLiteral("Rlogin");
+    case Common::ConnectionType::SFTP:   return QStringLiteral("SFTP");
+    case Common::ConnectionType::FTP:    return QStringLiteral("FTP");
+    case Common::ConnectionType::TFTP:   return QStringLiteral("TFTP");
+    }
+    return QStringLiteral("Unknown");
+}
+
+// 会话副文本：网络类 "user@host:port"，串口 "COMx · baud 8N1"
+QString sessionSubtitle(const Common::ConnectionSettings &s)
+{
+    if (s.type == Common::ConnectionType::Serial) {
+        QString frame = QString::number(s.baudRate);
+        switch (s.dataBits) {
+        case QSerialPort::Data5: frame += QStringLiteral(" 5"); break;
+        case QSerialPort::Data6: frame += QStringLiteral(" 6"); break;
+        case QSerialPort::Data7: frame += QStringLiteral(" 7"); break;
+        default: frame += QStringLiteral(" 8"); break;
+        }
+        switch (s.parity) {
+        case QSerialPort::EvenParity: frame += QLatin1Char('E'); break;
+        case QSerialPort::OddParity: frame += QLatin1Char('O'); break;
+        case QSerialPort::MarkParity: frame += QLatin1Char('M'); break;
+        case QSerialPort::SpaceParity: frame += QLatin1Char('S'); break;
+        default: frame += QLatin1Char('N'); break;
+        }
+        frame += s.stopBits == QSerialPort::TwoStop ? QStringLiteral("2")
+                                                    : QStringLiteral("1");
+        return QStringLiteral("%1 · %2").arg(s.portName.isEmpty() ? QStringLiteral("--")
+                                                                  : s.portName, frame);
+    }
+    const QString user = s.username.isEmpty() ? QStringLiteral("--") : s.username;
+    return QStringLiteral("%1@%2:%3").arg(user, s.host).arg(s.port);
+}
+
+int defaultPort(Common::ConnectionType type)
+{
+    switch (type) {
+    case Common::ConnectionType::Telnet: return 23;
+    case Common::ConnectionType::SSH:    return 22;
+    case Common::ConnectionType::Rlogin: return 513;
+    case Common::ConnectionType::SFTP:   return 22;
+    case Common::ConnectionType::FTP:    return 21;
+    case Common::ConnectionType::TFTP:   return 69;
+    default: return 23;
+    }
+}
+
+} // namespace
+
+void MainWindow::populateSessionTree()
+{
+    if (!m_sessionTree || !m_sessionManager) {
+        return;
+    }
+
+    m_sessionTree->clear();
+
+    const QList<SessionManager::Session> sessions = m_sessionManager->getSessions();
+    if (sessions.isEmpty()) {
+        QTreeWidgetItem *empty = new QTreeWidgetItem(m_sessionTree);
+        empty->setText(0, tr("暂无已保存会话"));
+        empty->setData(0, SessionItemDelegate::SessionGroupRole, true);
+        empty->setFlags(Qt::NoItemFlags);
+        return;
+    }
+
+    // 按协议分组（固定顺序，空组不显示）
+    static const Common::ConnectionType kGroupOrder[] = {
+        Common::ConnectionType::SSH, Common::ConnectionType::SFTP,
+        Common::ConnectionType::Telnet, Common::ConnectionType::Rlogin,
+        Common::ConnectionType::Serial, Common::ConnectionType::FTP,
+        Common::ConnectionType::TFTP,
+    };
+
+    QMap<int, QTreeWidgetItem *> groups;
+    QMap<int, int> counts;
+
+    for (const SessionManager::Session &session : sessions) {
+        const int typeKey = static_cast<int>(session.settings.type);
+        QTreeWidgetItem *group = groups.value(typeKey, nullptr);
+        if (!group) {
+            // 先创建游离 item（不挂到树上）：末尾 clear() 会释放已挂载的 item，
+            // 若此处直接以 m_sessionTree 为父，ordered 里将留下悬空指针。
+            group = new QTreeWidgetItem();
+            group->setText(0, protocolName(session.settings.type));
+            group->setData(0, SessionItemDelegate::SessionGroupRole, true);
+            group->setFlags(Qt::ItemIsEnabled);
+            groups.insert(typeKey, group);
+        }
+        counts[typeKey] = counts.value(typeKey) + 1;
+
+        const QString displayName = session.name.isEmpty() ? session.settings.sessionName
+                                                           : session.name;
+        QTreeWidgetItem *item = new QTreeWidgetItem(group);
+        item->setText(0, displayName);
+        item->setData(0, SessionItemDelegate::SessionNameRole, session.name);
+        item->setData(0, SessionItemDelegate::SessionTypeRole, typeKey);
+        item->setData(0, SessionItemDelegate::SessionHostRole,
+                      sessionSubtitle(session.settings));
+        item->setData(0, SessionItemDelegate::SessionActiveRole, false);
+        item->setToolTip(0, QStringLiteral("%1 · %2").arg(session.name,
+                                                          sessionSubtitle(session.settings)));
+    }
+
+    // 按固定顺序重排分组 + 写入数量
+    QList<QTreeWidgetItem *> ordered;
+    for (Common::ConnectionType type : kGroupOrder) {
+        const int key = static_cast<int>(type);
+        if (QTreeWidgetItem *group = groups.value(key, nullptr)) {
+            group->setData(0, Qt::UserRole + 10, counts.value(key));
+            ordered.append(group);
+            groups.remove(key);
+        }
+    }
+    // 其余类型（理论上不会出现）
+    for (QTreeWidgetItem *group : groups) {
+        ordered.append(group);
+    }
+    m_sessionTree->clear();
+    m_sessionTree->addTopLevelItems(ordered);
+    m_sessionTree->expandAll();
+}
+
+void MainWindow::onSessionTreeActivated(QTreeWidgetItem *item, int column)
+{
+    Q_UNUSED(column);
+    if (!item || item->data(0, SessionItemDelegate::SessionGroupRole).toBool()) {
+        return;
+    }
+    const QString sessionName = item->data(0, SessionItemDelegate::SessionNameRole).toString();
+    if (sessionName.isEmpty()) {
+        return;
+    }
+    for (const SessionManager::Session &session : m_sessionManager->getSessions()) {
+        if (session.name == sessionName) {
+            openSession(session.settings, session.name);
+            return;
+        }
+    }
+}
+
+void MainWindow::onQuickConnect()
+{
+    const QString input = m_quickConnectEdit->text().trimmed();
+    if (input.isEmpty()) {
+        return;
+    }
+
+    static const Common::ConnectionType kQuickTypes[] = {
+        Common::ConnectionType::SSH, Common::ConnectionType::Telnet,
+        Common::ConnectionType::Rlogin, Common::ConnectionType::Serial,
+        Common::ConnectionType::SFTP, Common::ConnectionType::FTP,
+        Common::ConnectionType::TFTP,
+    };
+    const int index = qBound(0, m_quickProtocolCombo->currentIndex(), 6);
+
+    Common::ConnectionSettings settings;
+    settings.type = kQuickTypes[index];
+
+    if (settings.type == Common::ConnectionType::Serial) {
+        settings.portName = input;
+        settings.sessionName = input;
+    } else {
+        QString rest = input;
+        QString user;
+        const int at = rest.indexOf(QLatin1Char('@'));
+        if (at > 0) {
+            user = rest.left(at);
+            rest = rest.mid(at + 1);
+        }
+        QString host = rest;
+        int port = 0;
+        const int colon = rest.lastIndexOf(QLatin1Char(':'));
+        if (colon > 0) {
+            port = rest.mid(colon + 1).toInt();
+            host = rest.left(colon);
+        }
+        settings.host = host;
+        settings.username = user;
+        settings.port = port > 0 ? port : defaultPort(settings.type);
+        settings.sessionName = host.isEmpty() ? tr("快速连接") : host;
+    }
+
+    openSession(settings, settings.sessionName);
+    m_quickConnectEdit->clear();
+}
+
+void MainWindow::filterSessionTree(const QString &text)
+{
+    if (!m_sessionTree) {
+        return;
+    }
+    const QString needle = text.trimmed();
+    for (int i = 0; i < m_sessionTree->topLevelItemCount(); ++i) {
+        QTreeWidgetItem *group = m_sessionTree->topLevelItem(i);
+        if (group->data(0, SessionItemDelegate::SessionGroupRole).toBool()) {
+            int visible = 0;
+            for (int j = 0; j < group->childCount(); ++j) {
+                QTreeWidgetItem *child = group->child(j);
+                const bool match = needle.isEmpty()
+                    || child->text(0).contains(needle, Qt::CaseInsensitive)
+                    || child->data(0, SessionItemDelegate::SessionHostRole).toString()
+                           .contains(needle, Qt::CaseInsensitive);
+                child->setHidden(!match);
+                if (match) {
+                    ++visible;
+                }
+            }
+            group->setHidden(visible == 0 && !needle.isEmpty());
+            if (!needle.isEmpty() && visible > 0) {
+                group->setExpanded(true);
+            }
+        }
+    }
+}
+
+void MainWindow::openSession(const Common::ConnectionSettings &settings, const QString &name)
+{
+    const QString tabName = name.isEmpty() ? tr("Terminal %1").arg(m_terminals.size() + 1)
+                                           : name;
+    TerminalProxy *terminal = createNewTerminalTab(tabName);
+    if (!terminal) {
+        return;
+    }
+    terminal->setConnectionSettings(settings);
+    applyTerminalTheme(terminal);
+    if (terminal->openConnection()) {
+        qDebug() << "Session connection opened:" << tabName;
+    } else {
+        qDebug() << "Session connection failed:" << tabName;
+    }
+    updateStatusBar();
+}
+
+void MainWindow::updateTabStates()
+{
+    if (m_terminalTabBar) {
+        m_terminalTabBar->refreshStates();
+    }
+}
+
+void MainWindow::updateStatusBar()
+{
+    if (!m_statusConnection) {
+        return;
+    }
+    const AppTheme theme = ThemeManager::instance()->currentAppTheme();
+    TerminalProxy *terminal = getCurrentTerminal();
+    const bool connected = terminal && terminal->isConnected();
+
+    m_statusConnection->setText(connected ? tr("● 已连接") : tr("○ 未连接"));
+    // 用调色板而非 setStyleSheet：避免运行时样式重算（QSS 已统一控制外观）
+    QPalette connPalette = m_statusConnection->palette();
+    connPalette.setColor(QPalette::WindowText,
+                         connected ? theme.success : theme.textFaint);
+    m_statusConnection->setPalette(connPalette);
+
+    if (terminal) {
+        const Common::ConnectionSettings settings = terminal->getConnectionSettings();
+        m_statusProtocol->setText(QStringLiteral("%1 · %2")
+                                      .arg(protocolName(settings.type),
+                                           sessionSubtitle(settings)));
+        m_statusSize->setText(QStringLiteral("%1 × %2")
+                                  .arg(terminal->columns())
+                                  .arg(terminal->rows()));
+    } else {
+        m_statusProtocol->clear();
+        m_statusSize->clear();
+    }
+    m_statusEncoding->setText(QStringLiteral("UTF-8"));
+    m_statusLatency->setText(connected ? QStringLiteral("-- ms")
+                                       : QStringLiteral("-- ms"));
 }
 
 void MainWindow::onTabCloseRequested(int index)
@@ -302,69 +633,314 @@ void MainWindow::onTabCurrentChanged(int index)
     }
 }
 
+void MainWindow::showEvent(QShowEvent *event)
+{
+    QMainWindow::showEvent(event);
+    if (m_geometryAdjusted) {
+        return;
+    }
+    m_geometryAdjusted = true;
+
+    // showEvent 触发时 Windows 还没把真实标题栏应用到窗口上，frameMargins() 为 0。
+    // 延后一个事件循环：窗口已映射，再按"工作区 - 窗口边框"算出客户区尺寸并居中。
+    // 这样 720p / 150% 缩放下整窗也不会超出屏幕，状态栏不会被任务栏遮住。
+    QTimer::singleShot(0, this, [this] {
+        const QRect available = screen()->availableGeometry();
+        const QMargins margins = windowHandle() ? windowHandle()->frameMargins()
+                                                : QMargins();
+        resize(qMin(1280, available.width() - margins.left() - margins.right()),
+               qMin(800, available.height() - margins.top() - margins.bottom()));
+        // QWidget::move() 定位的是含标题栏的整窗左上角，直接按窗口外框居中；
+        // 整窗恰好铺满工作区时居中会算出 -1 偏移，夹到工作区左上角避免压住任务栏
+        const QRect frame = frameGeometry();
+        QPoint pos = available.center() - QPoint(frame.width() / 2, frame.height() / 2);
+        pos.setX(qMax(pos.x(), available.left()));
+        pos.setY(qMax(pos.y(), available.top()));
+        move(pos);
+    });
+}
+
 void MainWindow::initMainWindowLayout()
 {
-    m_verticalSplitter = new QSplitter(Qt::Vertical);
-    m_horizontalSplitter = new QSplitter(Qt::Horizontal, m_verticalSplitter);
+    // 中央布局：顶栏（工具栏）+ 主体（侧栏 | 终端区）
+    QWidget *central = new QWidget(this);
+    QVBoxLayout *outer = new QVBoxLayout(central);
+    outer->setContentsMargins(0, 0, 0, 0);
+    outer->setSpacing(0);
 
-    m_listWidget = new QListWidget(m_horizontalSplitter);
-    m_listWidget->setMaximumWidth(400); // 限制最大宽度为 1/3 (1200/3=400)
+    m_topBar = buildTopBar();
+    outer->addWidget(m_topBar);
 
-    // 创建容器 widget 用于显示顶部蓝色边框
-    QWidget* terminalContainer = new QWidget(m_horizontalSplitter);
-    terminalContainer->setStyleSheet("QWidget { border-top: 1px solid #0078D7; }");
-    QVBoxLayout* containerLayout = new QVBoxLayout(terminalContainer);
-    containerLayout->setContentsMargins(0, 0, 0, 0);
-    containerLayout->setSpacing(0);
-    
-    m_screenTabWidget = new QTabWidget(terminalContainer);
-    m_screenTabWidget->setDocumentMode(true); // 使用文档模式，无边框
-    containerLayout->addWidget(m_screenTabWidget);
-    
-    // 设置默认宽度比例：左侧 1/5，右侧 4/5 (1:4)
-    m_horizontalSplitter->setStretchFactor(0, 1);
-    m_horizontalSplitter->setStretchFactor(1, 4);
-    // 设置默认宽度：1200 * 1/5 = 240
-    m_horizontalSplitter->setSizes({240, 960});
+    m_horizontalSplitter = new QSplitter(Qt::Horizontal, central);
+    m_horizontalSplitter->setHandleWidth(1);
+    m_horizontalSplitter->setChildrenCollapsible(false);
+    m_horizontalSplitter->addWidget(buildSidebar());
+    m_horizontalSplitter->addWidget(buildTerminalArea());
+    m_horizontalSplitter->setStretchFactor(0, 0);
+    m_horizontalSplitter->setStretchFactor(1, 1);
+    m_horizontalSplitter->setSizes({248, 1000});
+    outer->addWidget(m_horizontalSplitter, 1);
 
+    setCentralWidget(central);
+    buildStatusBarWidgets();
+
+    // 初始尺寸按可用屏幕区域自适应：期望 1280×800，但不超过工作区。
+    // 构造期拿不到真实标题栏尺寸，这里用样式里的标题栏高度估算；
+    // 精确校正放在 showEvent()，避免首帧闪过一个超出屏幕的大窗口。
+    const QRect available = screen()->availableGeometry();
+    const int titleBar = style()->pixelMetric(QStyle::PM_TitleBarHeight, nullptr, this);
+    const QSize preferred(qMin(1280, available.width()),
+                          qMin(800, available.height() - titleBar));
+    setMinimumSize(qMin(960, preferred.width()), qMin(600, preferred.height()));
+    resize(preferred);
+    move(available.center()
+         - QPoint(preferred.width() / 2, (preferred.height() + titleBar) / 2));
+    setWindowTitle("NTerminal");
+}
+
+QWidget *MainWindow::buildTopBar()
+{
+    QWidget *bar = new QWidget;
+    bar->setObjectName("topBar");
+    QHBoxLayout *lay = new QHBoxLayout(bar);
+    lay->setContentsMargins(10, 6, 10, 6);
+    lay->setSpacing(8);
+
+    // 主操作：新建会话
+    QPushButton *newBtn = new QPushButton(tr("新建会话"));
+    newBtn->setProperty("class", "primary");
+    newBtn->setIcon(IconProvider::icon("new-session", QColor(Qt::white)));
+    newBtn->setCursor(Qt::PointingHandCursor);
+    connect(newBtn, &QPushButton::clicked, this, [this]() {
+        openConnectionFromDialog(true);
+    });
+    lay->addWidget(newBtn);
+
+    // 快速连接：协议 + 地址 + 连接
+    m_quickProtocolCombo = new QComboBox;
+    m_quickProtocolCombo->addItems({ "SSH", "Telnet", "Rlogin", "Serial", "SFTP", "FTP", "TFTP" });
+    m_quickProtocolCombo->setFixedWidth(86);
+    m_quickConnectEdit = new QLineEdit;
+    m_quickConnectEdit->setPlaceholderText(tr("user@host:port 快速连接"));
+    m_quickConnectEdit->setMinimumWidth(210);
+    QPushButton *goBtn = new QPushButton(tr("连接"));
+    connect(goBtn, &QPushButton::clicked, this, &MainWindow::onQuickConnect);
+    connect(m_quickConnectEdit, &QLineEdit::returnPressed, this, &MainWindow::onQuickConnect);
+    lay->addWidget(m_quickProtocolCombo);
+    lay->addWidget(m_quickConnectEdit);
+    lay->addWidget(goBtn);
+
+    auto addSeparator = [&lay]() {
+        QFrame *line = new QFrame;
+        line->setFrameShape(QFrame::VLine);
+        line->setObjectName("toolbarSep");
+        lay->addWidget(line);
+    };
+
+    addSeparator();
+
+    // 会话操作图标组
+    auto addIconButton = [&](const QString &icon, const QString &tip,
+                             const std::function<void()> &handler) {
+        QToolButton *button = new QToolButton;
+        button->setProperty("iconName", icon);
+        button->setIcon(IconProvider::themedIcon(icon));
+        button->setToolTip(tip);
+        button->setAutoRaise(true);
+        connect(button, &QToolButton::clicked, this, handler);
+        lay->addWidget(button);
+        return button;
+    };
+
+    addIconButton("disconnect", tr("断开当前会话"), [this]() {
+        if (TerminalProxy *t = getCurrentTerminal()) {
+            t->closeConnection();
+        }
+    });
+    addIconButton("reconnect", tr("重新连接"), [this]() {
+        if (TerminalProxy *t = getCurrentTerminal()) {
+            t->closeConnection();
+            t->openConnection();
+        }
+    });
+    addIconButton("duplicate", tr("复制会话"), [this]() {
+        duplicateSession();
+    });
+
+    addSeparator();
+
+    // 工具入口
+    addIconButton("script", tr("脚本"), [this]() { showScriptControlPanel(); });
+    addIconButton("tools", tr("工具"), [this]() { showPortScanner(); });
+
+    lay->addStretch(1);
+
+    addIconButton("theme", tr("主题设置"), [this]() { showThemeSettings(); });
+    addIconButton("settings", tr("日志设置"), [this]() { showLogSettings(); });
+
+    return bar;
+}
+
+QWidget *MainWindow::buildSidebar()
+{
+    m_sidebar = new QWidget;
+    m_sidebar->setObjectName("sidebar");
+    m_sidebar->setMinimumWidth(200);
+    QVBoxLayout *lay = new QVBoxLayout(m_sidebar);
+    lay->setContentsMargins(0, 0, 0, 0);
+    lay->setSpacing(0);
+
+    // 标题行
+    QWidget *head = new QWidget;
+    QHBoxLayout *headLay = new QHBoxLayout(head);
+    headLay->setContentsMargins(10, 7, 8, 7);
+    headLay->setSpacing(6);
+    QLabel *title = new QLabel(tr("会话管理器"));
+    title->setObjectName("sidebarTitle");
+    QToolButton *headAdd = new QToolButton;
+    headAdd->setIcon(IconProvider::themedIcon("new-session"));
+    headAdd->setToolTip(tr("新建连接"));
+    headAdd->setAutoRaise(true);
+    connect(headAdd, &QToolButton::clicked, this, [this]() {
+        openConnectionFromDialog(true);
+    });
+    headLay->addWidget(title);
+    headLay->addStretch(1);
+    headLay->addWidget(headAdd);
+    lay->addWidget(head);
+
+    // 搜索框
+    m_sessionSearch = new QLineEdit;
+    m_sessionSearch->setPlaceholderText(tr("搜索会话"));
+    m_sessionSearch->setClearButtonEnabled(true);
+    connect(m_sessionSearch, &QLineEdit::textChanged, this, &MainWindow::filterSessionTree);
+    QWidget *searchWrap = new QWidget;
+    QHBoxLayout *searchLay = new QHBoxLayout(searchWrap);
+    searchLay->setContentsMargins(8, 2, 8, 8);
+    searchLay->addWidget(m_sessionSearch);
+    lay->addWidget(searchWrap);
+
+    // 会话树
+    m_sessionTree = new QTreeWidget;
+    m_sessionTree->setHeaderHidden(true);
+    m_sessionTree->setIndentation(0);
+    m_sessionTree->setRootIsDecorated(false);
+    m_sessionTree->setUniformRowHeights(false);
+    m_sessionTree->setFrameShape(QFrame::NoFrame);
+    m_sessionTree->setMouseTracking(true);
+    m_sessionTree->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    m_sessionTree->setItemDelegate(new SessionItemDelegate(m_sessionTree));
+    connect(m_sessionTree, &QTreeWidget::itemActivated, this, &MainWindow::onSessionTreeActivated);
+    connect(m_sessionTree, &QTreeWidget::itemDoubleClicked, this, &MainWindow::onSessionTreeActivated);
+    lay->addWidget(m_sessionTree, 1);
+
+    // 底部：新建连接
+    QWidget *foot = new QWidget;
+    QVBoxLayout *footLay = new QVBoxLayout(foot);
+    footLay->setContentsMargins(8, 6, 8, 8);
+    QPushButton *newBtn = new QPushButton(tr("新建连接"));
+    newBtn->setIcon(IconProvider::themedIcon("new-session"));
+    newBtn->setCursor(Qt::PointingHandCursor);
+    connect(newBtn, &QPushButton::clicked, this, [this]() {
+        openConnectionFromDialog(true);
+    });
+    footLay->addWidget(newBtn);
+    lay->addWidget(foot);
+
+    return m_sidebar;
+}
+
+QWidget *MainWindow::buildTerminalArea()
+{
+    QWidget *area = new QWidget;
+    QVBoxLayout *lay = new QVBoxLayout(area);
+    lay->setContentsMargins(0, 0, 0, 0);
+    lay->setSpacing(0);
+
+    auto *tabWidget = new TerminalTabWidget;
+    m_screenTabWidget = tabWidget;
+    m_screenTabWidget->setDocumentMode(true);
     m_screenTabWidget->setTabsClosable(true);
     m_screenTabWidget->setMovable(true);
 
-    // 设置tab bar的上下文菜单策略
-    m_screenTabWidget->tabBar()->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(m_screenTabWidget->tabBar(), &QTabBar::customContextMenuRequested,
-            this, &MainWindow::onTabContextMenu);
+    m_terminalTabBar = new TerminalTabBar(m_screenTabWidget);
+    m_terminalTabBar->setStateProvider([this](const QString &tabId) {
+        TerminalProxy *terminal = m_terminals.value(tabId, nullptr);
+        return terminal && terminal->isConnected();
+    });
+    tabWidget->installTabBar(m_terminalTabBar);
 
     connect(m_screenTabWidget, &QTabWidget::tabCloseRequested,
             this, &MainWindow::onTabCloseRequested);
     connect(m_screenTabWidget, &QTabWidget::currentChanged,
             this, &MainWindow::onTabCurrentChanged);
+    connect(m_terminalTabBar, &QTabBar::customContextMenuRequested,
+            this, &MainWindow::onTabContextMenu);
 
-    m_commandTextEdit = new QTextEdit(m_verticalSplitter);
-    // 说明文字作为占位符显示，而非误传给 QTextEdit 构造函数成为正文
-    m_commandTextEdit->setPlaceholderText(QObject::tr("Manual Command Input Area"));
-    // 回车发送输入内容到当前终端（见 eventFilter）
-    m_commandTextEdit->installEventFilter(this);
+    lay->addWidget(m_screenTabWidget, 1);
 
-    m_verticalSplitter->setStretchFactor(0, 5);
-    m_verticalSplitter->setStretchFactor(1, 1);
+    // 命令输入栏
+    QWidget *cmdBar = new QWidget;
+    cmdBar->setObjectName("commandBar");
+    QHBoxLayout *cmdLay = new QHBoxLayout(cmdBar);
+    cmdLay->setContentsMargins(10, 5, 10, 5);
+    cmdLay->setSpacing(8);
 
-    // 移除所有边距和间隙
-    m_verticalSplitter->setContentsMargins(0, 0, 0, 0);
-    m_horizontalSplitter->setContentsMargins(0, 0, 0, 0);
-    m_listWidget->setContentsMargins(0, 0, 0, 0);
-    m_screenTabWidget->setContentsMargins(0, 0, 0, 0);
+    QLabel *prompt = new QLabel(QStringLiteral(">"));
+    prompt->setObjectName("commandPrompt");
+    cmdLay->addWidget(prompt);
 
-    // 设置 QSplitter 的 handle 为蓝色分隔线
-    m_horizontalSplitter->setHandleWidth(1);
-    m_horizontalSplitter->setStyleSheet("QSplitter::handle { background-color: #0078D7; }");
-    m_verticalSplitter->setHandleWidth(1);
-    m_verticalSplitter->setStyleSheet("QSplitter::handle { background-color: #0078D7; }");
+    m_commandLineEdit = new QLineEdit;
+    m_commandLineEdit->setObjectName("commandLine");
+    m_commandLineEdit->setPlaceholderText(tr("输入命令，Enter 发送"));
+    connect(m_commandLineEdit, &QLineEdit::returnPressed, this, [this]() {
+        const QString command = m_commandLineEdit->text().trimmed();
+        if (command.isEmpty()) {
+            return;
+        }
+        TerminalProxy *terminal = getCurrentTerminal();
+        if (terminal) {
+            terminal->sendText(command + QStringLiteral("\n"));
+        } else {
+            QMessageBox::information(this, tr("提示"), tr("请先打开一个终端连接"));
+        }
+        m_commandLineEdit->clear();
+    });
+    cmdLay->addWidget(m_commandLineEdit, 1);
 
-    setCentralWidget(m_verticalSplitter);
-    resize(1200, 600);
+    QToolButton *sendBtn = new QToolButton;
+    sendBtn->setIcon(IconProvider::themedIcon("send"));
+    sendBtn->setToolTip(tr("发送"));
+    sendBtn->setAutoRaise(true);
+    connect(sendBtn, &QToolButton::clicked, this, [this]() {
+        emit m_commandLineEdit->returnPressed();
+    });
+    cmdLay->addWidget(sendBtn);
 
-    setWindowTitle("NTerminal");
+    lay->addWidget(cmdBar);
+
+    return area;
+}
+
+void MainWindow::buildStatusBarWidgets()
+{
+    QStatusBar *bar = statusBar();
+    bar->setSizeGripEnabled(false);
+
+    m_statusConnection = new QLabel;
+    m_statusConnection->setObjectName("statusConnection");
+    m_statusProtocol = new QLabel;
+    m_statusEncoding = new QLabel(QStringLiteral("UTF-8"));
+    m_statusSize = new QLabel;
+    m_statusLatency = new QLabel;
+
+    bar->addWidget(m_statusConnection);
+    bar->addWidget(m_statusProtocol);
+    bar->addWidget(m_statusEncoding);
+    bar->addWidget(m_statusSize);
+    bar->addPermanentWidget(m_statusLatency);
+
+    updateStatusBar();
 }
 
 void MainWindow::initMainWindowMenu()
@@ -460,16 +1036,57 @@ void MainWindow::initMainWindowMenu()
         openConnectionFromDialog(false);
     });
 
-    m_toolBar = new QToolBar(this);
-    m_toolbarSessionAction = new QAction("Connect", this);
-    m_toolBar->addAction(m_toolbarSessionAction);
-    m_toolBar->addAction("Print");
-    m_debugAction = m_toolBar->addAction("Debug");
-    addToolBar(Qt::TopToolBarArea, m_toolBar);
+    applyMenuIcons();
+}
 
-    connect(m_toolbarSessionAction, &QAction::triggered, this, [this]() {
-        openConnectionFromDialog(true);
-    });
+// 菜单/动作图标（IconProvider 按主题着色；无图标名则保持文字）
+void MainWindow::refreshIcons()
+{
+    IconProvider::clearCache();
+    applyMenuIcons();
+
+    for (QToolButton *button : findChildren<QToolButton *>()) {
+        const QString name = button->property("iconName").toString();
+        if (!name.isEmpty()) {
+            button->setIcon(IconProvider::themedIcon(name));
+        }
+    }
+    for (QPushButton *button : findChildren<QPushButton *>()) {
+        const QString name = button->property("iconName").toString();
+        if (!name.isEmpty()) {
+            button->setIcon(IconProvider::themedIcon(name));
+        }
+    }
+    if (m_terminalTabBar) {
+        m_terminalTabBar->update();
+    }
+}
+
+void MainWindow::applyMenuIcons()
+{
+    if (m_sessionAction) m_sessionAction->setIcon(IconProvider::themedIcon("new-session"));
+    if (m_themeAction) m_themeAction->setIcon(IconProvider::themedIcon("theme"));
+    if (m_logSettingsAction) m_logSettingsAction->setIcon(IconProvider::themedIcon("log"));
+    if (m_exitAction) m_exitAction->setIcon(IconProvider::themedIcon("close"));
+    if (m_loadScriptAction) m_loadScriptAction->setIcon(IconProvider::themedIcon("script"));
+    if (m_scriptLogAction) m_scriptLogAction->setIcon(IconProvider::themedIcon("log"));
+    if (m_scriptControlAction) m_scriptControlAction->setIcon(IconProvider::themedIcon("settings"));
+
+    for (QAction *action : m_toolsMenu->actions()) {
+        if (action->isSeparator()) {
+            continue;
+        }
+        const QString text = action->text();
+        if (text.contains("Calculator")) action->setIcon(IconProvider::themedIcon("tools"));
+        else if (text.contains("Port")) action->setIcon(IconProvider::themedIcon("search"));
+        else if (text.contains("ASCII")) action->setIcon(IconProvider::themedIcon("log"));
+        else action->setIcon(IconProvider::themedIcon("tools"));
+    }
+    for (QAction *action : m_optMenu->actions()) {
+        if (!action->isSeparator() && action->icon().isNull() && action->text().contains("Test")) {
+            action->setIcon(IconProvider::themedIcon("terminal"));
+        }
+    }
 }
 
 void MainWindow::openConnectionFromDialog(bool applyTheme)
@@ -479,24 +1096,9 @@ void MainWindow::openConnectionFromDialog(bool applyTheme)
         return;
     }
 
-    Common::ConnectionSettings settings = dialog.getSettings();
-
-    QString tabName = settings.sessionName.isEmpty() ?
-        QString("Terminal %1").arg(m_terminals.size() + 1) :
-        settings.sessionName;
-
-    TerminalProxy *terminal = createNewTerminalTab(tabName);
-    if (terminal) {
-        terminal->setConnectionSettings(settings);
-        if (applyTheme) {
-            applyTerminalTheme(terminal);
-        }
-        if (terminal->openConnection()) {
-            qDebug() << "Connection opened successfully";
-        } else {
-            qDebug() << "Connection failed to open";
-        }
-    }
+    Q_UNUSED(applyTheme);   // openSession 内统一注入当前主题/字体
+    const Common::ConnectionSettings settings = dialog.getSettings();
+    openSession(settings, settings.sessionName);
 }
 
 void MainWindow::showThemeSettings()

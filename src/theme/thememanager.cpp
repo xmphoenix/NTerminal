@@ -2,6 +2,7 @@
 #include <QSettings>
 #include <QApplication>
 #include <QPalette>
+#include <QFile>
 #include <QDebug>
 
 ThemeManager *ThemeManager::m_instance = nullptr;
@@ -482,7 +483,36 @@ void ThemeManager::initTerminalThemes()
     theme.ansiColors[15] = QColor(229, 229, 229);
     m_terminalThemes[theme.id] = theme;
 
-    m_currentTerminalThemeId = "solarized-light";
+    // 缺省终端主题：明亮（与缺省外壳主题 default-light 配套）
+    m_currentTerminalThemeId = "vscode-light";
+}
+
+// 从基础色派生扩展 tokens（手工主题只需定义基础色）。
+// 深/浅模式由 windowBackground 亮度判定，保证任意主题都有完整色板。
+static void deriveAppTokens(AppTheme &t)
+{
+    const bool dark = t.windowBackground.lightness() < 128;
+    t.dark = dark;
+    const QColor bg = t.windowBackground;
+    t.panel = dark ? bg.lighter(114) : bg.lighter(103);
+    t.panelHover = dark ? bg.lighter(124) : bg.darker(104);
+    t.panelRaised = dark ? bg.lighter(131) : bg.lighter(107);
+    t.border = dark ? bg.lighter(138) : bg.darker(112);
+    t.borderStrong = dark ? bg.lighter(155) : bg.darker(130);
+    t.textDim = dark ? t.windowText.darker(142) : t.windowText.lighter(148);
+    t.textFaint = dark ? t.windowText.darker(182) : t.windowText.lighter(185);
+    t.accent = t.highlight;
+    t.accentHover = t.highlight.lighter(112);
+    t.success = dark ? QColor(0x3F, 0xB9, 0x50) : QColor(0x1F, 0x88, 0x3D);
+    t.warning = dark ? QColor(0xD2, 0x99, 0x22) : QColor(0x9A, 0x67, 0x00);
+    t.danger = dark ? QColor(0xF8, 0x51, 0x49) : QColor(0xCF, 0x22, 0x2E);
+    t.radius = 6;
+    if (t.menuBackground == QColor()) t.menuBackground = t.panel;
+    if (t.menuText == QColor()) t.menuText = t.windowText;
+    if (t.buttonBackground == QColor()) t.buttonBackground = t.panelRaised;
+    if (t.buttonText == QColor()) t.buttonText = t.windowText;
+    if (t.toolTipBase == QColor()) t.toolTipBase = t.panelRaised;
+    if (t.toolTipText == QColor()) t.toolTipText = t.windowText;
 }
 
 void ThemeManager::initAppThemes()
@@ -493,34 +523,48 @@ void ThemeManager::initAppThemes()
     theme = AppTheme();
     theme.id = "default-light";
     theme.name = tr("Default Light");
-    theme.windowBackground = QColor(240, 240, 240);
-    theme.windowText = QColor(0, 0, 0);
-    theme.buttonBackground = QColor(240, 240, 240);
-    theme.buttonText = QColor(0, 0, 0);
-    theme.highlight = QColor(0, 120, 215);
+    theme.windowBackground = QColor(246, 247, 249);
+    theme.windowText = QColor(31, 35, 40);
+    theme.buttonBackground = QColor(238, 240, 243);
+    theme.buttonText = QColor(31, 35, 40);
+    theme.highlight = QColor(9, 105, 218);
     theme.highlightText = QColor(255, 255, 255);
-    theme.link = QColor(0, 0, 255);
-    theme.menuBackground = QColor(240, 240, 240);
-    theme.menuText = QColor(0, 0, 0);
-    theme.toolTipBase = QColor(255, 255, 220);
-    theme.toolTipText = QColor(0, 0, 0);
+    theme.link = QColor(9, 105, 218);
+    theme.menuBackground = QColor(246, 247, 249);
+    theme.menuText = QColor(31, 35, 40);
+    theme.toolTipBase = QColor(255, 255, 221);
+    theme.toolTipText = QColor(31, 35, 40);
     m_appThemes[theme.id] = theme;
     
-    // 2. Default Dark
+    // 2. Default Dark —— 设计稿基准主题（GUI_REDESIGN.md 色板）
     theme = AppTheme();
     theme.id = "default-dark";
     theme.name = tr("Default Dark");
-    theme.windowBackground = QColor(45, 45, 45);
-    theme.windowText = QColor(220, 220, 220);
-    theme.buttonBackground = QColor(55, 55, 55);
-    theme.buttonText = QColor(220, 220, 220);
-    theme.highlight = QColor(42, 130, 218);
-    theme.highlightText = QColor(255, 255, 255);
-    theme.link = QColor(42, 130, 218);
-    theme.menuBackground = QColor(45, 45, 45);
-    theme.menuText = QColor(220, 220, 220);
-    theme.toolTipBase = QColor(45, 45, 45);
-    theme.toolTipText = QColor(220, 220, 220);
+    theme.windowBackground = QColor(0x17, 0x18, 0x1B);   // bg
+    theme.windowText     = QColor(0xD7, 0xDB, 0xE0);     // text
+    theme.panel          = QColor(0x1E, 0x20, 0x24);     // panel
+    theme.panelHover     = QColor(0x26, 0x28, 0x2D);     // panel2
+    theme.panelRaised    = QColor(0x26, 0x28, 0x2D);
+    theme.border         = QColor(0x2E, 0x31, 0x38);
+    theme.borderStrong   = QColor(0x3A, 0x3E, 0x46);
+    theme.textDim        = QColor(0x8B, 0x91, 0x9A);
+    theme.textFaint      = QColor(0x5C, 0x62, 0x6B);
+    theme.accent         = QColor(0x4C, 0x8D, 0xFF);
+    theme.accentHover    = QColor(0x5B, 0x99, 0xFF);
+    theme.highlight      = QColor(0x4C, 0x8D, 0xFF);
+    theme.highlightText  = QColor(0xFF, 0xFF, 0xFF);
+    theme.link           = QColor(0x79, 0xC0, 0xFF);
+    theme.menuBackground = QColor(0x1E, 0x20, 0x24);
+    theme.menuText       = QColor(0xD7, 0xDB, 0xE0);
+    theme.buttonBackground = QColor(0x26, 0x28, 0x2D);
+    theme.buttonText     = QColor(0xD7, 0xDB, 0xE0);
+    theme.toolTipBase    = QColor(0x2C, 0x2F, 0x35);
+    theme.toolTipText    = QColor(0xD7, 0xDB, 0xE0);
+    theme.success        = QColor(0x3F, 0xB9, 0x50);
+    theme.warning        = QColor(0xD2, 0x99, 0x22);
+    theme.danger         = QColor(0xF8, 0x51, 0x49);
+    theme.radius = 6;
+    theme.dark = true;
     m_appThemes[theme.id] = theme;
     
     // 3. Solarized Light
@@ -590,7 +634,16 @@ void ThemeManager::initAppThemes()
     theme.toolTipBase = QColor(59, 66, 82);
     theme.toolTipText = QColor(216, 222, 233);
     m_appThemes[theme.id] = theme;
-    
+
+    // 统一派生扩展 tokens：未显式精调的主题（panel 为空）自动推导，
+    // 保证任意主题都具备完整设计语言色板
+    for (auto it = m_appThemes.begin(); it != m_appThemes.end(); ++it) {
+        if (!it.value().panel.isValid()) {
+            deriveAppTokens(it.value());
+        }
+    }
+
+    // 缺省外壳主题：明亮
     m_currentAppThemeId = "default-light";
 }
 
@@ -667,7 +720,8 @@ void ThemeManager::loadSettings()
     QSettings settings;
     settings.beginGroup("Theme");
 
-    QString terminalThemeId = settings.value("TerminalTheme", "solarized-light").toString();
+    // 缺省主题：明亮（浅色外壳 + 浅底终端）。用户显式切换后以保存值为准。
+    QString terminalThemeId = settings.value("TerminalTheme", "vscode-light").toString();
     QString appThemeId = settings.value("AppTheme", "default-light").toString();
     
     if (m_terminalThemes.contains(terminalThemeId)) {
@@ -705,32 +759,59 @@ void ThemeManager::applyAppTheme(const AppTheme &theme)
     palette.setColor(QPalette::Disabled, QPalette::ButtonText, theme.windowText.darker(150));
     
     qApp->setPalette(palette);
-    
-    QString styleSheet = QString(
-        "QMainWindow { background-color: %1; }"
-        "QMenuBar { background-color: %2; color: %3; font-size: 12px; }"
-        "QMenuBar::item { padding: 2px 8px; font-size: 12px; color: %3; }"
-        "QMenuBar::item:selected { background-color: %4; color: %3; }"
-        "QMenu { background-color: %2; color: %3; font-size: 12px; }"
-        "QMenu::item { padding: 2px 12px; font-size: 12px; color: %3; }"
-        "QMenu::item:selected { background-color: %4; color: %3; }"
-        "QToolBar { background-color: %2; color: %3; font-size: 12px; spacing: 2px; }"
-        "QToolBar::separator { height: 1px; background-color: %4; margin: 2px 4px; }"
-        "QToolButton { background-color: transparent; color: %3; padding: 2px 8px; }"
-        "QToolButton:hover { background-color: %4; }"
-        "QStatusBar { background-color: %2; color: %3; font-size: 12px; }"
-        "QListWidget { border: none; border-top: 1px solid #0078D7; }"
-        "QTabWidget::pane { border: none; }"
-        "QTabBar::tab { background-color: %2; color: %3; padding: 2px 12px; font-size: 12px; }"
-        "QTabBar::tab:selected { background-color: %4; }"
-        "QTextEdit { border: none; border-top: 1px solid #0078D7; }"
-        "TerminalProxy { background-color: transparent; border: none; }"
-        "QAbstractScrollArea { background-color: transparent; }"
-    )
-    .arg(theme.windowBackground.name())
-    .arg(theme.menuBackground.name())
-    .arg(theme.menuText.name())
-    .arg(theme.highlight.name());
-    
-    qApp->setStyleSheet(styleSheet);
+
+    // 完整外观由 QSS 模板（resources/styles/app.qss）统一驱动
+    applyStylesheet();
+}
+
+// 渲染 QSS 模板：占位符 -> 当前主题 tokens
+void ThemeManager::applyStylesheet()
+{
+    const AppTheme theme = currentAppTheme();
+
+    QFile qssFile(QStringLiteral(":/styles/app.qss"));
+    if (!qssFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qWarning() << "[ThemeManager] Cannot load :/styles/app.qss";
+        return;
+    }
+    QString qss = QString::fromUtf8(qssFile.readAll());
+
+    auto rgba = [](const QColor &c, qreal alpha) {
+        return QString("rgba(%1,%2,%3,%4)")
+                .arg(c.red()).arg(c.green()).arg(c.blue())
+                .arg(alpha, 0, 'f', 2);
+    };
+
+    struct Token { const char *key; QString value; };
+    const Token tokens[] = {
+        { "@bg@",           theme.windowBackground.name() },
+        { "@panel@",        theme.panel.name() },
+        { "@panelHover@",   theme.panelHover.name() },
+        { "@panelRaised@",  theme.panelRaised.name() },
+        { "@border@",       theme.border.name() },
+        { "@borderStrong@", theme.borderStrong.name() },
+        { "@text@",         theme.windowText.name() },
+        { "@textDim@",      theme.textDim.name() },
+        { "@textFaint@",    theme.textFaint.name() },
+        { "@accent@",       theme.accent.name() },
+        { "@accentHover@",  theme.accentHover.name() },
+        { "@accentSoft@",   rgba(theme.accent, 0.14) },
+        { "@success@",      theme.success.name() },
+        { "@warning@",      theme.warning.name() },
+        { "@danger@",       theme.danger.name() },
+        { "@dangerSoft@",   rgba(theme.danger, 0.12) },
+        { "@radius@",       QString::number(theme.radius) },
+        { "@fontSize@",     "12" },
+    };
+    for (const Token &token : tokens) {
+        qss.replace(QLatin1String(token.key), token.value);
+    }
+
+    qApp->setStyleSheet(qss);
+}
+
+QColor ThemeManager::iconColor() const
+{
+    const AppTheme theme = currentAppTheme();
+    return theme.textDim.isValid() ? theme.textDim : theme.windowText;
 }

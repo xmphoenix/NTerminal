@@ -82,7 +82,10 @@ TerminalProxy::TerminalProxy(QWidget *parent)
     // 初始化字体：默认等宽字体；正式主题/字体由创建方通过 setTheme/setFont 注入
     // （MainWindow::applyTerminalTheme 在创建标签页时统一注入 ThemeManager/FontManager
     //  的当前值，构造函数本身不访问全局单例，保证可测试性）
-    m_currentFont = QFont("Consolas", 10);
+    // GUI 重设计：优先内置等宽字体（JetBrains Mono / Cascadia Code），13px
+    m_currentFont = QFont("JetBrains Mono", 10);
+    m_currentFont.setStyleHint(QFont::Monospace);
+    m_currentFont.setPixelSize(13);
     QFontMetrics fmetrics(m_currentFont);
     m_charWidth = fmetrics.horizontalAdvance('W');
     m_charHeight = fmetrics.height();

@@ -2,10 +2,17 @@
 <RCC version="1.0">
     <qresource prefix="/">
         <!-- 字体文件是可选的，如果没有字体文件，程序会使用系统字体 -->
-        <!-- 已下载的字体文件 -->
         <file>fonts/CascadiaCode.ttf</file>
         <file>fonts/JetBrainsMono-Regular.ttf</file>
-        
+
+        <!-- 应用样式表模板（ThemeManager 运行时渲染占位符） -->
+        <file>styles/app.qss</file>
+
+        <!-- QSS 引用的图标资源（其余图标内嵌于 IconProvider） -->
+        <file>icons/chevron-down.svg</file>
+        <file>icons/close.svg</file>
+        <file>icons/check.svg</file>
+
         <!-- 如需添加更多字体，请下载后取消下面行的注释 -->
         <!-- <file>fonts/FiraCode-Regular.ttf</file> -->
         <!-- <file>fonts/SourceCodePro-Regular.ttf</file> -->

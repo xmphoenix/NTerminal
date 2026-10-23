@@ -90,9 +90,7 @@ static int runTestWindow(int argc, char *argv[])
 
 static int runGui(int argc, char *argv[])
 {
-    // Enable high DPI support
-    QCoreApplication::setAttribute(Qt::AA_UseOpenGLES);
-
+    // Qt 6 使用 RHI 自动选择渲染后端，不再需要 AA_UseOpenGLES（该属性已废弃）
     QApplication app(argc, argv);
     QCoreApplication::setApplicationName("NTerminal");
     QCoreApplication::setApplicationVersion("2.0.0");

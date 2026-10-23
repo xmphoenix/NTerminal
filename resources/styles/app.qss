@@ -1,0 +1,16 @@
+﻿/* 精简稳定版（浅/暗 token 由 AppTheme 自动适配）
+   已知约束：
+   - Qt 6.10 QStyleSheetStyle 在规则总量大时存在偶发绘制崩溃，规则须精简；
+   - QTabBar 容器禁止设置 background-color（自绘 TerminalTabBar 负责）。 */
+QWidget { background-color: @bg@; color: @text@; }
+QMainWindow, QDialog { background-color: @bg@; }
+QMenuBar { background-color: @bg@; color: @text@; }
+QMenu { background-color: @panel@; color: @text@; }
+QToolButton { background: transparent; color: @text@; }
+QPushButton { background-color: @panelRaised@; color: @text@; border: 1px solid @borderStrong@; border-radius: 6px; padding: 5px 14px; }
+QLineEdit { background-color: @panelRaised@; color: @text@; border: 1px solid @border@; border-radius: 6px; padding: 4px 8px; }
+QComboBox { background-color: @panelRaised@; color: @text@; border: 1px solid @border@; border-radius: 6px; padding: 4px 8px; }
+QTabWidget::pane { border: none; }
+QTabBar::tab { padding: 9px 14px; }
+QStatusBar { background-color: @panel@; color: @textDim@; }
+QTreeView, QTreeWidget { background-color: @panel@; color: @text@; border: none; }

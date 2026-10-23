@@ -16,7 +16,7 @@
 # ============================================================================
 
 QT       += core gui
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets serialport network
+greaterThan(QT_MAJOR_VERSION, 4): QT += widgets serialport network svg
 
 CONFIG   += c++17
 
@@ -81,6 +81,9 @@ SOURCES += \
     src/theme/fontmanager.cpp \
     src/ui/mainwindow.cpp \
     src/ui/connectiondialog.cpp \
+    src/ui/iconprovider.cpp \
+    src/ui/sessionitemdelegate.cpp \
+    src/ui/terminaltabbar.cpp \
     src/ui/terminaltester.cpp \
     src/ui/testwindow.cpp \
     src/ui/logconfigdialog.cpp \
@@ -120,6 +123,9 @@ HEADERS += \
     src/theme/fontmanager.h \
     src/ui/mainwindow.h \
     src/ui/connectiondialog.h \
+    src/ui/iconprovider.h \
+    src/ui/sessionitemdelegate.h \
+    src/ui/terminaltabbar.h \
     src/ui/terminaltester.h \
     src/ui/testwindow.h \
     src/ui/logconfigdialog.h \
