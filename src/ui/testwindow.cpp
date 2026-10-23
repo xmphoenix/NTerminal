@@ -106,8 +106,8 @@ void TestWindow::setTerminal(TerminalProxy *terminal)
 
 void TestWindow::setupUI()
 {
-    m_mainLayout->setContentsMargins(16, 14, 16, 14);
-    m_mainLayout->setSpacing(10);
+    m_mainLayout->setContentsMargins(14, 12, 14, 12);
+    m_mainLayout->setSpacing(8);
 
     QLabel *titleLabel = new QLabel(tr("终端兼容性测试"), this);
     titleLabel->setProperty("class", "sectionTitle");

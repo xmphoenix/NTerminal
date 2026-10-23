@@ -771,8 +771,8 @@ QWidget *MainWindow::buildTopBar()
 {
     QWidget *bar = styledPanel("topBar");
     QHBoxLayout *lay = new QHBoxLayout(bar);
-    lay->setContentsMargins(12, 8, 10, 8);
-    lay->setSpacing(8);
+    lay->setContentsMargins(10, 6, 10, 6);
+    lay->setSpacing(6);
 
     // 主操作：新建会话（实心强调色按钮）
     QPushButton *newBtn = new QPushButton;
@@ -783,7 +783,7 @@ QWidget *MainWindow::buildTopBar()
     newBtn->setIcon(IconProvider::icon("new-session",
                                        ThemeManager::instance()->currentAppTheme().highlightText));
     newBtn->setCursor(Qt::PointingHandCursor);
-    newBtn->setMinimumHeight(34);
+    newBtn->setMinimumHeight(30);
     connect(newBtn, &QPushButton::clicked, this, [this]() {
         openConnectionFromDialog(true);
     });
@@ -820,7 +820,7 @@ QWidget *MainWindow::buildTopBar()
     bindText([goBtn] { goBtn->setText(tr("连接")); });
     goBtn->setProperty("class", "tonal");
     goBtn->setCursor(Qt::PointingHandCursor);
-    goBtn->setFixedHeight(30);
+    goBtn->setFixedHeight(26);
     connect(goBtn, &QPushButton::clicked, this, &MainWindow::onQuickConnect);
     connect(m_quickConnectEdit, &QLineEdit::returnPressed, this, &MainWindow::onQuickConnect);
 
@@ -850,7 +850,7 @@ QWidget *MainWindow::buildTopBar()
         bindText([button, tip] { button->setToolTip(tip()); });
         button->setAutoRaise(true);
         button->setCursor(Qt::PointingHandCursor);
-        button->setMinimumSize(32, 32);
+        button->setMinimumSize(28, 28);
         connect(button, &QToolButton::clicked, this, handler);
         lay->addWidget(button);
         return button;
@@ -896,7 +896,7 @@ QWidget *MainWindow::buildSidebar()
     // 标题行
     QWidget *head = styledPanel("sidebarHead");
     QHBoxLayout *headLay = new QHBoxLayout(head);
-    headLay->setContentsMargins(14, 8, 8, 7);
+    headLay->setContentsMargins(12, 6, 8, 5);
     headLay->setSpacing(6);
     QLabel *title = new QLabel;
     title->setObjectName("sidebarTitle");
@@ -919,7 +919,7 @@ QWidget *MainWindow::buildSidebar()
     QWidget *searchWrap = new QWidget;
     searchWrap->setObjectName("sidebarSearchWrap");
     QHBoxLayout *searchLay = new QHBoxLayout(searchWrap);
-    searchLay->setContentsMargins(12, 4, 12, 10);
+    searchLay->setContentsMargins(10, 3, 10, 8);
     m_sessionSearch = new QLineEdit;
     m_sessionSearch->setObjectName("sidebarSearch");
     bindText([this] { m_sessionSearch->setPlaceholderText(tr("搜索会话")); });
@@ -946,14 +946,14 @@ QWidget *MainWindow::buildSidebar()
     // 底部：新建连接（柔和色调，与顶栏主按钮区分层级）
     QWidget *foot = styledPanel("sidebarFoot");
     QVBoxLayout *footLay = new QVBoxLayout(foot);
-    footLay->setContentsMargins(12, 8, 12, 10);
+    footLay->setContentsMargins(10, 6, 10, 8);
     QPushButton *newBtn = new QPushButton;
     bindText([newBtn] { newBtn->setText(tr("新建连接")); });
     newBtn->setProperty("class", "tonal");
     newBtn->setProperty("iconName", "new-session");
     newBtn->setIcon(IconProvider::themedIcon("new-session"));
     newBtn->setCursor(Qt::PointingHandCursor);
-    newBtn->setMinimumHeight(34);
+    newBtn->setMinimumHeight(30);
     connect(newBtn, &QPushButton::clicked, this, [this]() {
         openConnectionFromDialog(true);
     });
@@ -1002,8 +1002,8 @@ QWidget *MainWindow::buildTerminalArea()
     // 命令输入栏（悬浮圆角输入框 + 发送按钮）
     QWidget *cmdBar = styledPanel("commandBar");
     QHBoxLayout *cmdLay = new QHBoxLayout(cmdBar);
-    cmdLay->setContentsMargins(12, 8, 12, 10);
-    cmdLay->setSpacing(8);
+    cmdLay->setContentsMargins(10, 6, 10, 8);
+    cmdLay->setSpacing(6);
 
     QLabel *prompt = new QLabel(QStringLiteral(">"));
     prompt->setObjectName("commandPrompt");
@@ -1050,7 +1050,7 @@ QWidget *MainWindow::buildEmptyState()
     page->setObjectName("emptyState");
 
     QVBoxLayout *outer = new QVBoxLayout(page);
-    outer->setContentsMargins(24, 24, 24, 24);
+    outer->setContentsMargins(20, 20, 20, 20);
     outer->addStretch();
 
     // 居中卡片：图标 + 标题 + 说明 + 两个入口按钮
@@ -1060,8 +1060,8 @@ QWidget *MainWindow::buildEmptyState()
     card->setMaximumWidth(420);
 
     QVBoxLayout *cardLay = new QVBoxLayout(card);
-    cardLay->setContentsMargins(32, 32, 32, 28);
-    cardLay->setSpacing(12);
+    cardLay->setContentsMargins(24, 24, 24, 20);
+    cardLay->setSpacing(10);
 
     QLabel *iconChip = new QLabel;
     iconChip->setObjectName("emptyStateIcon");
@@ -1096,7 +1096,7 @@ QWidget *MainWindow::buildEmptyState()
     newBtn->setIcon(IconProvider::icon("new-session",
                                        ThemeManager::instance()->currentAppTheme().highlightText));
     newBtn->setCursor(Qt::PointingHandCursor);
-    newBtn->setMinimumHeight(34);
+    newBtn->setMinimumHeight(30);
     bindText([newBtn] { newBtn->setText(tr("新建会话")); });
     connect(newBtn, &QPushButton::clicked, this, [this]() { openConnectionFromDialog(true); });
     actions->addWidget(newBtn);
@@ -1104,7 +1104,7 @@ QWidget *MainWindow::buildEmptyState()
     QPushButton *quickBtn = new QPushButton;
     quickBtn->setProperty("class", "tonal");
     quickBtn->setCursor(Qt::PointingHandCursor);
-    quickBtn->setMinimumHeight(34);
+    quickBtn->setMinimumHeight(30);
     bindText([quickBtn] { quickBtn->setText(tr("快速连接")); });
     connect(quickBtn, &QPushButton::clicked, this, [this]() {
         if (m_quickConnectEdit) {

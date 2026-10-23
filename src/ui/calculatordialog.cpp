@@ -17,8 +17,9 @@ CalculatorDialog::CalculatorDialog(QWidget *parent)
 {
     setupUi();
     setWindowTitle(tr("计算器"));
-    setMinimumWidth(440);
-    resize(460, 560);
+    setMinimumWidth(420);
+    // 收起为内容的自然高度，避免键盘下方留出大片空白
+    adjustSize();
 }
 
 CalculatorDialog::~CalculatorDialog()
@@ -28,8 +29,8 @@ CalculatorDialog::~CalculatorDialog()
 void CalculatorDialog::setupUi()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(24, 20, 24, 20);
-    mainLayout->setSpacing(14);
+    mainLayout->setContentsMargins(20, 16, 20, 16);
+    mainLayout->setSpacing(10);
 
     // 头部：标题 + 说明
     QLabel *titleLabel = new QLabel(tr("程序员计算器"), this);
@@ -50,7 +51,7 @@ void CalculatorDialog::setupUi()
     displayFont.setPixelSize(28);
     displayFont.setWeight(QFont::DemiBold);
     m_display->setFont(displayFont);
-    m_display->setMinimumHeight(60);
+    m_display->setMinimumHeight(50);
     mainLayout->addWidget(m_display);
 
     // 进制选择
@@ -108,7 +109,7 @@ void CalculatorDialog::setupUi()
     for (const QString &num : numbers) {
         QPushButton *btn = new QPushButton(num, this);
         btn->setProperty("class", "tonal");
-        btn->setMinimumSize(52, 42);
+        btn->setMinimumSize(48, 36);
         connect(btn, &QPushButton::clicked, this, &CalculatorDialog::onNumberClicked);
         // 0 键跨三列，与上方数字区等宽，避免底行出现空洞
         if (num == "0") {
@@ -129,7 +130,7 @@ void CalculatorDialog::setupUi()
     for (const QString &hex : hexDigits) {
         QPushButton *btn = new QPushButton(hex, this);
         btn->setProperty("class", "tonal");
-        btn->setMinimumSize(52, 42);
+        btn->setMinimumSize(48, 36);
         btn->setObjectName("hexButton");
         connect(btn, &QPushButton::clicked, this, &CalculatorDialog::onNumberClicked);
         buttonLayout->addWidget(btn, row, col);
@@ -146,7 +147,7 @@ void CalculatorDialog::setupUi()
     col = 5;
     for (const QString &op : operators) {
         QPushButton *btn = new QPushButton(op, this);
-        btn->setMinimumSize(52, 42);
+        btn->setMinimumSize(48, 36);
         connect(btn, &QPushButton::clicked, this, &CalculatorDialog::onOperatorClicked);
         buttonLayout->addWidget(btn, row++, col);
     }
@@ -154,24 +155,23 @@ void CalculatorDialog::setupUi()
     // 功能按钮
     QPushButton *clearBtn = new QPushButton("C", this);
     clearBtn->setProperty("class", "ghost");
-    clearBtn->setMinimumSize(52, 42);
+    clearBtn->setMinimumSize(48, 36);
     connect(clearBtn, &QPushButton::clicked, this, &CalculatorDialog::onClearClicked);
     buttonLayout->addWidget(clearBtn, 3, 3);
 
     QPushButton *backspaceBtn = new QPushButton("←", this);
     backspaceBtn->setProperty("class", "ghost");
-    backspaceBtn->setMinimumSize(52, 42);
+    backspaceBtn->setMinimumSize(48, 36);
     connect(backspaceBtn, &QPushButton::clicked, this, &CalculatorDialog::onBackspaceClicked);
     buttonLayout->addWidget(backspaceBtn, 3, 4);
 
     QPushButton *equalBtn = new QPushButton("=", this);
     equalBtn->setProperty("class", "primary");
-    equalBtn->setMinimumSize(52, 42);
+    equalBtn->setMinimumSize(48, 36);
     connect(equalBtn, &QPushButton::clicked, this, &CalculatorDialog::onEqualClicked);
     buttonLayout->addWidget(equalBtn, 3, 5);
 
     mainLayout->addLayout(buttonLayout);
-    mainLayout->addStretch();
 
     updateDisplay();
 }

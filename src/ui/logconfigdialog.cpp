@@ -41,8 +41,8 @@ void LogConfigDialog::setupUi()
     setMinimumWidth(620);
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(24, 20, 24, 20);
-    mainLayout->setSpacing(14);
+    mainLayout->setContentsMargins(20, 16, 20, 16);
+    mainLayout->setSpacing(10);
 
     // 头部：标题 + 说明
     QLabel *titleLabel = new QLabel(tr("日志设置"));
@@ -126,7 +126,7 @@ void LogConfigDialog::setupUi()
     previewLayout->setSpacing(8);
     previewLayout->addWidget(new QLabel(tr("预览 (V):"), this));
     m_timestampPreviewLabel->setFrameShape(QFrame::StyledPanel);
-    m_timestampPreviewLabel->setMinimumHeight(28);
+    m_timestampPreviewLabel->setMinimumHeight(24);
     m_timestampPreviewLabel->setText(expandFormatPattern(m_timestampFormatEdit->text()));
     previewLayout->addWidget(m_timestampPreviewLabel, 1);
     timestampLayout->addLayout(previewLayout);

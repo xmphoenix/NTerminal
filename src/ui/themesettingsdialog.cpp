@@ -35,11 +35,11 @@ ThemeSettingsDialog::~ThemeSettingsDialog()
 void ThemeSettingsDialog::setupUi()
 {
     setWindowTitle(tr("主题设置"));
-    setMinimumSize(640, 560);
+    setMinimumSize(620, 520);
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(24, 20, 24, 20);
-    mainLayout->setSpacing(14);
+    mainLayout->setContentsMargins(20, 16, 20, 16);
+    mainLayout->setSpacing(10);
 
     // 头部：标题 + 说明
     QLabel *titleLabel = new QLabel(tr("主题设置"));
@@ -59,17 +59,17 @@ void ThemeSettingsDialog::setupUi()
     content->setObjectName("themeSettingsContent");
     QVBoxLayout *contentLayout = new QVBoxLayout(content);
     contentLayout->setContentsMargins(0, 0, 0, 0);
-    contentLayout->setSpacing(14);
+    contentLayout->setSpacing(10);
 
     QGroupBox *appThemeGroup = new QGroupBox(tr("应用主题"), content);
     QFormLayout *appThemeLayout = new QFormLayout(appThemeGroup);
     appThemeLayout->setHorizontalSpacing(16);
-    appThemeLayout->setVerticalSpacing(10);
+    appThemeLayout->setVerticalSpacing(8);
     appThemeLayout->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     appThemeLayout->addRow(tr("主题:"), m_appThemeCombo);
 
     m_appThemePreview->setFrameShape(QFrame::StyledPanel);
-    m_appThemePreview->setMinimumHeight(52);
+    m_appThemePreview->setMinimumHeight(44);
     m_appThemePreview->setAlignment(Qt::AlignCenter);
     appThemeLayout->addRow(tr("预览:"), m_appThemePreview);
 
@@ -78,7 +78,7 @@ void ThemeSettingsDialog::setupUi()
     QGroupBox *fontGroup = new QGroupBox(tr("字体设置"), content);
     QFormLayout *fontLayout = new QFormLayout(fontGroup);
     fontLayout->setHorizontalSpacing(16);
-    fontLayout->setVerticalSpacing(10);
+    fontLayout->setVerticalSpacing(8);
     fontLayout->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
 
     m_fontSizeSpinBox->setRange(8, 72);
@@ -93,7 +93,7 @@ void ThemeSettingsDialog::setupUi()
     fontLayout->addRow(tr("字体:"), fontSizeLayout);
 
     m_fontPreview->setFrameShape(QFrame::StyledPanel);
-    m_fontPreview->setMinimumHeight(52);
+    m_fontPreview->setMinimumHeight(44);
     m_fontPreview->setAlignment(Qt::AlignCenter);
     m_fontPreview->setText("The quick brown fox jumps over the lazy dog. 0123456789");
     fontLayout->addRow(tr("预览:"), m_fontPreview);
@@ -103,7 +103,7 @@ void ThemeSettingsDialog::setupUi()
     QGroupBox *terminalThemeGroup = new QGroupBox(tr("终端主题"), content);
     QFormLayout *terminalThemeLayout = new QFormLayout(terminalThemeGroup);
     terminalThemeLayout->setHorizontalSpacing(16);
-    terminalThemeLayout->setVerticalSpacing(10);
+    terminalThemeLayout->setVerticalSpacing(8);
     terminalThemeLayout->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     terminalThemeLayout->addRow(tr("主题:"), m_terminalThemeCombo);
 
@@ -118,7 +118,7 @@ void ThemeSettingsDialog::setupUi()
     QVBoxLayout *previewLayout = new QVBoxLayout(m_terminalPreviewGroup);
     previewLayout->setContentsMargins(0, 0, 0, 0);
     previewLayout->addWidget(colorPreviewWidget);
-    m_terminalPreviewGroup->setMinimumHeight(230);
+    m_terminalPreviewGroup->setMinimumHeight(200);
 
     contentLayout->addWidget(m_terminalPreviewGroup);
     contentLayout->addStretch();

@@ -34,8 +34,8 @@ ScriptDialog::~ScriptDialog()
 void ScriptDialog::setupUI()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(24, 20, 24, 20);
-    mainLayout->setSpacing(14);
+    mainLayout->setContentsMargins(20, 16, 20, 16);
+    mainLayout->setSpacing(10);
 
     // 头部：标题 + 说明
     QLabel *titleLabel = new QLabel(tr("选择 Python 脚本"), this);

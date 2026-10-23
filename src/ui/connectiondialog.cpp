@@ -109,8 +109,8 @@ void ConnectionDialog::setPreferredType(Common::ConnectionType type)
 void ConnectionDialog::setupUi()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(24, 20, 24, 20);
-    mainLayout->setSpacing(16);
+    mainLayout->setContentsMargins(20, 16, 20, 16);
+    mainLayout->setSpacing(12);
 
     // 头部：标题 + 说明（现代弹窗的"标题区"）
     QLabel *titleLabel = new QLabel(tr("新建连接"));

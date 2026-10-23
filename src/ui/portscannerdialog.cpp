@@ -51,8 +51,8 @@ PortScannerDialog::~PortScannerDialog()
 void PortScannerDialog::setupUi()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(24, 20, 24, 20);
-    mainLayout->setSpacing(14);
+    mainLayout->setContentsMargins(20, 16, 20, 16);
+    mainLayout->setSpacing(10);
 
     // 头部：标题 + 说明
     QLabel *titleLabel = new QLabel(tr("端口扫描"), this);

@@ -58,8 +58,8 @@ void ScriptControlPanel::setupUI()
     setMinimumWidth(380);
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(20, 18, 20, 18);
-    mainLayout->setSpacing(12);
+    mainLayout->setContentsMargins(16, 14, 16, 14);
+    mainLayout->setSpacing(10);
 
     // 头部
     QLabel *titleLabel = new QLabel(tr("脚本控制面板"), this);
