@@ -340,6 +340,16 @@ public:
     void installTabBar(QTabBar *bar) { setTabBar(bar); }
 };
 
+// 普通 QWidget 默认不绘制样式表背景，必须开启 WA_StyledBackground，
+// 否则 QSS 中的 #topBar/#sidebar/#commandBar 背景色不会生效。
+QWidget *styledPanel(const QString &objectName)
+{
+    QWidget *w = new QWidget;
+    w->setObjectName(objectName);
+    w->setAttribute(Qt::WA_StyledBackground, true);
+    return w;
+}
+
 QString protocolName(Common::ConnectionType type)
 {
     switch (type) {
@@ -619,6 +629,11 @@ void MainWindow::updateStatusBar()
     m_statusEncoding->setText(QStringLiteral("UTF-8"));
     m_statusLatency->setText(connected ? QStringLiteral("-- ms")
                                        : QStringLiteral("-- ms"));
+
+    // 空的状态项直接隐藏：QSS 给状态栏标签画了分隔线，
+    // 留着空标签会出现没有内容的分隔框。
+    m_statusProtocol->setVisible(!m_statusProtocol->text().isEmpty());
+    m_statusSize->setVisible(!m_statusSize->text().isEmpty());
 }
 
 void MainWindow::onTabCloseRequested(int index)
@@ -704,7 +719,8 @@ void MainWindow::initMainWindowLayout()
     outer->addWidget(m_topBar);
 
     m_horizontalSplitter = new QSplitter(Qt::Horizontal, central);
-    m_horizontalSplitter->setHandleWidth(1);
+    // 分隔条留出抓取宽度，并绘制 1px 分界线（QSS 中 #QSplitter::handle）
+    m_horizontalSplitter->setHandleWidth(6);
     m_horizontalSplitter->setChildrenCollapsible(false);
     m_horizontalSplitter->addWidget(buildSidebar());
     m_horizontalSplitter->addWidget(buildTerminalArea());
@@ -732,8 +748,7 @@ void MainWindow::initMainWindowLayout()
 
 QWidget *MainWindow::buildTopBar()
 {
-    QWidget *bar = new QWidget;
-    bar->setObjectName("topBar");
+    QWidget *bar = styledPanel("topBar");
     QHBoxLayout *lay = new QHBoxLayout(bar);
     lay->setContentsMargins(10, 6, 10, 6);
     lay->setSpacing(8);
@@ -826,15 +841,14 @@ QWidget *MainWindow::buildTopBar()
 
 QWidget *MainWindow::buildSidebar()
 {
-    m_sidebar = new QWidget;
-    m_sidebar->setObjectName("sidebar");
+    m_sidebar = styledPanel("sidebar");
     m_sidebar->setMinimumWidth(200);
     QVBoxLayout *lay = new QVBoxLayout(m_sidebar);
     lay->setContentsMargins(0, 0, 0, 0);
     lay->setSpacing(0);
 
     // 标题行
-    QWidget *head = new QWidget;
+    QWidget *head = styledPanel("sidebarHead");
     QHBoxLayout *headLay = new QHBoxLayout(head);
     headLay->setContentsMargins(10, 7, 8, 7);
     headLay->setSpacing(6);
@@ -874,12 +888,12 @@ QWidget *MainWindow::buildSidebar()
     m_sessionTree->setMouseTracking(true);
     m_sessionTree->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     m_sessionTree->setItemDelegate(new SessionItemDelegate(m_sessionTree));
+    // activated 同时覆盖鼠标双击与键盘回车；再连 itemDoubleClicked 会一次打开两个标签
     connect(m_sessionTree, &QTreeWidget::itemActivated, this, &MainWindow::onSessionTreeActivated);
-    connect(m_sessionTree, &QTreeWidget::itemDoubleClicked, this, &MainWindow::onSessionTreeActivated);
     lay->addWidget(m_sessionTree, 1);
 
     // 底部：新建连接
-    QWidget *foot = new QWidget;
+    QWidget *foot = styledPanel("sidebarFoot");
     QVBoxLayout *footLay = new QVBoxLayout(foot);
     footLay->setContentsMargins(8, 6, 8, 8);
     QPushButton *newBtn = new QPushButton;
@@ -903,6 +917,8 @@ QWidget *MainWindow::buildTerminalArea()
     lay->setSpacing(0);
 
     auto *tabWidget = new TerminalTabWidget;
+    // 标签条右侧的空白也由 QSS 底色铺满（普通 QWidget 需显式开启样式背景）
+    tabWidget->setAttribute(Qt::WA_StyledBackground, true);
     m_screenTabWidget = tabWidget;
     m_screenTabWidget->setDocumentMode(true);
     m_screenTabWidget->setTabsClosable(true);
@@ -925,8 +941,7 @@ QWidget *MainWindow::buildTerminalArea()
     lay->addWidget(m_screenTabWidget, 1);
 
     // 命令输入栏
-    QWidget *cmdBar = new QWidget;
-    cmdBar->setObjectName("commandBar");
+    QWidget *cmdBar = styledPanel("commandBar");
     QHBoxLayout *cmdLay = new QHBoxLayout(cmdBar);
     cmdLay->setContentsMargins(10, 5, 10, 5);
     cmdLay->setSpacing(8);
@@ -978,6 +993,7 @@ void MainWindow::buildStatusBarWidgets()
     m_statusEncoding = new QLabel(QStringLiteral("UTF-8"));
     m_statusSize = new QLabel;
     m_statusLatency = new QLabel;
+    m_statusLatency->setObjectName("statusLatency");
 
     bar->addWidget(m_statusConnection);
     bar->addWidget(m_statusProtocol);

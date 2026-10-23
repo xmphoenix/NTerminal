@@ -494,11 +494,13 @@ static void deriveAppTokens(AppTheme &t)
     const bool dark = t.windowBackground.lightness() < 128;
     t.dark = dark;
     const QColor bg = t.windowBackground;
-    t.panel = dark ? bg.lighter(114) : bg.lighter(103);
-    t.panelHover = dark ? bg.lighter(124) : bg.darker(104);
-    t.panelRaised = dark ? bg.lighter(131) : bg.lighter(107);
-    t.border = dark ? bg.lighter(138) : bg.darker(112);
-    t.borderStrong = dark ? bg.lighter(155) : bg.darker(130);
+    // 浅色：面板比窗口底色略深（侧栏/工具栏下沉），输入框与终端为白色（抬起），
+    // 用明度差 + 更清晰的描边划分子窗口；深色：面板比底色略亮。
+    t.panel = dark ? bg.lighter(114) : bg.darker(106);
+    t.panelHover = dark ? bg.lighter(124) : bg.darker(112);
+    t.panelRaised = dark ? bg.lighter(131) : QColor(255, 255, 255);
+    t.border = dark ? bg.lighter(138) : bg.darker(120);
+    t.borderStrong = dark ? bg.lighter(155) : bg.darker(140);
     t.textDim = dark ? t.windowText.darker(142) : t.windowText.lighter(148);
     t.textFaint = dark ? t.windowText.darker(182) : t.windowText.lighter(185);
     t.accent = t.highlight;

@@ -75,6 +75,8 @@ TerminalProxy::TerminalProxy(QWidget *parent)
     , m_scriptEngine(nullptr)
 {
     setFocusPolicy(Qt::StrongFocus);
+    // 无边框：终端区与标签页面板齐平，避免四周出现 2px 的凹陷边框
+    setFrameShape(QFrame::NoFrame);
     setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     viewport()->setMouseTracking(true);
@@ -2099,11 +2101,36 @@ QString TerminalProxy::screenText() const
 
 void TerminalProxy::setTheme(const TerminalTheme &theme)
 {
+    const QColor oldDefaultForeground = m_defaultForeground;
+    const QColor oldDefaultBackground = m_defaultBackground;
+
     m_currentTheme = theme;
     m_defaultForeground = theme.defaultForeground;
     m_defaultBackground = theme.defaultBackground;
     m_currentForeground = theme.defaultForeground;
     m_currentBackground = theme.defaultBackground;
+
+    // 缓冲区里"未显式着色"的单元格保存的是旧默认色。若只切换默认色，
+    // 这些单元格会继续按旧色绘制（例如浅色主题下留下整块黑色背景）。
+    // 这里把仍使用旧默认色的单元格迁移到新默认色，保留其它显式颜色。
+    if (oldDefaultForeground != m_defaultForeground
+        || oldDefaultBackground != m_defaultBackground) {
+        auto remapDefaultColors = [&](QVector<QVector<Cell>> &buffer) {
+            for (QVector<Cell> &line : buffer) {
+                for (Cell &cell : line) {
+                    if (cell.foreground == oldDefaultForeground) {
+                        cell.foreground = m_defaultForeground;
+                    }
+                    if (cell.background == oldDefaultBackground) {
+                        cell.background = m_defaultBackground;
+                    }
+                }
+            }
+        };
+        remapDefaultColors(m_terminalBuffer);
+        remapDefaultColors(m_historyBuffer);
+        remapDefaultColors(m_alternateBuffer);
+    }
 
     viewport()->setAutoFillBackground(true);
     QPalette pal = viewport()->palette();

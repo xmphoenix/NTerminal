@@ -3,14 +3,36 @@
    - Qt 6.10 QStyleSheetStyle 在规则总量大时存在偶发绘制崩溃，规则须精简；
    - QTabBar 容器禁止设置 background-color（自绘 TerminalTabBar 负责）。 */
 QWidget { background-color: @bg@; color: @text@; }
+/* 文字标签不绘制底色，否则会在面板（工具栏/状态栏）上留下与面板不同色的色块 */
+QLabel { background: transparent; }
 QMainWindow, QDialog { background-color: @bg@; }
-QMenuBar { background-color: @bg@; color: @text@; }
+QMenuBar { background-color: @panel@; color: @text@; border-bottom: 1px solid @border@; }
 QMenu { background-color: @panel@; color: @text@; }
 QToolButton { background: transparent; color: @text@; }
 QPushButton { background-color: @panelRaised@; color: @text@; border: 1px solid @borderStrong@; border-radius: 6px; padding: 5px 14px; }
 QLineEdit { background-color: @panelRaised@; color: @text@; border: 1px solid @border@; border-radius: 6px; padding: 4px 8px; }
 QComboBox { background-color: @panelRaised@; color: @text@; border: 1px solid @border@; border-radius: 6px; padding: 4px 8px; }
-QTabWidget::pane { border: none; }
-QTabBar::tab { padding: 9px 14px; }
-QStatusBar { background-color: @panel@; color: @textDim@; }
+
+/* ---- 面板分界：让顶栏、侧栏、终端区、命令栏、状态栏像独立的子窗口 ---- */
+#topBar { background-color: @panel@; border-bottom: 1px solid @border@; }
+#sidebar { background-color: @panel@; border-right: 1px solid @border@; }
+#sidebarHead { background-color: @panel@; border-bottom: 1px solid @border@; }
+#sidebarTitle { font-weight: 600; color: @text@; }
+#sidebarFoot { background-color: @panel@; border-top: 1px solid @border@; }
+QSplitter::handle:horizontal { background-color: @bg@; border-left: 1px solid @border@; }
+QSplitter::handle:horizontal:hover { border-left: 1px solid @accent@; }
+#commandBar { background-color: @panel@; border-top: 1px solid @border@; }
+QStatusBar { background-color: @panel@; color: @textDim@; border-top: 1px solid @border@; }
+QStatusBar QLabel { padding: 0 10px; border-right: 1px solid @border@; }
+#statusLatency { border-right: none; }
+
+/* ---- 终端标签页：未选中弱化，选中项与终端面板连成一体 ---- */
+/* 标签条空白区域由 QTabWidget 底色铺满（TerminalTabBar 只覆盖标签自身宽度） */
+QTabWidget { background-color: @panel@; }
+QTabWidget::pane { border: 1px solid @border@; border-top: none; background-color: @panel@; }
+QTabBar::tab { background-color: transparent; color: @textDim@; border: 1px solid transparent; border-bottom: none;
+               border-top-left-radius: 5px; border-top-right-radius: 5px; padding: 8px 14px; margin-right: 2px; }
+QTabBar::tab:hover { background-color: @panelHover@; color: @text@; }
+QTabBar::tab:selected { background-color: @panelRaised@; color: @text@; border-color: @border@; }
+
 QTreeView, QTreeWidget { background-color: @panel@; color: @text@; border: none; }
