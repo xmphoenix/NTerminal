@@ -537,8 +537,26 @@ void ThemeManager::initAppThemes()
     theme.toolTipBase = QColor(255, 255, 221);
     theme.toolTipText = QColor(31, 35, 40);
     m_appThemes[theme.id] = theme;
-    
-    // 2. Default Dark —— 设计稿基准主题（GUI_REDESIGN.md 色板）
+
+    // 2. Fresh Light —— 小清新：薄荷白底、墨绿灰文字、青绿强调。
+    // 面板/描边仍由 deriveAppTokens 派生，层级与默认浅色一致，只是色相偏青绿。
+    theme = AppTheme();
+    theme.id = "fresh-light";
+    theme.name = tr("Fresh Light");
+    theme.windowBackground = QColor(0xED, 0xF8, 0xF2);   // 薄荷白
+    theme.windowText = QColor(0x2A, 0x40, 0x38);         // 墨绿灰
+    theme.buttonBackground = QColor(0xE1, 0xF0, 0xE9);
+    theme.buttonText = QColor(0x2A, 0x40, 0x38);
+    theme.highlight = QColor(0x3F, 0xB7, 0x9A);          // 青绿（选中/焦点）
+    theme.highlightText = QColor(0x0F, 0x33, 0x2A);
+    theme.link = QColor(0x1F, 0x8F, 0x7A);
+    theme.menuBackground = QColor(0xE7, 0xF4, 0xED);
+    theme.menuText = QColor(0x2A, 0x40, 0x38);
+    theme.toolTipBase = QColor(0xED, 0xF8, 0xF2);
+    theme.toolTipText = QColor(0x2A, 0x40, 0x38);
+    m_appThemes[theme.id] = theme;
+
+    // 3. Default Dark —— 设计稿基准主题（GUI_REDESIGN.md 色板）
     theme = AppTheme();
     theme.id = "default-dark";
     theme.name = tr("Default Dark");
@@ -569,7 +587,7 @@ void ThemeManager::initAppThemes()
     theme.dark = true;
     m_appThemes[theme.id] = theme;
     
-    // 3. Solarized Light
+    // 4. Solarized Light
     theme = AppTheme();
     theme.id = "solarized-light";
     theme.name = tr("Solarized Light");
@@ -586,7 +604,7 @@ void ThemeManager::initAppThemes()
     theme.toolTipText = QColor(101, 123, 131);
     m_appThemes[theme.id] = theme;
     
-    // 4. Solarized Dark
+    // 5. Solarized Dark
     theme = AppTheme();
     theme.id = "solarized-dark";
     theme.name = tr("Solarized Dark");
@@ -603,7 +621,7 @@ void ThemeManager::initAppThemes()
     theme.toolTipText = QColor(131, 148, 150);
     m_appThemes[theme.id] = theme;
     
-    // 5. Dracula
+    // 6. Dracula
     theme = AppTheme();
     theme.id = "dracula";
     theme.name = tr("Dracula");
@@ -620,7 +638,7 @@ void ThemeManager::initAppThemes()
     theme.toolTipText = QColor(248, 248, 242);
     m_appThemes[theme.id] = theme;
     
-    // 6. Nord
+    // 7. Nord
     theme = AppTheme();
     theme.id = "nord";
     theme.name = tr("Nord");
@@ -645,8 +663,8 @@ void ThemeManager::initAppThemes()
         }
     }
 
-    // 缺省外壳主题：明亮
-    m_currentAppThemeId = "default-light";
+    // 缺省外壳主题：小清新（薄荷绿）
+    m_currentAppThemeId = "fresh-light";
 }
 
 QVector<TerminalTheme> ThemeManager::terminalThemes() const
@@ -722,9 +740,9 @@ void ThemeManager::loadSettings()
     QSettings settings;
     settings.beginGroup("Theme");
 
-    // 缺省主题：明亮（浅色外壳 + 浅底终端）。用户显式切换后以保存值为准。
+    // 缺省主题：小清新外壳 + 浅底终端。用户显式切换后以保存值为准。
     QString terminalThemeId = settings.value("TerminalTheme", "vscode-light").toString();
-    QString appThemeId = settings.value("AppTheme", "default-light").toString();
+    QString appThemeId = settings.value("AppTheme", "fresh-light").toString();
     
     if (m_terminalThemes.contains(terminalThemeId)) {
         m_currentTerminalThemeId = terminalThemeId;

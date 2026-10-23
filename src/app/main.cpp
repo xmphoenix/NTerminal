@@ -92,6 +92,9 @@ static int runGui(int argc, char *argv[])
     // Qt 6 使用 RHI 自动选择渲染后端，不再需要 AA_UseOpenGLES（该属性已废弃）
     QApplication app(argc, argv);
     QCoreApplication::setApplicationName("NTerminal");
+    // QSettings 的缺省构造只取 organizationName()；为空时 Windows 后端不会创建
+    // 注册表路径，主题/字体的保存会静默失效。统一到与其它模块相同的组织名。
+    QCoreApplication::setOrganizationName("NTerminal");
     QCoreApplication::setApplicationVersion("2.0.0");
 
     ThemeManager::instance()->initialize();
