@@ -17,25 +17,25 @@ TestWindow::TestWindow(QWidget *parent)
     , m_summaryLabel(new QLabel(this))
     , m_standardLabel(new QLabel(this))
     , m_standardCombo(new QComboBox(this))
-    , m_runButton(new QPushButton("Run All Tests", this))
-    , m_exportButton(new QPushButton("Export HTML Report", this))
+    , m_runButton(new QPushButton(tr("运行全部测试"), this))
+    , m_exportButton(new QPushButton(tr("导出 HTML 报告"), this))
     , m_currentTestIndex(0)
     , m_passedCount(0)
     , m_failedCount(0)
     , m_currentTerminal(nullptr)
 {
-    setWindowTitle("NTerminal Emulation Tester");
+    setWindowTitle(tr("NTerminal 终端兼容性测试"));
     resize(1200, 800);
-    
+
     // 初始化终端标准选择
-    m_standardCombo->addItem("VT100 (1978) - Basic ANSI/VT100", TerminalTester::VT100);
-    m_standardCombo->addItem("VT102 (1978) - VT100 with additional features", TerminalTester::VT102);
-    m_standardCombo->addItem("VT220 (1983) - Enhanced character sets and codes", TerminalTester::VT220);
-    m_standardCombo->addItem("VT320 (1987) - Additional editing features", TerminalTester::VT320);
-    m_standardCombo->addItem("Linux console - Extended colors and Unicode", TerminalTester::Linux);
-    m_standardCombo->addItem("xterm - X Terminal Emulator (extensive features)", TerminalTester::XTerm);
-    m_standardCombo->addItem("SCOANSI - SCO Unix console", TerminalTester::SCOANSI);
-    m_standardCombo->addItem("ANSI X3.64 / ECMA-48 - Standard terminal", TerminalTester::ANSI);
+    m_standardCombo->addItem(tr("VT100 (1978) - 基本 ANSI/VT100"), TerminalTester::VT100);
+    m_standardCombo->addItem(tr("VT102 (1978) - 在 VT100 基础上增加功能"), TerminalTester::VT102);
+    m_standardCombo->addItem(tr("VT220 (1983) - 增强字符集与编码"), TerminalTester::VT220);
+    m_standardCombo->addItem(tr("VT320 (1987) - 增加编辑功能"), TerminalTester::VT320);
+    m_standardCombo->addItem(tr("Linux console - 扩展颜色与 Unicode"), TerminalTester::Linux);
+    m_standardCombo->addItem(tr("xterm - X 终端模拟器（功能丰富）"), TerminalTester::XTerm);
+    m_standardCombo->addItem(tr("SCOANSI - SCO Unix 控制台"), TerminalTester::SCOANSI);
+    m_standardCombo->addItem(tr("ANSI X3.64 / ECMA-48 - 标准终端"), TerminalTester::ANSI);
     m_standardCombo->setCurrentIndex(0);
     
     // 连接信号
@@ -91,7 +91,7 @@ void TestWindow::setTerminal(TerminalProxy *terminal)
     m_tester->setTerminal(terminal);
     
     if (terminal) {
-        m_logEdit->append("[INFO] Connected to terminal session for testing\n");
+        m_logEdit->append(tr("[INFO] 已连接终端会话，可进行实测\n"));
     }
 }
 
@@ -99,7 +99,7 @@ void TestWindow::setupUI()
 {
     // 顶部控制区
     QHBoxLayout *controlLayout = new QHBoxLayout(m_controlWidget);
-    controlLayout->addWidget(new QLabel("Test Standard:", this));
+    controlLayout->addWidget(new QLabel(tr("测试标准:"), this));
     controlLayout->addWidget(m_standardCombo);
     controlLayout->addStretch();
     controlLayout->addWidget(m_runButton);
@@ -110,13 +110,13 @@ void TestWindow::setupUI()
     m_mainLayout->addWidget(m_standardLabel);
     
     // 标签页
-    m_tabWidget->addTab(m_logEdit, "Test Log");
-    m_tabWidget->addTab(m_reportEdit, "Text Report");
-    m_tabWidget->addTab(m_sequenceEdit, "Sequences");
+    m_tabWidget->addTab(m_logEdit, tr("测试日志"));
+    m_tabWidget->addTab(m_reportEdit, tr("文本报告"));
+    m_tabWidget->addTab(m_sequenceEdit, tr("序列"));
     
     m_mainLayout->addWidget(m_tabWidget);
     
-    m_summaryLabel->setText("Ready to test. Select terminal standard and click 'Run All Tests' to start.");
+    m_summaryLabel->setText(tr("准备就绪。选择终端标准后点击“运行全部测试”开始。"));
 }
 
 void TestWindow::runAllTests()
@@ -131,16 +131,16 @@ void TestWindow::runAllTests()
         m_standardCombo->currentData().toInt());
     
     m_logEdit->append("===========================================\n");
-    m_logEdit->append("     NTerminal Emulation Test\n");
+    m_logEdit->append(tr("     NTerminal 终端兼容性测试\n"));
     m_logEdit->append("===========================================\n");
-    m_logEdit->append("Standard: " + TerminalTester::standardName(std) + "\n");
-    m_logEdit->append("Description: " + TerminalTester::standardDescription(std) + "\n");
-    m_logEdit->append("Started: " + QDateTime::currentDateTime().toString() + "\n\n");
-    
+    m_logEdit->append(tr("标准: %1\n").arg(TerminalTester::standardName(std)));
+    m_logEdit->append(tr("描述: %1\n").arg(TerminalTester::standardDescription(std)));
+    m_logEdit->append(tr("开始时间: %1\n\n").arg(QDateTime::currentDateTime().toString()));
+
     if (m_currentTerminal) {
-        m_logEdit->append("[INFO] Testing connected terminal session\n\n");
+        m_logEdit->append(tr("[INFO] 正在测试已连接的终端会话\n\n"));
     } else {
-        m_logEdit->append("[INFO] Testing terminal emulation (no active connection)\n\n");
+        m_logEdit->append(tr("[INFO] 正在测试终端模拟功能（当前无连接）\n\n"));
     }
     
     m_tester->runAllTests();
@@ -150,7 +150,7 @@ void TestWindow::runAllTests()
     updateSummary();
     
     m_logEdit->append("\n===========================================\n");
-    m_logEdit->append("All tests completed!\n");
+    m_logEdit->append(tr("全部测试完成！\n"));
     m_logEdit->verticalScrollBar()->setValue(m_logEdit->verticalScrollBar()->maximum());
 }
 
@@ -213,7 +213,7 @@ void TestWindow::updateSummary()
     double passRate = total > 0 ? 100.0 * m_passedCount / total : 0.0;
     
     m_summaryLabel->setText(
-        QString("Tests: %1 | Passed: %2 | Failed: %3 | Pass Rate: %4%")
+        tr("测试: %1 | 通过: %2 | 失败: %3 | 通过率: %4%")
             .arg(total)
             .arg(m_passedCount)
             .arg(m_failedCount)
@@ -236,7 +236,7 @@ void TestWindow::updateStandardInfo()
 void TestWindow::exportHtmlReport()
 {
     QString fileName = QFileDialog::getSaveFileName(
-        this, "Export HTML Report", "", "HTML Files (*.html);;All Files (*)");
+        this, tr("导出 HTML 报告"), "", tr("HTML 文件 (*.html);;所有文件 (*)"));
     
     if (!fileName.isEmpty()) {
         QFile file(fileName);
@@ -244,7 +244,7 @@ void TestWindow::exportHtmlReport()
             QTextStream out(&file);
             out << m_tester->generateHtmlReport();
             file.close();
-            m_logEdit->append("\n[INFO] HTML report exported to: " + fileName);
+            m_logEdit->append(tr("\n[INFO] HTML 报告已导出到: %1").arg(fileName));
         }
     }
 }

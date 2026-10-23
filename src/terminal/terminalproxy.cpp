@@ -632,8 +632,8 @@ void TerminalProxy::mouseDoubleClickEvent(QMouseEvent *event)
 void TerminalProxy::contextMenuEvent(QContextMenuEvent *event)
 {
     QMenu menu(this);
-    QAction *copyAction = menu.addAction(tr("Copy"));
-    QAction *pasteAction = menu.addAction(tr("Paste"));
+    QAction *copyAction = menu.addAction(tr("复制"));
+    QAction *pasteAction = menu.addAction(tr("粘贴"));
     
     copyAction->setEnabled(m_hasSelection);
     

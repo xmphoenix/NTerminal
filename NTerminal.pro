@@ -48,7 +48,9 @@ win32 {
     DESTDIR = $$PWD/bin
 
     # 部署 libssh 及其运行时依赖（OpenSSL/pthread/libgcc DLL 已并入 libssh/bin）
-    QMAKE_POST_LINK += powershell -ExecutionPolicy Bypass -Command \"Copy-Item -Path '$$shell_path($$LIBSSH_ROOT/bin/*.dll)' -Destination '$$shell_path($$DESTDIR)' -Force -ErrorAction SilentlyContinue\" $$escape_expand(\\n\\t)
+    # 注意：这里直接使用 LIBSSH_ROOT（D:/... 形式）。在 MSYS/Git Bash 下 qmake 的
+    # shell_path() 会生成 /D/... 的 POSIX 路径，PowerShell 无法识别，导致后置命令失败。
+    QMAKE_POST_LINK += powershell -ExecutionPolicy Bypass -Command \"Copy-Item -Path '$$LIBSSH_ROOT/bin/*.dll' -Destination '$$DESTDIR' -Force -ErrorAction SilentlyContinue\" $$escape_expand(\\n\\t)
 }
 
 # ---- 头文件搜索路径（源码内 include 形如 "ui/xxx.h"、"ipc/xxx.h"） ----
@@ -58,6 +60,7 @@ INCLUDEPATH += $$PWD/src
 SOURCES += \
     src/app/main.cpp \
     src/app/launchoptions.cpp \
+    src/common/languagemanager.cpp \
     src/terminal/terminalproxy.cpp \
     src/terminal/terminalparser.cpp \
     src/terminal/terminaltheme.cpp \
@@ -100,6 +103,7 @@ HEADERS += \
     src/app/launchoptions.h \
     src/common/connectionsettings.h \
     src/common/messagetypes.h \
+    src/common/languagemanager.h \
     src/terminal/terminalproxy.h \
     src/terminal/terminalparser.h \
     src/terminal/terminaltheme.h \
@@ -140,9 +144,11 @@ HEADERS += \
 RESOURCES += \
     resources/resources.qrc
 
+# ---- 国际化 ----
+# 源字符串为中文（缺省界面语言），英文翻译由 translations/NTerminal_en_US.ts 提供，
+# 构建时 lrelease 生成 .qm 并内嵌到 :/i18n/ 资源，运行时按配置加载。
 TRANSLATIONS += \
-    NTerminal_en_US.ts \
-    NTerminal_zh_CN.ts
+    translations/NTerminal_en_US.ts
 CONFIG += lrelease
 CONFIG += embed_translations
 

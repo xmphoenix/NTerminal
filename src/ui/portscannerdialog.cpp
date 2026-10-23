@@ -37,7 +37,7 @@ PortScannerDialog::PortScannerDialog(QWidget *parent)
     , m_scanning(false)
 {
     setupUi();
-    setWindowTitle("Port Scanner");
+    setWindowTitle(tr("端口扫描"));
     resize(600, 500);
 }
 
@@ -51,25 +51,25 @@ void PortScannerDialog::setupUi()
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
 
     // 目标主机设置
-    QGroupBox *targetGroup = new QGroupBox("Target", this);
+    QGroupBox *targetGroup = new QGroupBox(tr("目标主机"), this);
     QGridLayout *targetLayout = new QGridLayout(targetGroup);
 
-    targetLayout->addWidget(new QLabel("Host/IP:", this), 0, 0);
+    targetLayout->addWidget(new QLabel(tr("主机/IP:"), this), 0, 0);
     m_hostEdit = new QLineEdit(this);
-    m_hostEdit->setPlaceholderText("e.g., 192.168.1.1 or example.com");
+    m_hostEdit->setPlaceholderText(tr("例如：192.168.1.1 或 example.com"));
     targetLayout->addWidget(m_hostEdit, 0, 1, 1, 3);
 
-    m_pingButton = new QPushButton("Ping", this);
+    m_pingButton = new QPushButton(tr("Ping"), this);
     connect(m_pingButton, &QPushButton::clicked, this, &PortScannerDialog::onPingHost);
     targetLayout->addWidget(m_pingButton, 0, 4);
 
     mainLayout->addWidget(targetGroup);
 
     // 端口范围设置
-    QGroupBox *portGroup = new QGroupBox("Port Range", this);
+    QGroupBox *portGroup = new QGroupBox(tr("端口范围"), this);
     QGridLayout *portLayout = new QGridLayout(portGroup);
 
-    m_commonPortsCheck = new QCheckBox("Scan Common Ports Only", this);
+    m_commonPortsCheck = new QCheckBox(tr("仅扫描常用端口"), this);
     m_commonPortsCheck->setChecked(true);
     connect(m_commonPortsCheck, &QCheckBox::toggled, this, [this](bool checked) {
         m_startPortSpin->setEnabled(!checked);
@@ -77,14 +77,14 @@ void PortScannerDialog::setupUi()
     });
     portLayout->addWidget(m_commonPortsCheck, 0, 0, 1, 4);
 
-    portLayout->addWidget(new QLabel("Start Port:", this), 1, 0);
+    portLayout->addWidget(new QLabel(tr("起始端口:"), this), 1, 0);
     m_startPortSpin = new QSpinBox(this);
     m_startPortSpin->setRange(1, 65535);
     m_startPortSpin->setValue(1);
     m_startPortSpin->setEnabled(false);
     portLayout->addWidget(m_startPortSpin, 1, 1);
 
-    portLayout->addWidget(new QLabel("End Port:", this), 1, 2);
+    portLayout->addWidget(new QLabel(tr("结束端口:"), this), 1, 2);
     m_endPortSpin = new QSpinBox(this);
     m_endPortSpin->setRange(1, 65535);
     m_endPortSpin->setValue(1024);
@@ -101,11 +101,11 @@ void PortScannerDialog::setupUi()
 
     // 控制按钮
     QHBoxLayout *buttonLayout = new QHBoxLayout();
-    m_startButton = new QPushButton("Start Scan", this);
+    m_startButton = new QPushButton(tr("开始扫描"), this);
     connect(m_startButton, &QPushButton::clicked, this, &PortScannerDialog::onStartScan);
     buttonLayout->addWidget(m_startButton);
 
-    m_stopButton = new QPushButton("Stop", this);
+    m_stopButton = new QPushButton(tr("停止"), this);
     m_stopButton->setEnabled(false);
     connect(m_stopButton, &QPushButton::clicked, this, &PortScannerDialog::onStopScan);
     buttonLayout->addWidget(m_stopButton);
@@ -114,7 +114,7 @@ void PortScannerDialog::setupUi()
     mainLayout->addLayout(buttonLayout);
 
     // 日志输出
-    QLabel *logLabel = new QLabel("Scan Results:", this);
+    QLabel *logLabel = new QLabel(tr("扫描结果:"), this);
     mainLayout->addWidget(logLabel);
 
     m_logText = new QTextEdit(this);
@@ -127,7 +127,7 @@ void PortScannerDialog::onStartScan()
 {
     QString host = m_hostEdit->text().trimmed();
     if (host.isEmpty()) {
-        QMessageBox::warning(this, "Error", "Please enter a host or IP address.");
+        QMessageBox::warning(this, tr("错误"), tr("请输入主机名或 IP 地址。"));
         return;
     }
 
@@ -141,7 +141,7 @@ void PortScannerDialog::onStartScan()
         int endPort = m_endPortSpin->value();
 
         if (startPort > endPort) {
-            QMessageBox::warning(this, "Error", "Start port must be less than or equal to end port.");
+            QMessageBox::warning(this, tr("错误"), tr("起始端口必须小于或等于结束端口。"));
             return;
         }
 
@@ -156,14 +156,14 @@ void PortScannerDialog::onStartScan()
 void PortScannerDialog::onStopScan()
 {
     stopPortScan();
-    appendLog("Scan stopped by user.", "orange");
+    appendLog(tr("扫描已被用户停止。"), "orange");
 }
 
 void PortScannerDialog::onPingHost()
 {
     QString host = m_hostEdit->text().trimmed();
     if (host.isEmpty()) {
-        QMessageBox::warning(this, "Error", "Please enter a host or IP address.");
+        QMessageBox::warning(this, tr("错误"), tr("请输入主机名或 IP 地址。"));
         return;
     }
 
@@ -188,10 +188,10 @@ void PortScannerDialog::startPortScan()
     m_progressBar->setValue(0);
 
     m_logText->clear();
-    appendLog(QString("=== Port Scan Started ==="), "blue");
-    appendLog(QString("Target: %1").arg(m_currentHost), "blue");
-    appendLog(QString("Scanning %1 ports...").arg(m_portsToScan.size()), "blue");
-    appendLog(QString("Time: %1").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss")), "blue");
+    appendLog(tr("=== 端口扫描开始 ==="), "blue");
+    appendLog(tr("目标: %1").arg(m_currentHost), "blue");
+    appendLog(tr("正在扫描 %1 个端口...").arg(m_portsToScan.size()), "blue");
+    appendLog(tr("时间: %1").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss")), "blue");
     appendLog("");
 
     // 创建socket和定时器
@@ -237,10 +237,10 @@ void PortScannerDialog::scanNextPort()
         // 扫描完成
         if (m_scanning) {
             appendLog("");
-            appendLog(QString("=== Scan Completed ==="), "blue");
-            appendLog(QString("Total ports scanned: %1").arg(m_portsToScan.size()), "blue");
-            appendLog(QString("Open ports found: %1").arg(m_openPortCount), "green");
-            appendLog(QString("Time: %1").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss")), "blue");
+            appendLog(tr("=== 扫描完成 ==="), "blue");
+            appendLog(tr("共扫描端口: %1").arg(m_portsToScan.size()), "blue");
+            appendLog(tr("发现开放端口: %1").arg(m_openPortCount), "green");
+            appendLog(tr("时间: %1").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss")), "blue");
         }
         stopPortScan();
         return;
@@ -264,7 +264,7 @@ void PortScannerDialog::onSocketConnected()
     int port = m_portsToScan[m_currentPortIndex];
     QString serviceName = getServiceName(port);
 
-    appendLog(QString("Port %1 is OPEN - %2").arg(port).arg(serviceName), "green");
+    appendLog(tr("端口 %1 开放 - %2").arg(port).arg(serviceName), "green");
     m_openPortCount++;
 
     m_socket->disconnectFromHost();
@@ -299,7 +299,7 @@ void PortScannerDialog::appendLog(const QString &message, const QString &color)
 void PortScannerDialog::pingHost(const QString &host)
 {
     appendLog("");
-    appendLog(QString("=== Pinging %1 ===").arg(host), "blue");
+    appendLog(tr("=== 正在 Ping %1 ===").arg(host), "blue");
 
     QProcess *pingProcess = new QProcess(this);
 
@@ -326,9 +326,9 @@ void PortScannerDialog::pingHost(const QString &host)
     connect(pingProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
             this, [this, pingProcess](int exitCode, QProcess::ExitStatus exitStatus) {
         if (exitCode == 0) {
-            appendLog("Ping completed successfully.", "green");
+            appendLog(tr("Ping 完成。"), "green");
         } else {
-            appendLog("Ping failed or host unreachable.", "red");
+            appendLog(tr("Ping 失败或主机不可达。"), "red");
         }
         pingProcess->deleteLater();
     });
@@ -357,5 +357,5 @@ QString PortScannerDialog::getServiceName(int port)
         {8443, "HTTPS-Alt"}
     };
 
-    return serviceNames.value(port, "Unknown");
+    return serviceNames.value(port, tr("未知"));
 }

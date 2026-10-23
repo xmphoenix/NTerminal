@@ -12,7 +12,7 @@ AsciiTableDialog::AsciiTableDialog(QWidget *parent)
 {
     setupUi();
     populateTable();
-    setWindowTitle("ASCII Table");
+    setWindowTitle(tr("ASCII 码表"));
     resize(700, 600);
 }
 
@@ -26,9 +26,9 @@ void AsciiTableDialog::setupUi()
 
     // 搜索框
     QHBoxLayout *searchLayout = new QHBoxLayout();
-    searchLayout->addWidget(new QLabel("Search:", this));
+    searchLayout->addWidget(new QLabel(tr("搜索:"), this));
     m_searchEdit = new QLineEdit(this);
-    m_searchEdit->setPlaceholderText("Enter decimal or hex value...");
+    m_searchEdit->setPlaceholderText(tr("输入十进制或十六进制值..."));
     connect(m_searchEdit, &QLineEdit::textChanged,
             this, &AsciiTableDialog::onSearchTextChanged);
     searchLayout->addWidget(m_searchEdit);
@@ -37,7 +37,7 @@ void AsciiTableDialog::setupUi()
     // ASCII表格
     m_table = new QTableWidget(this);
     m_table->setColumnCount(4);
-    m_table->setHorizontalHeaderLabels({"DEC", "HEX", "Char", "Description"});
+    m_table->setHorizontalHeaderLabels({tr("十进制"), tr("十六进制"), tr("字符"), tr("描述")});
     m_table->setRowCount(256);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -51,8 +51,7 @@ void AsciiTableDialog::setupUi()
 
     // 说明文本
     QLabel *infoLabel = new QLabel(
-        "Click on a row to copy the character to clipboard. "
-        "Control characters (0-31, 127) are shown with their names.",
+        tr("单击某一行可将该字符复制到剪贴板。控制字符（0-31、127）以名称显示。"),
         this);
     infoLabel->setWordWrap(true);
     infoLabel->setStyleSheet("QLabel { color: gray; font-size: 10px; }");
@@ -94,9 +93,9 @@ void AsciiTableDialog::populateTable()
         if (i < 32 || i == 127) {
             desc = getControlCharName(i);
         } else if (i >= 32 && i < 127) {
-            desc = "Printable character";
+            desc = tr("可打印字符");
         } else {
-            desc = "Extended ASCII";
+            desc = tr("扩展 ASCII");
         }
         QTableWidgetItem *descItem = new QTableWidgetItem(desc);
         m_table->setItem(i, 3, descItem);
@@ -143,7 +142,7 @@ QString AsciiTableDialog::getControlCharName(int code)
         {127, "DEL (Delete)"}
     };
 
-    return controlChars.value(code, "Unknown");
+    return controlChars.value(code, tr("未知"));
 }
 
 void AsciiTableDialog::onSearchTextChanged(const QString &text)
@@ -207,7 +206,7 @@ void AsciiTableDialog::onCellClicked(int row, int column)
         clipboard->setText(charStr);
 
         // 显示提示
-        m_table->setToolTip(QString("Copied: %1 (DEC: %2, HEX: 0x%3)")
+        m_table->setToolTip(tr("已复制: %1 (十进制: %2, 十六进制: 0x%3)")
                             .arg(charStr)
                             .arg(row)
                             .arg(row, 2, 16, QChar('0')).toUpper());

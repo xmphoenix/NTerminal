@@ -14,7 +14,7 @@ CalculatorDialog::CalculatorDialog(QWidget *parent)
     , m_newInput(true)
 {
     setupUi();
-    setWindowTitle("Calculator");
+    setWindowTitle(tr("计算器"));
     resize(400, 500);
 }
 
@@ -38,12 +38,12 @@ void CalculatorDialog::setupUi()
 
     // 进制选择
     QHBoxLayout *baseLayout = new QHBoxLayout();
-    baseLayout->addWidget(new QLabel("Base:", this));
+    baseLayout->addWidget(new QLabel(tr("进制:"), this));
     m_baseCombo = new QComboBox(this);
-    m_baseCombo->addItem("HEX (16)", 16);
-    m_baseCombo->addItem("DEC (10)", 10);
-    m_baseCombo->addItem("OCT (8)", 8);
-    m_baseCombo->addItem("BIN (2)", 2);
+    m_baseCombo->addItem(tr("十六进制 (16)"), 16);
+    m_baseCombo->addItem(tr("十进制 (10)"), 10);
+    m_baseCombo->addItem(tr("八进制 (8)"), 8);
+    m_baseCombo->addItem(tr("二进制 (2)"), 2);
     m_baseCombo->setCurrentIndex(1); // 默认十进制
     connect(m_baseCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &CalculatorDialog::onBaseChanged);
@@ -52,32 +52,32 @@ void CalculatorDialog::setupUi()
     mainLayout->addLayout(baseLayout);
 
     // 进制转换显示
-    QGroupBox *conversionGroup = new QGroupBox("Conversions", this);
+    QGroupBox *conversionGroup = new QGroupBox(tr("进制转换"), this);
     QVBoxLayout *convLayout = new QVBoxLayout(conversionGroup);
 
     QHBoxLayout *hexLayout = new QHBoxLayout();
-    hexLayout->addWidget(new QLabel("HEX:", this));
+    hexLayout->addWidget(new QLabel(tr("十六进制:"), this));
     m_hexLabel = new QLabel("0", this);
     m_hexLabel->setStyleSheet("QLabel { background-color: white; padding: 5px; }");
     hexLayout->addWidget(m_hexLabel, 1);
     convLayout->addLayout(hexLayout);
 
     QHBoxLayout *decLayout = new QHBoxLayout();
-    decLayout->addWidget(new QLabel("DEC:", this));
+    decLayout->addWidget(new QLabel(tr("十进制:"), this));
     m_decLabel = new QLabel("0", this);
     m_decLabel->setStyleSheet("QLabel { background-color: white; padding: 5px; }");
     decLayout->addWidget(m_decLabel, 1);
     convLayout->addLayout(decLayout);
 
     QHBoxLayout *octLayout = new QHBoxLayout();
-    octLayout->addWidget(new QLabel("OCT:", this));
+    octLayout->addWidget(new QLabel(tr("八进制:"), this));
     m_octLabel = new QLabel("0", this);
     m_octLabel->setStyleSheet("QLabel { background-color: white; padding: 5px; }");
     octLayout->addWidget(m_octLabel, 1);
     convLayout->addLayout(octLayout);
 
     QHBoxLayout *binLayout = new QHBoxLayout();
-    binLayout->addWidget(new QLabel("BIN:", this));
+    binLayout->addWidget(new QLabel(tr("二进制:"), this));
     m_binLabel = new QLabel("0", this);
     m_binLabel->setStyleSheet("QLabel { background-color: white; padding: 5px; }");
     binLayout->addWidget(m_binLabel, 1);
@@ -211,7 +211,7 @@ void CalculatorDialog::onEqualClicked()
         if (currentVal != 0) {
             result = m_operand / currentVal;
         } else {
-            m_currentValue = "Error";
+            m_currentValue = tr("错误");
             m_display->setText(m_currentValue);
             m_operator.clear();
             m_newInput = true;

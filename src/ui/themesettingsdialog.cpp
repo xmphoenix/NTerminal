@@ -14,11 +14,11 @@ ThemeSettingsDialog::ThemeSettingsDialog(QWidget *parent)
     , m_fontSizeSpinBox(new QSpinBox(this))
     , m_appThemePreview(new QLabel(this))
     , m_fontPreview(new QLabel(this))
-    , m_terminalPreviewGroup(new QGroupBox(tr("Terminal Theme Preview"), this))
+    , m_terminalPreviewGroup(new QGroupBox(tr("终端主题预览"), this))
     , m_colorLayout(new QGridLayout())
-    , m_applyButton(new QPushButton(tr("Apply"), this))
-    , m_okButton(new QPushButton(tr("OK"), this))
-    , m_cancelButton(new QPushButton(tr("Cancel"), this))
+    , m_applyButton(new QPushButton(tr("应用"), this))
+    , m_okButton(new QPushButton(tr("确定"), this))
+    , m_cancelButton(new QPushButton(tr("取消"), this))
     , m_selectedFontSize(10)
 {
     setupUi();
@@ -33,23 +33,23 @@ ThemeSettingsDialog::~ThemeSettingsDialog()
 
 void ThemeSettingsDialog::setupUi()
 {
-    setWindowTitle(tr("Theme Settings"));
+    setWindowTitle(tr("主题设置"));
     setMinimumSize(650, 600);
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
 
-    QGroupBox *appThemeGroup = new QGroupBox(tr("Application Theme"), this);
+    QGroupBox *appThemeGroup = new QGroupBox(tr("应用主题"), this);
     QFormLayout *appThemeLayout = new QFormLayout(appThemeGroup);
-    appThemeLayout->addRow(tr("Theme:"), m_appThemeCombo);
+    appThemeLayout->addRow(tr("主题:"), m_appThemeCombo);
 
     m_appThemePreview->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
     m_appThemePreview->setMinimumHeight(60);
     m_appThemePreview->setAlignment(Qt::AlignCenter);
-    appThemeLayout->addRow(tr("Preview:"), m_appThemePreview);
+    appThemeLayout->addRow(tr("预览:"), m_appThemePreview);
 
     mainLayout->addWidget(appThemeGroup);
 
-    QGroupBox *fontGroup = new QGroupBox(tr("Font Settings"), this);
+    QGroupBox *fontGroup = new QGroupBox(tr("字体设置"), this);
     QFormLayout *fontLayout = new QFormLayout(fontGroup);
 
     m_fontSizeSpinBox->setRange(8, 72);
@@ -57,22 +57,22 @@ void ThemeSettingsDialog::setupUi()
 
     QHBoxLayout *fontSizeLayout = new QHBoxLayout();
     fontSizeLayout->addWidget(m_fontCombo);
-    fontSizeLayout->addWidget(new QLabel(tr("Size:")));
+    fontSizeLayout->addWidget(new QLabel(tr("字号:")));
     fontSizeLayout->addWidget(m_fontSizeSpinBox);
 
-    fontLayout->addRow(tr("Font:"), fontSizeLayout);
+    fontLayout->addRow(tr("字体:"), fontSizeLayout);
 
     m_fontPreview->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
     m_fontPreview->setMinimumHeight(60);
     m_fontPreview->setAlignment(Qt::AlignCenter);
     m_fontPreview->setText("The quick brown fox jumps over the lazy dog. 0123456789");
-    fontLayout->addRow(tr("Preview:"), m_fontPreview);
+    fontLayout->addRow(tr("预览:"), m_fontPreview);
 
     mainLayout->addWidget(fontGroup);
 
-    QGroupBox *terminalThemeGroup = new QGroupBox(tr("Terminal Theme"), this);
+    QGroupBox *terminalThemeGroup = new QGroupBox(tr("终端主题"), this);
     QFormLayout *terminalThemeLayout = new QFormLayout(terminalThemeGroup);
-    terminalThemeLayout->addRow(tr("Theme:"), m_terminalThemeCombo);
+    terminalThemeLayout->addRow(tr("主题:"), m_terminalThemeCombo);
 
     mainLayout->addWidget(terminalThemeGroup);
 
@@ -217,14 +217,14 @@ void ThemeSettingsDialog::updateColorPreview(QGridLayout *layout, const Terminal
         delete item;
     }
     
-    QLabel *bgLabel = new QLabel(tr("Background"));
+    QLabel *bgLabel = new QLabel(tr("背景"));
     bgLabel->setAlignment(Qt::AlignCenter);
     bgLabel->setStyleSheet(QString("background-color: %1; color: %2; border: 1px solid #666; padding: 4px;")
                            .arg(theme.defaultBackground.name())
                            .arg(theme.defaultForeground.name()));
     layout->addWidget(bgLabel, 0, 0, 1, 2);
     
-    QLabel *fgLabel = new QLabel(tr("Foreground"));
+    QLabel *fgLabel = new QLabel(tr("前景"));
     fgLabel->setAlignment(Qt::AlignCenter);
     fgLabel->setStyleSheet(QString("background-color: %1; color: %2; border: 1px solid #666; padding: 4px;")
                            .arg(theme.defaultForeground.name())
@@ -232,8 +232,8 @@ void ThemeSettingsDialog::updateColorPreview(QGridLayout *layout, const Terminal
     layout->addWidget(fgLabel, 0, 2, 1, 2);
     
     QStringList colorNames = {
-        tr("Black"), tr("Red"), tr("Green"), tr("Yellow"),
-        tr("Blue"), tr("Magenta"), tr("Cyan"), tr("White")
+        tr("黑"), tr("红"), tr("绿"), tr("黄"),
+        tr("蓝"), tr("品红"), tr("青"), tr("白")
     };
     
     for (int i = 0; i < 8; ++i) {
@@ -250,7 +250,7 @@ void ThemeSettingsDialog::updateColorPreview(QGridLayout *layout, const Terminal
         layout->addWidget(label, 1 + i / 4, i % 4);
     }
     
-    QLabel *brightTitle = new QLabel(tr("Bright Colors"));
+    QLabel *brightTitle = new QLabel(tr("亮色"));
     brightTitle->setAlignment(Qt::AlignCenter);
     brightTitle->setStyleSheet("font-weight: bold; padding: 4px;");
     layout->addWidget(brightTitle, 3, 0, 1, 4);

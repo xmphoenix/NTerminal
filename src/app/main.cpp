@@ -4,12 +4,11 @@
 #include "theme/fontmanager.h"
 #include "ui/testwindow.h"
 #include "app/launchoptions.h"
+#include "common/languagemanager.h"
 
 #include <QApplication>
 #include <QCoreApplication>
 #include <QStringList>
-#include <QLocale>
-#include <QTranslator>
 #include <QDebug>
 #include <QFile>
 #include <QTextStream>
@@ -98,19 +97,9 @@ static int runGui(int argc, char *argv[])
     ThemeManager::instance()->initialize();
     FontManager::instance()->initialize();
 
-    // Detect system language: if Chinese, load Chinese translation; otherwise use English source
-    QTranslator translator;
-    QLocale systemLocale = QLocale::system();
-    QString languageName = systemLocale.name(); // e.g. "zh_CN", "en_US", "zh_TW"
-
-    if (languageName.startsWith("zh")) {
-        // Try to load Chinese translation
-        if (translator.load(":/i18n/NTerminal_zh_CN")) {
-            app.installTranslator(&translator);
-        }
-        // If zh_CN.qm not found, falls through to source strings
-    }
-    // Non-Chinese locales: no translator installed, English source strings used as-is
+    // 界面语言：源码字符串为中文（缺省），用户可在"设置 → 语言"切换到英文，
+    // 选择结果写入配置，下次启动沿用。
+    LanguageManager::instance()->initialize();
 
     MainWindow window;
     window.show();

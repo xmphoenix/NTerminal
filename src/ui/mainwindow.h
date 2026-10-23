@@ -2,6 +2,8 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QList>
+#include <functional>
 #include "common/connectionsettings.h"
 
 class TerminalProxy;
@@ -18,6 +20,7 @@ class QMenu;
 class QAction;
 class QToolButton;
 class QShowEvent;
+class QEvent;
 class SessionManager;
 
 class MainWindow : public QMainWindow
@@ -33,6 +36,8 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
     // 首帧把窗口夹到可用屏幕区域内（见实现）
     void showEvent(QShowEvent *event) override;
+    // 语言切换（QEvent::LanguageChange）时重设全部界面文案
+    void changeEvent(QEvent *event) override;
 
 private slots:
     void openTerminalTester();
@@ -60,6 +65,10 @@ private slots:
 private:
     void initMainWindowLayout();
     void initMainWindowMenu();
+    // 注册一段"重设文案"回调：立即执行一次，语言切换时再执行
+    void bindText(std::function<void()> apply);
+    // 重新设置所有已注册文案（菜单、顶栏、侧栏、状态栏等）
+    void retranslateUi();
     QWidget *buildTopBar();
     QWidget *buildSidebar();
     QWidget *buildTerminalArea();
@@ -108,6 +117,8 @@ private:
     TerminalProxy *m_currentTerminal = nullptr;
     int m_nextTerminalId = 1;
     bool m_geometryAdjusted = false;   // showEvent 只校正一次窗口尺寸
+    // 文案绑定：语言切换时统一重设，避免为每个控件保存成员指针
+    QList<std::function<void()>> m_textBindings;
 
     // ---- 状态栏 ----
     QLabel *m_statusConnection = nullptr;
@@ -137,6 +148,15 @@ private:
     QAction *m_logSettingsAction = nullptr;
     // 持久化"Load Session"子菜单（populateSessionMenu 只重建其内容，避免累积泄漏）
     QMenu *m_loadSessionMenu = nullptr;
+    // 语言切换（设置 → 语言）
+    QMenu *m_languageMenu = nullptr;
+    QAction *m_chineseAction = nullptr;
+    QAction *m_englishAction = nullptr;
+    // 工具/测试动作（按指针重建图标，不受当前界面语言影响）
+    QAction *m_terminalTestAction = nullptr;
+    QAction *m_calculatorAction = nullptr;
+    QAction *m_portScannerAction = nullptr;
+    QAction *m_asciiTableAction = nullptr;
 
     // 脚本相关 Action
     QAction *m_loadScriptAction = nullptr;

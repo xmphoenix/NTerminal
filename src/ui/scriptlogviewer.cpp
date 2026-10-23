@@ -108,9 +108,9 @@ void ScriptLogViewer::exportLog()
     out.setEncoding(QStringConverter::Utf8);
 
     // 写入头部信息
-    out << "=== NTerminal Script Log ===" << "\n";
-    out << "Script: " << m_scriptName << "\n";
-    out << "Export Time: " << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss") << "\n";
+    out << tr("=== NTerminal 脚本日志 ===") << "\n";
+    out << tr("脚本: ") << m_scriptName << "\n";
+    out << tr("导出时间: ") << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss") << "\n";
     out << "============================" << "\n\n";
 
     // 写入日志消息

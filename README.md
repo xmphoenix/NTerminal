@@ -9,6 +9,10 @@
 - Windows libssh 构建指南：[docs/LIBSSH_BUILD_GUIDE.md](docs/LIBSSH_BUILD_GUIDE.md)
 - 单元测试规范：[docs/TESTING.md](docs/TESTING.md)
 
+## 界面语言
+
+界面缺省为中文（源码字符串即中文），可在「设置 → 语言」中即时切换到 English，选择写入配置（`QSettings` 的 `UI/Language`），下次启动沿用。英文翻译源文件为 [translations/NTerminal_en_US.ts](translations/NTerminal_en_US.ts)，构建时由 `lrelease` 生成 `.qm` 并内嵌到 `:/i18n/`。修改界面文案后重新生成翻译：`lupdate NTerminal.pro -no-obsolete -locations none`。
+
 ## 目录结构
 
 - `src/app` — 入口与进程模式（GUI / `--session` 会话进程 / `--test` 测试窗口）

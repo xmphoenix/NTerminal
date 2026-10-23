@@ -7,6 +7,7 @@
 #include "services/sessionmanager.h"
 #include "theme/thememanager.h"
 #include "theme/fontmanager.h"
+#include "common/languagemanager.h"
 #include "ui/themesettingsdialog.h"
 #include "ui/logconfigdialog.h"
 #include "ui/testwindow.h"
@@ -39,6 +40,9 @@
 #include <QWindow>
 #include <QShowEvent>
 #include <QStyle>
+#include <QActionGroup>
+#include <QCoreApplication>
+#include <QEvent>
 #include <QDebug>
 #include <QMessageBox>
 
@@ -175,7 +179,7 @@ void MainWindow::populateSessionMenu()
     QList<SessionManager::Session> sessions = m_sessionManager->getSessions();
 
     if (sessions.isEmpty()) {
-        QAction *noSessionsAction = m_loadSessionMenu->addAction("No sessions available");
+        QAction *noSessionsAction = m_loadSessionMenu->addAction(tr("暂无已保存会话"));
         noSessionsAction->setEnabled(false);
         populateSessionTree();
         return;
@@ -192,7 +196,7 @@ void MainWindow::populateSessionMenu()
             qDebug() << "Loading session:" << session.name;
 
             QString tabName = session.name.isEmpty() ?
-                QString("Terminal %1").arg(m_terminals.size() + 1) :
+                tr("终端 %1").arg(m_terminals.size() + 1) :
                 session.name;
 
             TerminalProxy *terminal = createNewTerminalTab(tabName);
@@ -216,7 +220,7 @@ void MainWindow::populateSessionMenu()
 TerminalProxy* MainWindow::createNewTerminalTab(const QString &tabName)
 {
     QString terminalId = QString("terminal_%1").arg(m_nextTerminalId++);
-    QString displayName = tabName.isEmpty() ? QString("Terminal %1").arg(m_terminals.size() + 1) : tabName;
+    QString displayName = tabName.isEmpty() ? tr("终端 %1").arg(m_terminals.size() + 1) : tabName;
     
     TerminalProxy *terminal = new TerminalProxy();
 
@@ -339,7 +343,7 @@ public:
 QString protocolName(Common::ConnectionType type)
 {
     switch (type) {
-    case Common::ConnectionType::Serial: return QStringLiteral("Serial");
+    case Common::ConnectionType::Serial: return MainWindow::tr("串口");
     case Common::ConnectionType::Telnet: return QStringLiteral("Telnet");
     case Common::ConnectionType::SSH:    return QStringLiteral("SSH");
     case Common::ConnectionType::Rlogin: return QStringLiteral("Rlogin");
@@ -347,7 +351,7 @@ QString protocolName(Common::ConnectionType type)
     case Common::ConnectionType::FTP:    return QStringLiteral("FTP");
     case Common::ConnectionType::TFTP:   return QStringLiteral("TFTP");
     }
-    return QStringLiteral("Unknown");
+    return MainWindow::tr("未知");
 }
 
 // 会话副文本：网络类 "user@host:port"，串口 "COMx · baud 8N1"
@@ -660,6 +664,34 @@ void MainWindow::showEvent(QShowEvent *event)
     });
 }
 
+void MainWindow::bindText(std::function<void()> apply)
+{
+    m_textBindings.append(std::move(apply));
+    m_textBindings.last()();
+}
+
+void MainWindow::retranslateUi()
+{
+    for (const auto &apply : m_textBindings) {
+        apply();
+    }
+    updateStatusBar();
+    // 会话树分组名、空树提示由 populateSessionTree() 生成，重建以套用新语言
+    populateSessionTree();
+    if (m_sessionSearch && !m_sessionSearch->text().isEmpty()) {
+        filterSessionTree(m_sessionSearch->text());
+    }
+    populateSessionMenu();
+}
+
+void MainWindow::changeEvent(QEvent *event)
+{
+    if (event->type() == QEvent::LanguageChange) {
+        retranslateUi();
+    }
+    QMainWindow::changeEvent(event);
+}
+
 void MainWindow::initMainWindowLayout()
 {
     // 中央布局：顶栏（工具栏）+ 主体（侧栏 | 终端区）
@@ -707,7 +739,8 @@ QWidget *MainWindow::buildTopBar()
     lay->setSpacing(8);
 
     // 主操作：新建会话
-    QPushButton *newBtn = new QPushButton(tr("新建会话"));
+    QPushButton *newBtn = new QPushButton;
+    bindText([newBtn] { newBtn->setText(tr("新建会话")); });
     newBtn->setProperty("class", "primary");
     newBtn->setIcon(IconProvider::icon("new-session", QColor(Qt::white)));
     newBtn->setCursor(Qt::PointingHandCursor);
@@ -718,12 +751,22 @@ QWidget *MainWindow::buildTopBar()
 
     // 快速连接：协议 + 地址 + 连接
     m_quickProtocolCombo = new QComboBox;
-    m_quickProtocolCombo->addItems({ "SSH", "Telnet", "Rlogin", "Serial", "SFTP", "FTP", "TFTP" });
+    // 协议名按语言重设（选项按索引取协议，重建时保留当前索引）
+    bindText([this] {
+        const int index = m_quickProtocolCombo->currentIndex();
+        m_quickProtocolCombo->clear();
+        m_quickProtocolCombo->addItems({ QStringLiteral("SSH"), QStringLiteral("Telnet"),
+                                         QStringLiteral("Rlogin"), tr("串口"),
+                                         QStringLiteral("SFTP"), QStringLiteral("FTP"),
+                                         QStringLiteral("TFTP") });
+        m_quickProtocolCombo->setCurrentIndex(index < 0 ? 0 : index);
+    });
     m_quickProtocolCombo->setFixedWidth(86);
     m_quickConnectEdit = new QLineEdit;
-    m_quickConnectEdit->setPlaceholderText(tr("user@host:port 快速连接"));
+    bindText([this] { m_quickConnectEdit->setPlaceholderText(tr("user@host:port 快速连接")); });
     m_quickConnectEdit->setMinimumWidth(210);
-    QPushButton *goBtn = new QPushButton(tr("连接"));
+    QPushButton *goBtn = new QPushButton;
+    bindText([goBtn] { goBtn->setText(tr("连接")); });
     connect(goBtn, &QPushButton::clicked, this, &MainWindow::onQuickConnect);
     connect(m_quickConnectEdit, &QLineEdit::returnPressed, this, &MainWindow::onQuickConnect);
     lay->addWidget(m_quickProtocolCombo);
@@ -739,44 +782,44 @@ QWidget *MainWindow::buildTopBar()
 
     addSeparator();
 
-    // 会话操作图标组
-    auto addIconButton = [&](const QString &icon, const QString &tip,
+    // 会话操作图标组（提示文案延迟到语言切换时重新求值）
+    auto addIconButton = [&](const QString &icon, std::function<QString()> tip,
                              const std::function<void()> &handler) {
         QToolButton *button = new QToolButton;
         button->setProperty("iconName", icon);
         button->setIcon(IconProvider::themedIcon(icon));
-        button->setToolTip(tip);
+        bindText([button, tip] { button->setToolTip(tip()); });
         button->setAutoRaise(true);
         connect(button, &QToolButton::clicked, this, handler);
         lay->addWidget(button);
         return button;
     };
 
-    addIconButton("disconnect", tr("断开当前会话"), [this]() {
+    addIconButton("disconnect", [] { return tr("断开当前会话"); }, [this]() {
         if (TerminalProxy *t = getCurrentTerminal()) {
             t->closeConnection();
         }
     });
-    addIconButton("reconnect", tr("重新连接"), [this]() {
+    addIconButton("reconnect", [] { return tr("重新连接"); }, [this]() {
         if (TerminalProxy *t = getCurrentTerminal()) {
             t->closeConnection();
             t->openConnection();
         }
     });
-    addIconButton("duplicate", tr("复制会话"), [this]() {
+    addIconButton("duplicate", [] { return tr("复制会话"); }, [this]() {
         duplicateSession();
     });
 
     addSeparator();
 
     // 工具入口
-    addIconButton("script", tr("脚本"), [this]() { showScriptControlPanel(); });
-    addIconButton("tools", tr("工具"), [this]() { showPortScanner(); });
+    addIconButton("script", [] { return tr("脚本"); }, [this]() { showScriptControlPanel(); });
+    addIconButton("tools", [] { return tr("工具"); }, [this]() { showPortScanner(); });
 
     lay->addStretch(1);
 
-    addIconButton("theme", tr("主题设置"), [this]() { showThemeSettings(); });
-    addIconButton("settings", tr("日志设置"), [this]() { showLogSettings(); });
+    addIconButton("theme", [] { return tr("主题设置"); }, [this]() { showThemeSettings(); });
+    addIconButton("settings", [] { return tr("日志设置"); }, [this]() { showLogSettings(); });
 
     return bar;
 }
@@ -795,11 +838,12 @@ QWidget *MainWindow::buildSidebar()
     QHBoxLayout *headLay = new QHBoxLayout(head);
     headLay->setContentsMargins(10, 7, 8, 7);
     headLay->setSpacing(6);
-    QLabel *title = new QLabel(tr("会话管理器"));
+    QLabel *title = new QLabel;
     title->setObjectName("sidebarTitle");
+    bindText([title] { title->setText(tr("会话管理器")); });
     QToolButton *headAdd = new QToolButton;
     headAdd->setIcon(IconProvider::themedIcon("new-session"));
-    headAdd->setToolTip(tr("新建连接"));
+    bindText([headAdd] { headAdd->setToolTip(tr("新建连接")); });
     headAdd->setAutoRaise(true);
     connect(headAdd, &QToolButton::clicked, this, [this]() {
         openConnectionFromDialog(true);
@@ -811,7 +855,7 @@ QWidget *MainWindow::buildSidebar()
 
     // 搜索框
     m_sessionSearch = new QLineEdit;
-    m_sessionSearch->setPlaceholderText(tr("搜索会话"));
+    bindText([this] { m_sessionSearch->setPlaceholderText(tr("搜索会话")); });
     m_sessionSearch->setClearButtonEnabled(true);
     connect(m_sessionSearch, &QLineEdit::textChanged, this, &MainWindow::filterSessionTree);
     QWidget *searchWrap = new QWidget;
@@ -838,7 +882,8 @@ QWidget *MainWindow::buildSidebar()
     QWidget *foot = new QWidget;
     QVBoxLayout *footLay = new QVBoxLayout(foot);
     footLay->setContentsMargins(8, 6, 8, 8);
-    QPushButton *newBtn = new QPushButton(tr("新建连接"));
+    QPushButton *newBtn = new QPushButton;
+    bindText([newBtn] { newBtn->setText(tr("新建连接")); });
     newBtn->setIcon(IconProvider::themedIcon("new-session"));
     newBtn->setCursor(Qt::PointingHandCursor);
     connect(newBtn, &QPushButton::clicked, this, [this]() {
@@ -892,7 +937,7 @@ QWidget *MainWindow::buildTerminalArea()
 
     m_commandLineEdit = new QLineEdit;
     m_commandLineEdit->setObjectName("commandLine");
-    m_commandLineEdit->setPlaceholderText(tr("输入命令，Enter 发送"));
+    bindText([this] { m_commandLineEdit->setPlaceholderText(tr("输入命令，Enter 发送")); });
     connect(m_commandLineEdit, &QLineEdit::returnPressed, this, [this]() {
         const QString command = m_commandLineEdit->text().trimmed();
         if (command.isEmpty()) {
@@ -910,7 +955,7 @@ QWidget *MainWindow::buildTerminalArea()
 
     QToolButton *sendBtn = new QToolButton;
     sendBtn->setIcon(IconProvider::themedIcon("send"));
-    sendBtn->setToolTip(tr("发送"));
+    bindText([sendBtn] { sendBtn->setToolTip(tr("发送")); });
     sendBtn->setAutoRaise(true);
     connect(sendBtn, &QToolButton::clicked, this, [this]() {
         emit m_commandLineEdit->returnPressed();
@@ -948,87 +993,159 @@ void MainWindow::initMainWindowMenu()
     // 使用 QMainWindow 内置 menuBar，避免 new QMenuBar() 泄漏 Qt 预创建的默认菜单栏
     m_menuBar = this->menuBar();
 
-    m_fileMenu = m_menuBar->addMenu("File");
-    m_editMenu = m_menuBar->addMenu("Edit");
-    m_viewMenu = m_menuBar->addMenu("View");
-    m_optMenu = m_menuBar->addMenu("Settings");
-    m_transmitMenu = m_menuBar->addMenu("Transmit");
-    m_scriptMenu = m_menuBar->addMenu("Script");
-    m_toolsMenu = m_menuBar->addMenu("Tools");
-    m_pluginMenu = m_menuBar->addMenu("Plugin");
-    m_helpMenu = m_menuBar->addMenu("Help");
+    // 菜单标题先留空，统一在 bindText 中按当前语言填写
+    m_fileMenu = m_menuBar->addMenu(QString());
+    m_editMenu = m_menuBar->addMenu(QString());
+    m_viewMenu = m_menuBar->addMenu(QString());
+    m_optMenu = m_menuBar->addMenu(QString());
+    m_transmitMenu = m_menuBar->addMenu(QString());
+    m_scriptMenu = m_menuBar->addMenu(QString());
+    m_toolsMenu = m_menuBar->addMenu(QString());
+    m_pluginMenu = m_menuBar->addMenu(QString());
+    m_helpMenu = m_menuBar->addMenu(QString());
 
-    m_sessionAction = new QAction("Connect", this);
+    bindText([this] {
+        m_fileMenu->setTitle(tr("文件(&F)"));
+        m_editMenu->setTitle(tr("编辑(&E)"));
+        m_viewMenu->setTitle(tr("视图(&V)"));
+        m_optMenu->setTitle(tr("设置(&S)"));
+        m_transmitMenu->setTitle(tr("传输(&T)"));
+        m_scriptMenu->setTitle(tr("脚本(&P)"));
+        m_toolsMenu->setTitle(tr("工具(&O)"));
+        m_pluginMenu->setTitle(tr("插件(&L)"));
+        m_helpMenu->setTitle(tr("帮助(&H)"));
+    });
+
+    m_sessionAction = new QAction(this);
+    bindText([this] { m_sessionAction->setText(tr("连接...")); });
     m_fileMenu->addAction(m_sessionAction);
 
-    // 持久化"Load Session"子菜单：位置与历史版本一致（紧跟 Connect），
+    // 持久化"加载会话"子菜单：位置与历史版本一致（紧跟"连接"），
     // 内容由 populateSessionMenu() 用 clear() 重建，不再反复 new QMenu
-    m_loadSessionMenu = new QMenu("Load Session", m_fileMenu);
+    m_loadSessionMenu = new QMenu(QString(), m_fileMenu);
+    bindText([this] { m_loadSessionMenu->setTitle(tr("加载会话")); });
     m_fileMenu->addMenu(m_loadSessionMenu);
 
-    m_saveSessionAction = new QAction("Save Current Session", this);
+    m_saveSessionAction = new QAction(this);
+    bindText([this] { m_saveSessionAction->setText(tr("保存当前会话")); });
     connect(m_saveSessionAction, &QAction::triggered, this, &MainWindow::saveCurrentSession);
     m_fileMenu->addAction(m_saveSessionAction);
 
-    m_manageSessionsAction = new QAction("Manage Sessions", this);
+    m_manageSessionsAction = new QAction(this);
+    bindText([this] { m_manageSessionsAction->setText(tr("管理会话")); });
     connect(m_manageSessionsAction, &QAction::triggered, this, &MainWindow::manageSessions);
     m_fileMenu->addAction(m_manageSessionsAction);
 
     m_fileMenu->addSeparator();
-    m_fileMenu->addAction("Print");
+    QAction *printAction = new QAction(this);
+    bindText([printAction] { printAction->setText(tr("打印")); });
+    m_fileMenu->addAction(printAction);
     m_fileMenu->addSeparator();
-    m_exitAction = new QAction("Exit", this);
+
+    m_exitAction = new QAction(this);
+    bindText([this] { m_exitAction->setText(tr("退出")); });
     connect(m_exitAction, &QAction::triggered, this, &QMainWindow::close);
     m_fileMenu->addAction(m_exitAction);
-    
-    m_themeAction = new QAction("Theme Settings", this);
+
+    m_themeAction = new QAction(this);
+    bindText([this] { m_themeAction->setText(tr("主题设置")); });
     connect(m_themeAction, &QAction::triggered, this, &MainWindow::showThemeSettings);
     m_optMenu->addAction(m_themeAction);
 
-    m_logSettingsAction = new QAction("Log Settings", this);
+    m_logSettingsAction = new QAction(this);
+    bindText([this] { m_logSettingsAction->setText(tr("日志设置")); });
     connect(m_logSettingsAction, &QAction::triggered, this, &MainWindow::showLogSettings);
     m_optMenu->addAction(m_logSettingsAction);
 
-    QAction *terminalTestAction = new QAction("Terminal Compatibility Test", this);
-    connect(terminalTestAction, &QAction::triggered, this, &MainWindow::openTerminalTester);
-    m_optMenu->addAction(terminalTestAction);
+    // 语言切换：中文（缺省）/ English，立即生效并写入配置
+    m_languageMenu = m_optMenu->addMenu(QString());
+    bindText([this] { m_languageMenu->setTitle(tr("语言")); });
 
-    // Tools 菜单
-    QAction *calculatorAction = new QAction("Calculator", this);
-    connect(calculatorAction, &QAction::triggered, this, &MainWindow::showCalculator);
-    m_toolsMenu->addAction(calculatorAction);
+    auto *languageGroup = new QActionGroup(this);
+    languageGroup->setExclusive(true);
+    m_chineseAction = new QAction(LanguageManager::languageDisplayName(
+                                      LanguageManager::Language::Chinese), this);
+    m_englishAction = new QAction(LanguageManager::languageDisplayName(
+                                      LanguageManager::Language::English), this);
+    for (QAction *action : { m_chineseAction, m_englishAction }) {
+        action->setCheckable(true);
+        languageGroup->addAction(action);
+        m_languageMenu->addAction(action);
+    }
+    const bool english = LanguageManager::instance()->current()
+                         == LanguageManager::Language::English;
+    (english ? m_englishAction : m_chineseAction)->setChecked(true);
+    connect(m_chineseAction, &QAction::triggered, this, [] {
+        LanguageManager::instance()->setLanguage(LanguageManager::Language::Chinese);
+    });
+    connect(m_englishAction, &QAction::triggered, this, [] {
+        LanguageManager::instance()->setLanguage(LanguageManager::Language::English);
+    });
+    connect(LanguageManager::instance(), &LanguageManager::languageChanged, this,
+            [this](LanguageManager::Language language) {
+                m_chineseAction->setChecked(language == LanguageManager::Language::Chinese);
+                m_englishAction->setChecked(language == LanguageManager::Language::English);
+            });
 
-    QAction *portScannerAction = new QAction("Port Scanner", this);
-    connect(portScannerAction, &QAction::triggered, this, &MainWindow::showPortScanner);
-    m_toolsMenu->addAction(portScannerAction);
+    m_terminalTestAction = new QAction(this);
+    bindText([this] { m_terminalTestAction->setText(tr("终端兼容性测试")); });
+    connect(m_terminalTestAction, &QAction::triggered, this, &MainWindow::openTerminalTester);
+    m_optMenu->addAction(m_terminalTestAction);
 
-    QAction *networkServicesAction = new QAction("Network Services", this);
+    // 工具菜单
+    m_calculatorAction = new QAction(this);
+    bindText([this] { m_calculatorAction->setText(tr("计算器")); });
+    connect(m_calculatorAction, &QAction::triggered, this, &MainWindow::showCalculator);
+    m_toolsMenu->addAction(m_calculatorAction);
+
+    m_portScannerAction = new QAction(this);
+    bindText([this] { m_portScannerAction->setText(tr("端口扫描")); });
+    connect(m_portScannerAction, &QAction::triggered, this, &MainWindow::showPortScanner);
+    m_toolsMenu->addAction(m_portScannerAction);
+
+    QAction *networkServicesAction = new QAction(this);
+    bindText([networkServicesAction] { networkServicesAction->setText(tr("网络服务")); });
     connect(networkServicesAction, &QAction::triggered, this, &MainWindow::showNetworkServices);
     m_toolsMenu->addAction(networkServicesAction);
 
-    QAction *asciiTableAction = new QAction("ASCII Table", this);
-    connect(asciiTableAction, &QAction::triggered, this, &MainWindow::showAsciiTable);
-    m_toolsMenu->addAction(asciiTableAction);
+    m_asciiTableAction = new QAction(this);
+    bindText([this] { m_asciiTableAction->setText(tr("ASCII 码表")); });
+    connect(m_asciiTableAction, &QAction::triggered, this, &MainWindow::showAsciiTable);
+    m_toolsMenu->addAction(m_asciiTableAction);
 
-    // Script 菜单
-    m_loadScriptAction = new QAction("Load Script...", this);
+    // 脚本菜单
+    m_loadScriptAction = new QAction(this);
+    bindText([this] { m_loadScriptAction->setText(tr("加载脚本...")); });
     connect(m_loadScriptAction, &QAction::triggered, this, &MainWindow::loadScript);
     m_scriptMenu->addAction(m_loadScriptAction);
 
-    m_stopScriptAction = new QAction("Stop Script", this);
+    m_stopScriptAction = new QAction(this);
+    bindText([this] { m_stopScriptAction->setText(tr("停止脚本")); });
     m_stopScriptAction->setEnabled(false);
     connect(m_stopScriptAction, &QAction::triggered, this, &MainWindow::stopScript);
     m_scriptMenu->addAction(m_stopScriptAction);
 
     m_scriptMenu->addSeparator();
 
-    m_scriptLogAction = new QAction("View Script Log", this);
+    m_scriptLogAction = new QAction(this);
+    bindText([this] { m_scriptLogAction->setText(tr("查看脚本日志")); });
     connect(m_scriptLogAction, &QAction::triggered, this, &MainWindow::showScriptLog);
     m_scriptMenu->addAction(m_scriptLogAction);
 
-    m_scriptControlAction = new QAction("Script Control Panel", this);
+    m_scriptControlAction = new QAction(this);
+    bindText([this] { m_scriptControlAction->setText(tr("脚本控制面板")); });
     connect(m_scriptControlAction, &QAction::triggered, this, &MainWindow::showScriptControlPanel);
     m_scriptMenu->addAction(m_scriptControlAction);
+
+    // 帮助菜单
+    QAction *aboutAction = new QAction(this);
+    bindText([aboutAction] { aboutAction->setText(tr("关于 NTerminal")); });
+    connect(aboutAction, &QAction::triggered, this, [this] {
+        QMessageBox::about(this, tr("关于 NTerminal"),
+                           tr("NTerminal 多协议终端工具\n版本 %1")
+                               .arg(QCoreApplication::applicationVersion()));
+    });
+    m_helpMenu->addAction(aboutAction);
 
     // 各菜单已通过 menuBar()->addMenu(QString) 创建并挂载，无需再次添加
 
@@ -1071,22 +1188,11 @@ void MainWindow::applyMenuIcons()
     if (m_loadScriptAction) m_loadScriptAction->setIcon(IconProvider::themedIcon("script"));
     if (m_scriptLogAction) m_scriptLogAction->setIcon(IconProvider::themedIcon("log"));
     if (m_scriptControlAction) m_scriptControlAction->setIcon(IconProvider::themedIcon("settings"));
-
-    for (QAction *action : m_toolsMenu->actions()) {
-        if (action->isSeparator()) {
-            continue;
-        }
-        const QString text = action->text();
-        if (text.contains("Calculator")) action->setIcon(IconProvider::themedIcon("tools"));
-        else if (text.contains("Port")) action->setIcon(IconProvider::themedIcon("search"));
-        else if (text.contains("ASCII")) action->setIcon(IconProvider::themedIcon("log"));
-        else action->setIcon(IconProvider::themedIcon("tools"));
-    }
-    for (QAction *action : m_optMenu->actions()) {
-        if (!action->isSeparator() && action->icon().isNull() && action->text().contains("Test")) {
-            action->setIcon(IconProvider::themedIcon("terminal"));
-        }
-    }
+    // 工具/测试动作按成员指针设置图标：菜单文案会随语言切换，不能按文字匹配
+    if (m_terminalTestAction) m_terminalTestAction->setIcon(IconProvider::themedIcon("terminal"));
+    if (m_calculatorAction) m_calculatorAction->setIcon(IconProvider::themedIcon("tools"));
+    if (m_portScannerAction) m_portScannerAction->setIcon(IconProvider::themedIcon("search"));
+    if (m_asciiTableAction) m_asciiTableAction->setIcon(IconProvider::themedIcon("log"));
 }
 
 void MainWindow::openConnectionFromDialog(bool applyTheme)
@@ -1166,12 +1272,12 @@ void MainWindow::onTabContextMenu(const QPoint &pos)
 
     // 只有非串口会话才显示"复制会话"选项
     if (settings.type != Common::ConnectionType::Serial) {
-        QAction *duplicateAction = contextMenu.addAction("复制会话");
+        QAction *duplicateAction = contextMenu.addAction(tr("复制会话"));
         connect(duplicateAction, &QAction::triggered, this, [this, settings]() {
             // 创建新的tab，使用相同的连接设置
             QString tabName = settings.sessionName.isEmpty() ?
-                QString("Terminal %1").arg(m_terminals.size() + 1) :
-                settings.sessionName + " (Copy)";
+                tr("终端 %1").arg(m_terminals.size() + 1) :
+                tr("%1 (副本)").arg(settings.sessionName);
 
             TerminalProxy *newTerminal = createNewTerminalTab(tabName);
             if (newTerminal) {
@@ -1187,7 +1293,7 @@ void MainWindow::onTabContextMenu(const QPoint &pos)
     }
 
     contextMenu.addSeparator();
-    QAction *closeAction = contextMenu.addAction("关闭");
+    QAction *closeAction = contextMenu.addAction(tr("关闭"));
     connect(closeAction, &QAction::triggered, this, [this, tabIndex]() {
         closeTerminalTab(tabIndex);
     });

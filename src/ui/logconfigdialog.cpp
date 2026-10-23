@@ -21,10 +21,10 @@ LogConfigDialog::LogConfigDialog(QWidget *parent)
     , m_timestampFormatEdit(new QLineEdit(this))
     , m_timestampPreviewLabel(new QLabel(this))
     , m_formatHelpLabel(new QLabel(this))
-    , m_okButton(new QPushButton(tr("OK"), this))
-    , m_cancelButton(new QPushButton(tr("Cancel"), this))
-    , m_applyButton(new QPushButton(tr("Apply"), this))
-    , m_resetButton(new QPushButton(tr("Reset to Defaults"), this))
+    , m_okButton(new QPushButton(tr("确定"), this))
+    , m_cancelButton(new QPushButton(tr("取消"), this))
+    , m_applyButton(new QPushButton(tr("应用"), this))
+    , m_resetButton(new QPushButton(tr("恢复默认值"), this))
 {
     setupUi();
     loadSettings();
@@ -36,7 +36,7 @@ LogConfigDialog::~LogConfigDialog()
 
 void LogConfigDialog::setupUi()
 {
-    setWindowTitle(tr("Log Settings"));
+    setWindowTitle(tr("日志设置"));
     setMinimumWidth(600);
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
@@ -200,7 +200,7 @@ void LogConfigDialog::onBrowseClicked()
     }
 
     QString dir = QFileDialog::getExistingDirectory(this,
-        tr("Select Log Directory"),
+        tr("选择日志目录"),
         currentPath,
         QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 

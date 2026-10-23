@@ -70,11 +70,11 @@ ConnectionDialog::ConnectionDialog(QWidget *parent)
     , m_okButton(nullptr)
     , m_cancelButton(nullptr)
 {
-    setWindowTitle("New Connection");
+    setWindowTitle(tr("新建连接"));
     setupUi();
 
     m_currentSettings.type = Serial;
-    m_currentSettings.sessionName = "New Connection";
+    m_currentSettings.sessionName = tr("新建连接");
     m_currentSettings.portName = "";
     m_currentSettings.baudRate = 115200;
     m_currentSettings.dataBits = QSerialPort::Data8;
@@ -99,19 +99,19 @@ void ConnectionDialog::setupUi()
 
     // Session name
     QFormLayout *formLayout = new QFormLayout();
-    m_sessionNameEdit = new QLineEdit("New Connection");
-    formLayout->addRow("Session Name:", m_sessionNameEdit);
+    m_sessionNameEdit = new QLineEdit(tr("新建连接"));
+    formLayout->addRow(tr("会话名称:"), m_sessionNameEdit);
 
     // Connection type
     m_typeComboBox = new QComboBox();
-    m_typeComboBox->addItem("Serial", static_cast<int>(Serial));
+    m_typeComboBox->addItem(tr("串口"), static_cast<int>(Serial));
     m_typeComboBox->addItem("Telnet", static_cast<int>(Telnet));
     m_typeComboBox->addItem("SSH", static_cast<int>(SSH));
     m_typeComboBox->addItem("Rlogin", static_cast<int>(Rlogin));
     m_typeComboBox->addItem("SFTP", static_cast<int>(SFTP));
     m_typeComboBox->addItem("FTP", static_cast<int>(FTP));
     m_typeComboBox->addItem("TFTP", static_cast<int>(TFTP));
-    formLayout->addRow("Connection Type:", m_typeComboBox);
+    formLayout->addRow(tr("连接类型:"), m_typeComboBox);
 
     mainLayout->addLayout(formLayout);
 
@@ -131,8 +131,8 @@ void ConnectionDialog::setupUi()
 
     // Buttons
     QHBoxLayout *buttonLayout = new QHBoxLayout();
-    m_okButton = new QPushButton("OK");
-    m_cancelButton = new QPushButton("Cancel");
+    m_okButton = new QPushButton(tr("确定"));
+    m_cancelButton = new QPushButton(tr("取消"));
     buttonLayout->addStretch();
     buttonLayout->addWidget(m_okButton);
     buttonLayout->addWidget(m_cancelButton);
@@ -156,11 +156,11 @@ void ConnectionDialog::createSerialSettingsWidget()
 
     // Port selection
     m_portComboBox = new QComboBox();
-    QPushButton *refreshButton = new QPushButton("Refresh");
+    QPushButton *refreshButton = new QPushButton(tr("刷新"));
     QHBoxLayout *portLayout = new QHBoxLayout();
     portLayout->addWidget(m_portComboBox);
     portLayout->addWidget(refreshButton);
-    layout->addRow("Serial Port:", portLayout);
+    layout->addRow(tr("串口:"), portLayout);
 
     // Baud rate
     m_baudRateComboBox = new QComboBox();
@@ -173,7 +173,7 @@ void ConnectionDialog::createSerialSettingsWidget()
     m_baudRateComboBox->addItem("57600", 57600);
     m_baudRateComboBox->addItem("115200", 115200);
     m_baudRateComboBox->setCurrentText("115200");
-    layout->addRow("Baud Rate:", m_baudRateComboBox);
+    layout->addRow(tr("波特率:"), m_baudRateComboBox);
 
     // Data bits
     m_dataBitsComboBox = new QComboBox();
@@ -182,30 +182,30 @@ void ConnectionDialog::createSerialSettingsWidget()
     m_dataBitsComboBox->addItem("7", QSerialPort::Data7);
     m_dataBitsComboBox->addItem("8", QSerialPort::Data8);
     m_dataBitsComboBox->setCurrentText("8");
-    layout->addRow("Data Bits:", m_dataBitsComboBox);
+    layout->addRow(tr("数据位:"), m_dataBitsComboBox);
 
     // Parity
     m_parityComboBox = new QComboBox();
-    m_parityComboBox->addItem("None", QSerialPort::NoParity);
-    m_parityComboBox->addItem("Odd", QSerialPort::OddParity);
-    m_parityComboBox->addItem("Even", QSerialPort::EvenParity);
-    m_parityComboBox->addItem("Mark", QSerialPort::MarkParity);
-    m_parityComboBox->addItem("Space", QSerialPort::SpaceParity);
-    layout->addRow("Parity:", m_parityComboBox);
+    m_parityComboBox->addItem(tr("无"), QSerialPort::NoParity);
+    m_parityComboBox->addItem(tr("奇校验"), QSerialPort::OddParity);
+    m_parityComboBox->addItem(tr("偶校验"), QSerialPort::EvenParity);
+    m_parityComboBox->addItem(tr("标记"), QSerialPort::MarkParity);
+    m_parityComboBox->addItem(tr("空格"), QSerialPort::SpaceParity);
+    layout->addRow(tr("校验位:"), m_parityComboBox);
 
     // Stop bits
     m_stopBitsComboBox = new QComboBox();
     m_stopBitsComboBox->addItem("1", QSerialPort::OneStop);
     m_stopBitsComboBox->addItem("1.5", QSerialPort::OneAndHalfStop);
     m_stopBitsComboBox->addItem("2", QSerialPort::TwoStop);
-    layout->addRow("Stop Bits:", m_stopBitsComboBox);
+    layout->addRow(tr("停止位:"), m_stopBitsComboBox);
 
     // Flow control
     m_flowControlComboBox = new QComboBox();
-    m_flowControlComboBox->addItem("None", QSerialPort::NoFlowControl);
-    m_flowControlComboBox->addItem("Hardware", QSerialPort::HardwareControl);
-    m_flowControlComboBox->addItem("Software", QSerialPort::SoftwareControl);
-    layout->addRow("Flow Control:", m_flowControlComboBox);
+    m_flowControlComboBox->addItem(tr("无"), QSerialPort::NoFlowControl);
+    m_flowControlComboBox->addItem(tr("硬件"), QSerialPort::HardwareControl);
+    m_flowControlComboBox->addItem(tr("软件"), QSerialPort::SoftwareControl);
+    layout->addRow(tr("流控制:"), m_flowControlComboBox);
     
     // Connect refresh button
     connect(refreshButton, &QPushButton::clicked, this, &ConnectionDialog::refreshSerialPorts);
@@ -223,19 +223,19 @@ void ConnectionDialog::createTelnetSettingsWidget()
     QFormLayout *layout = new QFormLayout(widget);
 
     m_telnetHostEdit = new QLineEdit("127.0.0.1");
-    layout->addRow("Host:", m_telnetHostEdit);
+    layout->addRow(tr("主机:"),m_telnetHostEdit);
 
     m_telnetPortSpinBox = new QSpinBox();
     m_telnetPortSpinBox->setRange(1, 65535);
     m_telnetPortSpinBox->setValue(23);
-    layout->addRow("Port:", m_telnetPortSpinBox);
+    layout->addRow(tr("端口:"),m_telnetPortSpinBox);
 
     m_telnetUsernameEdit = new QLineEdit();
-    layout->addRow("Username:", m_telnetUsernameEdit);
+    layout->addRow(tr("用户名:"),m_telnetUsernameEdit);
 
     m_telnetPasswordEdit = new QLineEdit();
     m_telnetPasswordEdit->setEchoMode(QLineEdit::Password);
-    layout->addRow("Password:", m_telnetPasswordEdit);
+    layout->addRow(tr("密码:"),m_telnetPasswordEdit);
     
     connect(m_telnetHostEdit, &QLineEdit::textChanged, this, &ConnectionDialog::onTelnetHostChanged);
     
@@ -248,29 +248,29 @@ void ConnectionDialog::createSshSettingsWidget()
     QFormLayout *layout = new QFormLayout(widget);
     
     m_sshHostEdit = new QLineEdit("127.0.0.1");
-    layout->addRow("Host:", m_sshHostEdit);
+    layout->addRow(tr("主机:"),m_sshHostEdit);
     
     m_sshPortSpinBox = new QSpinBox();
     m_sshPortSpinBox->setRange(1, 65535);
     m_sshPortSpinBox->setValue(22);
-    layout->addRow("Port:", m_sshPortSpinBox);
+    layout->addRow(tr("端口:"),m_sshPortSpinBox);
     
     m_sshUsernameEdit = new QLineEdit();
-    layout->addRow("Username:", m_sshUsernameEdit);
+    layout->addRow(tr("用户名:"),m_sshUsernameEdit);
     
     m_sshPasswordEdit = new QLineEdit();
     m_sshPasswordEdit->setEchoMode(QLineEdit::Password);
-    layout->addRow("Password:", m_sshPasswordEdit);
+    layout->addRow(tr("密码:"),m_sshPasswordEdit);
     
-    m_useSshKeyCheckBox = new QCheckBox("Use SSH Key");
+    m_useSshKeyCheckBox = new QCheckBox(tr("使用 SSH 密钥"));
     layout->addRow("", m_useSshKeyCheckBox);
     
     QHBoxLayout *keyLayout = new QHBoxLayout();
     m_sshKeyPathEdit = new QLineEdit();
-    m_browseKeyButton = new QPushButton("Browse...");
+    m_browseKeyButton = new QPushButton(tr("浏览..."));
     keyLayout->addWidget(m_sshKeyPathEdit);
     keyLayout->addWidget(m_browseKeyButton);
-    layout->addRow("SSH Key:", keyLayout);
+    layout->addRow(tr("SSH 密钥:"), keyLayout);
     
     m_sshKeyPathEdit->setEnabled(false);
     m_browseKeyButton->setEnabled(false);
@@ -294,7 +294,7 @@ void ConnectionDialog::onConnectionTypeChanged(int index)
         if (m_portComboBox->isEnabled() && m_portComboBox->currentIndex() >= 0) {
             m_sessionNameEdit->setText(m_portComboBox->currentData().toString());
         } else {
-            m_sessionNameEdit->setText("New Serial Connection");
+            m_sessionNameEdit->setText(tr("新建串口连接"));
         }
         break;
     case Telnet:
@@ -332,12 +332,12 @@ void ConnectionDialog::refreshSerialPorts()
     QList<QSerialPortInfo> ports = QSerialPortInfo::availablePorts();
     
     if (ports.isEmpty()) {
-        m_portComboBox->addItem("No serial port detected");
+        m_portComboBox->addItem(tr("未检测到串口"));
         m_portComboBox->setEnabled(false);
     } else {
         for (const QSerialPortInfo &port : ports) {
             QString description = port.description();
-            if (description.isEmpty()) description = "Unknown Device";
+            if (description.isEmpty()) description = tr("未知设备");
             m_portComboBox->addItem(QString("%1 (%2)").arg(port.portName(), description), port.portName());
         }
         m_portComboBox->setEnabled(true);
@@ -346,7 +346,8 @@ void ConnectionDialog::refreshSerialPorts()
 
 void ConnectionDialog::browseSshKey()
 {
-    QString fileName = QFileDialog::getOpenFileName(this, "Select SSH Key File", "", "All Files (*)");
+    QString fileName = QFileDialog::getOpenFileName(this, tr("选择 SSH 密钥文件"), QString(),
+                                                    tr("所有文件 (*)"));
     if (!fileName.isEmpty()) {
         m_sshKeyPathEdit->setText(fileName);
     }
@@ -415,19 +416,19 @@ void ConnectionDialog::createRloginSettingsWidget()
     QFormLayout *layout = new QFormLayout(widget);
 
     m_rloginHostEdit = new QLineEdit("127.0.0.1");
-    layout->addRow("Host:", m_rloginHostEdit);
+    layout->addRow(tr("主机:"),m_rloginHostEdit);
 
     m_rloginPortSpinBox = new QSpinBox();
     m_rloginPortSpinBox->setRange(1, 65535);
     m_rloginPortSpinBox->setValue(513);
-    layout->addRow("Port:", m_rloginPortSpinBox);
+    layout->addRow(tr("端口:"),m_rloginPortSpinBox);
 
     m_rloginUsernameEdit = new QLineEdit();
-    layout->addRow("Username:", m_rloginUsernameEdit);
+    layout->addRow(tr("用户名:"),m_rloginUsernameEdit);
 
     m_rloginPasswordEdit = new QLineEdit();
     m_rloginPasswordEdit->setEchoMode(QLineEdit::Password);
-    layout->addRow("Password:", m_rloginPasswordEdit);
+    layout->addRow(tr("密码:"),m_rloginPasswordEdit);
 
     connect(m_rloginHostEdit, &QLineEdit::textChanged, this, &ConnectionDialog::onRloginHostChanged);
 
@@ -440,29 +441,29 @@ void ConnectionDialog::createSftpSettingsWidget()
     QFormLayout *layout = new QFormLayout(widget);
 
     m_sftpHostEdit = new QLineEdit("127.0.0.1");
-    layout->addRow("Host:", m_sftpHostEdit);
+    layout->addRow(tr("主机:"),m_sftpHostEdit);
 
     m_sftpPortSpinBox = new QSpinBox();
     m_sftpPortSpinBox->setRange(1, 65535);
     m_sftpPortSpinBox->setValue(22);
-    layout->addRow("Port:", m_sftpPortSpinBox);
+    layout->addRow(tr("端口:"),m_sftpPortSpinBox);
 
     m_sftpUsernameEdit = new QLineEdit();
-    layout->addRow("Username:", m_sftpUsernameEdit);
+    layout->addRow(tr("用户名:"),m_sftpUsernameEdit);
 
     m_sftpPasswordEdit = new QLineEdit();
     m_sftpPasswordEdit->setEchoMode(QLineEdit::Password);
-    layout->addRow("Password:", m_sftpPasswordEdit);
+    layout->addRow(tr("密码:"),m_sftpPasswordEdit);
 
-    m_useSftpKeyCheckBox = new QCheckBox("Use SSH Key");
+    m_useSftpKeyCheckBox = new QCheckBox(tr("使用 SSH 密钥"));
     layout->addRow("", m_useSftpKeyCheckBox);
 
     QHBoxLayout *keyLayout = new QHBoxLayout();
     m_sftpKeyPathEdit = new QLineEdit();
-    m_browseSftpKeyButton = new QPushButton("Browse...");
+    m_browseSftpKeyButton = new QPushButton(tr("浏览..."));
     keyLayout->addWidget(m_sftpKeyPathEdit);
     keyLayout->addWidget(m_browseSftpKeyButton);
-    layout->addRow("SSH Key:", keyLayout);
+    layout->addRow(tr("SSH 密钥:"), keyLayout);
 
     m_sftpKeyPathEdit->setEnabled(false);
     m_browseSftpKeyButton->setEnabled(false);
@@ -470,7 +471,8 @@ void ConnectionDialog::createSftpSettingsWidget()
     connect(m_useSftpKeyCheckBox, &QCheckBox::toggled, m_sftpKeyPathEdit, &QLineEdit::setEnabled);
     connect(m_useSftpKeyCheckBox, &QCheckBox::toggled, m_browseSftpKeyButton, &QPushButton::setEnabled);
     connect(m_browseSftpKeyButton, &QPushButton::clicked, [this]() {
-        QString fileName = QFileDialog::getOpenFileName(this, "Select SSH Key File", "", "All Files (*)");
+        QString fileName = QFileDialog::getOpenFileName(this, tr("选择 SSH 密钥文件"), QString(),
+                                                    tr("所有文件 (*)"));
         if (!fileName.isEmpty()) {
             m_sftpKeyPathEdit->setText(fileName);
         }
@@ -486,19 +488,19 @@ void ConnectionDialog::createFtpSettingsWidget()
     QFormLayout *layout = new QFormLayout(widget);
 
     m_ftpHostEdit = new QLineEdit("127.0.0.1");
-    layout->addRow("Host:", m_ftpHostEdit);
+    layout->addRow(tr("主机:"),m_ftpHostEdit);
 
     m_ftpPortSpinBox = new QSpinBox();
     m_ftpPortSpinBox->setRange(1, 65535);
     m_ftpPortSpinBox->setValue(21);
-    layout->addRow("Port:", m_ftpPortSpinBox);
+    layout->addRow(tr("端口:"),m_ftpPortSpinBox);
 
     m_ftpUsernameEdit = new QLineEdit("anonymous");
-    layout->addRow("Username:", m_ftpUsernameEdit);
+    layout->addRow(tr("用户名:"),m_ftpUsernameEdit);
 
     m_ftpPasswordEdit = new QLineEdit();
     m_ftpPasswordEdit->setEchoMode(QLineEdit::Password);
-    layout->addRow("Password:", m_ftpPasswordEdit);
+    layout->addRow(tr("密码:"),m_ftpPasswordEdit);
 
     connect(m_ftpHostEdit, &QLineEdit::textChanged, this, &ConnectionDialog::onFtpHostChanged);
 
@@ -511,12 +513,12 @@ void ConnectionDialog::createTftpSettingsWidget()
     QFormLayout *layout = new QFormLayout(widget);
 
     m_tftpHostEdit = new QLineEdit("127.0.0.1");
-    layout->addRow("Host:", m_tftpHostEdit);
+    layout->addRow(tr("主机:"),m_tftpHostEdit);
 
     m_tftpPortSpinBox = new QSpinBox();
     m_tftpPortSpinBox->setRange(1, 65535);
     m_tftpPortSpinBox->setValue(69);
-    layout->addRow("Port:", m_tftpPortSpinBox);
+    layout->addRow(tr("端口:"),m_tftpPortSpinBox);
 
     connect(m_tftpHostEdit, &QLineEdit::textChanged, this, &ConnectionDialog::onTftpHostChanged);
 
@@ -547,13 +549,13 @@ Common::ConnectionSettings ConnectionDialog::getSettings() const
         settings.username = m_telnetUsernameEdit->text();
         settings.password = m_telnetPasswordEdit->text();
         
-        // Port Warning
+        // 端口提示
         if (settings.port == 22) {
-            QMessageBox::warning(nullptr, "Port Warning",
-                "You have selected Telnet connection type, but the port is set to 22 (default SSH port).\n\n"
-                "Telnet default port is 23.\n\n"
-                "If the target service is SSH, please change the connection type to SSH.\n"
-                "If the target service is Telnet, please change the port to 23.");
+            QMessageBox::warning(nullptr, tr("端口提示"),
+                tr("当前连接类型为 Telnet，但端口设置为 22（SSH 默认端口）。\n\n"
+                   "Telnet 默认端口是 23。\n\n"
+                   "如果目标服务是 SSH，请把连接类型改为 SSH；\n"
+                   "如果目标服务是 Telnet，请把端口改为 23。"));
         }
     } else if (type == SSH) {
         settings.host = m_sshHostEdit->text();
@@ -563,13 +565,13 @@ Common::ConnectionSettings ConnectionDialog::getSettings() const
         settings.useSshKey = m_useSshKeyCheckBox->isChecked();
         settings.sshKeyPath = m_sshKeyPathEdit->text();
 
-        // Port Warning
+        // 端口提示
         if (settings.port == 23) {
-            QMessageBox::warning(nullptr, "Port Warning",
-                "You have selected SSH connection type, but the port is set to 23 (default Telnet port).\n\n"
-                "SSH default port is 22.\n\n"
-                "If the target service is Telnet, please change the connection type to Telnet.\n"
-                "If the target service is SSH, please change the port to 22.");
+            QMessageBox::warning(nullptr, tr("端口提示"),
+                tr("当前连接类型为 SSH，但端口设置为 23（Telnet 默认端口）。\n\n"
+                   "SSH 默认端口是 22。\n\n"
+                   "如果目标服务是 Telnet，请把连接类型改为 Telnet；\n"
+                   "如果目标服务是 SSH，请把端口改为 22。"));
         }
     } else if (type == Rlogin) {
         settings.host = m_rloginHostEdit->text();
