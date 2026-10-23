@@ -7,6 +7,7 @@
 #include <QVector>
 #include <QFont>
 #include <QDateTime>
+#include <QJsonObject>
 #include "common/connectionsettings.h"
 #include "common/messagetypes.h"
 #include "ipc/ipcclient.h"
@@ -90,6 +91,9 @@ public:
 
     QString sessionId() const { return m_sessionId; }
 
+    // 最近一次远端系统资源快照（未连接或非 SSH 时为空对象）
+    QJsonObject systemStats() const { return m_systemStats; }
+
     // ---- 只读状态查询（测试/调试断言接口，屏幕坐标 0 起始） ----
     int cursorRow() const { return m_cursorRow; }
     int cursorColumn() const { return m_cursorColumn; }
@@ -119,6 +123,8 @@ signals:
     void connectionError(const QString &error);
     void dataReceived(const QByteArray &data);
     void dataSent(const QByteArray &data);
+    // 远端 CPU/内存/网络等资源快照（SSH 会话每 3 秒一次）
+    void systemStatsUpdated(const QJsonObject &stats);
 
     // Python 脚本信号
     void scriptStateChanged();
@@ -239,6 +245,7 @@ private:
     
     Common::ConnectionSettings m_settings;
     bool m_isConnected;
+    QJsonObject m_systemStats;
     
     int m_columns;
     int m_terminalRows;

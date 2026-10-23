@@ -4,6 +4,7 @@
 #include "sessionlogger.h"
 #include <QDebug>
 #include <QJsonDocument>
+#include <QJsonObject>
 #include <QCoreApplication>
 #include <QFile>
 #include <QTextStream>
@@ -251,6 +252,11 @@ void SessionProcess::handleSessionConfig(const QByteArray &payload)
     connect(m_connectionHandler, &ConnectionHandler::connected, this, &SessionProcess::onConnectionConnected);
     connect(m_connectionHandler, &ConnectionHandler::disconnected, this, &SessionProcess::onConnectionDisconnected);
     connect(m_connectionHandler, &ConnectionHandler::errorOccurred, this, &SessionProcess::onConnectionError);
+    // 远端资源快照 -> GUI（仅 SSH 处理器会产生）
+    connect(m_connectionHandler, &ConnectionHandler::systemStatsUpdated, this,
+            [this](const QJsonObject &stats) {
+                m_ipcServer->sendMessage(Ipc::MessageType::SystemStats, stats);
+            });
 
     sendConnectionStatus(Ipc::ConnectionStatus::Connecting, "Connecting...");
 

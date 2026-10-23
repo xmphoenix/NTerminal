@@ -25,6 +25,7 @@ enum class MessageType : quint8 {
     ClearLine = 0x0D,
     TitleChange = 0x0E,
     Bell = 0x0F,
+    SystemStats = 0x10,
     Shutdown = 0xFF
 };
 

@@ -17,6 +17,7 @@
 #include "ui/scriptdialog.h"
 #include "ui/scriptlogviewer.h"
 #include "ui/scriptcontrolpanel.h"
+#include "ui/systemstatswidget.h"
 #include <QSplitter>
 #include <QTreeWidget>
 #include <QTabWidget>
@@ -40,11 +41,13 @@
 #include <QScreen>
 #include <QWindow>
 #include <QShowEvent>
+#include <QResizeEvent>
 #include <QStyle>
 #include <QActionGroup>
 #include <QCoreApplication>
 #include <QEvent>
 #include <QDebug>
+#include <QJsonObject>
 #include <QMessageBox>
 #include <QClipboard>
 #include <QDir>
@@ -258,6 +261,13 @@ TerminalProxy* MainWindow::createNewTerminalTab(const QString &tabName)
         updateTabStates();
         updateStatusBar();
     });
+    // 远端资源每秒刷新一次；只有当前标签页才占用状态栏
+    connect(terminal, &TerminalProxy::systemStatsUpdated, this,
+            [this, terminal](const QJsonObject &) {
+                if (m_currentTerminal == terminal) {
+                    updateStatusStats();
+                }
+            });
 
     int tabIndex = m_screenTabWidget->addTab(terminal, displayName);
     
@@ -655,6 +665,22 @@ void MainWindow::updateStatusBar()
     // 留着空标签会出现没有内容的分隔框。
     m_statusProtocol->setVisible(!m_statusProtocol->text().isEmpty());
     m_statusSize->setVisible(!m_statusSize->text().isEmpty());
+
+    updateStatusStats();
+}
+
+void MainWindow::updateStatusStats()
+{
+    if (!m_statusStats) {
+        return;
+    }
+    TerminalProxy *terminal = getCurrentTerminal();
+    const QJsonObject stats = terminal ? terminal->systemStats() : QJsonObject();
+    if (stats.isEmpty()) {
+        m_statusStats->clear();
+    } else {
+        m_statusStats->setStats(stats);
+    }
 }
 
 void MainWindow::onTabCloseRequested(int index)
@@ -698,6 +724,30 @@ void MainWindow::showEvent(QShowEvent *event)
         pos.setY(qMax(pos.y(), available.top()));
         move(pos);
     });
+}
+
+void MainWindow::resizeEvent(QResizeEvent *event)
+{
+    QMainWindow::resizeEvent(event);
+    if (!m_statusStats) {
+        return;
+    }
+
+    // 状态栏左侧还有连接/协议/编码/尺寸等信息，资源条只能用剩下的宽度。
+    // 1280 左右（缺省窗口宽）能完整显示；变窄时逐级收起次要指标，避免文字被裁切。
+    // 阈值按当前字号实测：完整资源条约 735 逻辑像素，左半栏约 407。
+    const int w = width();
+    int level = 0;
+    if (w < 765) {
+        level = 4;
+    } else if (w < 880) {
+        level = 3;
+    } else if (w < 1045) {
+        level = 2;
+    } else if (w < 1205) {
+        level = 1;
+    }
+    m_statusStats->setDetailLevel(level);
 }
 
 void MainWindow::bindText(std::function<void()> apply)
@@ -1150,11 +1200,13 @@ void MainWindow::buildStatusBarWidgets()
     m_statusSize = new QLabel;
     m_statusLatency = new QLabel;
     m_statusLatency->setObjectName("statusLatency");
+    m_statusStats = new SystemStatsWidget(this);
 
     bar->addWidget(m_statusConnection);
     bar->addWidget(m_statusProtocol);
     bar->addWidget(m_statusEncoding);
     bar->addWidget(m_statusSize);
+    bar->addPermanentWidget(m_statusStats);
     bar->addPermanentWidget(m_statusLatency);
 
     updateStatusBar();
@@ -1448,6 +1500,9 @@ void MainWindow::refreshIcons()
     }
     if (m_terminalTabBar) {
         m_terminalTabBar->update();
+    }
+    if (m_statusStats) {
+        m_statusStats->refreshIcons();
     }
 }
 

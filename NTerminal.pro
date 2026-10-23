@@ -96,7 +96,8 @@ SOURCES += \
     src/ui/portscannerdialog.cpp \
     src/ui/scriptdialog.cpp \
     src/ui/scriptlogviewer.cpp \
-    src/ui/scriptcontrolpanel.cpp
+    src/ui/scriptcontrolpanel.cpp \
+    src/ui/systemstatswidget.cpp
 
 # ---- 头文件（Q_OBJECT 类必须列出以生成 moc） ----
 HEADERS += \
@@ -139,7 +140,8 @@ HEADERS += \
     src/ui/portscannerdialog.h \
     src/ui/scriptdialog.h \
     src/ui/scriptlogviewer.h \
-    src/ui/scriptcontrolpanel.h
+    src/ui/scriptcontrolpanel.h \
+    src/ui/systemstatswidget.h
 
 RESOURCES += \
     resources/resources.qrc

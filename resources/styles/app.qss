@@ -214,6 +214,14 @@ QStatusBar QLabel { color: @textDim@; padding: 0 8px; font-size: 11px; }
 #statusProtocol { color: @text@; }
 #statusLatency { padding-right: 12px; }
 
+/* 远端资源条：图标 + 数值，指标之间用细竖线分隔 */
+/* 透明背景：否则会继承 QWidget 的 @bg@，在 @panel@ 状态栏上留出色差块 */
+#systemStats { background: transparent; }
+#systemStats QLabel { color: @textDim@; padding: 0 3px; font-size: 11px; }
+#systemStats QLabel[role="value"] { color: @text@; }
+#systemStats QLabel#statIcon { padding: 0; }
+#systemStats QFrame { color: @hairline@; }
+
 /* --------------------------------- 对话框 --------------------------------- */
 QDialog { font-size: 12px; }
 QDialog QLabel { color: @text@; }

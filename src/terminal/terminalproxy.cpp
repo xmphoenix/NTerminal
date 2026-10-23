@@ -192,6 +192,7 @@ void TerminalProxy::setConnectionSettings(const Common::ConnectionSettings &sett
 
 bool TerminalProxy::openConnection()
 {
+    m_systemStats = QJsonObject();
     m_sessionProcess = new QProcess(this);
 
     // Set process channel mode to merged so we capture all output
@@ -276,6 +277,7 @@ void TerminalProxy::closeConnection()
     }
     
     m_isConnected = false;
+    m_systemStats = QJsonObject();
 }
 
 bool TerminalProxy::isConnected() const
@@ -730,6 +732,14 @@ void TerminalProxy::onIpcMessageReceived(Ipc::MessageType type, const QByteArray
         case Ipc::MessageType::DataReceived:
             handleDataReceived(payload);
             break;
+        case Ipc::MessageType::SystemStats: {
+            const QJsonDocument doc = QJsonDocument::fromJson(payload);
+            if (doc.isObject()) {
+                m_systemStats = doc.object();
+                emit systemStatsUpdated(m_systemStats);
+            }
+            break;
+        }
         default:
             break;
     }
@@ -1641,6 +1651,8 @@ void TerminalProxy::handleConnectionStatus(const QByteArray &payload)
         case Ipc::ConnectionStatus::Disconnected:
         case Ipc::ConnectionStatus::Error:
             m_isConnected = false;
+            m_systemStats = QJsonObject();
+            emit systemStatsUpdated(QJsonObject());
             emit connectionClosed();
             if (status == static_cast<int>(Ipc::ConnectionStatus::Error)) {
                 emit connectionError(message);

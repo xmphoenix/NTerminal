@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QByteArray>
+#include <QJsonObject>
 #include "common/connectionsettings.h"
 
 // ============================================================================
@@ -43,6 +44,9 @@ signals:
     void connected();
     void disconnected();
     void errorOccurred(const QString &error);
+
+    // 远端系统资源快照（目前由 SshHandler 采集；其他协议不发）
+    void systemStatsUpdated(const QJsonObject &stats);
 };
 
 #endif // CONNECTIONHANDLER_H

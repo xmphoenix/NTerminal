@@ -21,8 +21,10 @@ class QMenu;
 class QAction;
 class QToolButton;
 class QShowEvent;
+class QResizeEvent;
 class QEvent;
 class SessionManager;
+class SystemStatsWidget;
 
 class MainWindow : public QMainWindow
 {
@@ -37,6 +39,8 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
     // 首帧把窗口夹到可用屏幕区域内（见实现）
     void showEvent(QShowEvent *event) override;
+    // 窗口变窄时逐级收起状态栏的远端资源指标
+    void resizeEvent(QResizeEvent *event) override;
     // 语言切换（QEvent::LanguageChange）时重设全部界面文案
     void changeEvent(QEvent *event) override;
 
@@ -62,6 +66,8 @@ private slots:
     void filterSessionTree(const QString &text);
     void updateTabStates();
     void updateStatusBar();
+    // 状态栏远端资源条（当前标签页为 SSH 时显示）
+    void updateStatusStats();
 
 private:
     void initMainWindowLayout();
@@ -137,6 +143,7 @@ private:
     QLabel *m_statusEncoding = nullptr;
     QLabel *m_statusSize = nullptr;
     QLabel *m_statusLatency = nullptr;
+    SystemStatsWidget *m_statusStats = nullptr;
 
     QMenuBar *m_menuBar = nullptr;
     QMenu *m_fileMenu = nullptr;
