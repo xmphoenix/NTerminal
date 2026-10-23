@@ -1,4 +1,5 @@
 #include "ui/logconfigdialog.h"
+#include "ui/iconprovider.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
@@ -37,22 +38,35 @@ LogConfigDialog::~LogConfigDialog()
 void LogConfigDialog::setupUi()
 {
     setWindowTitle(tr("日志设置"));
-    setMinimumWidth(600);
+    setMinimumWidth(620);
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(24, 20, 24, 20);
+    mainLayout->setSpacing(14);
+
+    // 头部：标题 + 说明
+    QLabel *titleLabel = new QLabel(tr("日志设置"));
+    titleLabel->setProperty("class", "sectionTitle");
+    QLabel *hintLabel = new QLabel(tr("配置会话日志的文件名、编码与时间戳格式"));
+    hintLabel->setProperty("class", "hint");
+    mainLayout->addWidget(titleLabel);
+    mainLayout->addWidget(hintLabel);
 
     // ===== 日志文件组 =====
     QGroupBox *logFileGroup = new QGroupBox(tr("日志文件"), this);
     QVBoxLayout *logFileLayout = new QVBoxLayout(logFileGroup);
+    logFileLayout->setContentsMargins(0, 0, 0, 0);
+    logFileLayout->setSpacing(10);
 
     // 文件路径行
     QHBoxLayout *fileNameLayout = new QHBoxLayout();
+    fileNameLayout->setSpacing(8);
     fileNameLayout->addWidget(new QLabel(tr("文件路径 (F):"), this));
     m_logFileNameEdit->setPlaceholderText("%c_%n_%Y-%m-%d_%t.log");
     m_logFileNameEdit->setToolTip(tr("默认：%c_%n_%Y-%m-%d_%t.log\n"
                                       "%c:会话类型，%n:会话名称，%Y-%m-%d:日期，%t:时_分_秒\n"
                                       "%h:小时，%M:分钟，%s:秒，%N:毫秒"));
-    fileNameLayout->addWidget(m_logFileNameEdit);
+    fileNameLayout->addWidget(m_logFileNameEdit, 1);
     fileNameLayout->addWidget(m_browseButton);
     logFileLayout->addLayout(fileNameLayout);
 
@@ -71,6 +85,7 @@ void LogConfigDialog::setupUi()
 
     // 编码
     QHBoxLayout *encodingLayout = new QHBoxLayout();
+    encodingLayout->setSpacing(8);
     encodingLayout->addWidget(new QLabel(tr("编码 (E):"), this));
     m_encodingCombo->addItem("Unicode (UTF-16 LE)", "utf-16le");
     m_encodingCombo->addItem("Unicode (UTF-16 BE)", "utf-16be");
@@ -89,6 +104,8 @@ void LogConfigDialog::setupUi()
 
     // ===== 时间戳组 =====
     QVBoxLayout *timestampLayout = new QVBoxLayout(m_timestampGroup);
+    timestampLayout->setContentsMargins(0, 0, 0, 0);
+    timestampLayout->setSpacing(10);
 
     // 写入日志文件
     m_enableTimestampCheck->setText(tr("写入日志文件 (W)"));
@@ -96,20 +113,22 @@ void LogConfigDialog::setupUi()
 
     // 格式
     QHBoxLayout *formatLayout = new QHBoxLayout();
+    formatLayout->setSpacing(8);
     formatLayout->addWidget(new QLabel(tr("格式 (M):"), this));
     m_timestampFormatEdit->setText("[%Y-%m-%d %h:%M:%s]");
     m_timestampFormatEdit->setPlaceholderText("[%Y-%m-%d %h:%M:%s.%N]");
     connect(m_timestampFormatEdit, &QLineEdit::textChanged, this, &LogConfigDialog::onTimestampFormatChanged);
-    formatLayout->addWidget(m_timestampFormatEdit);
+    formatLayout->addWidget(m_timestampFormatEdit, 1);
     timestampLayout->addLayout(formatLayout);
 
     // 预览
     QHBoxLayout *previewLayout = new QHBoxLayout();
+    previewLayout->setSpacing(8);
     previewLayout->addWidget(new QLabel(tr("预览 (V):"), this));
-    m_timestampPreviewLabel->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
-    m_timestampPreviewLabel->setMinimumHeight(25);
+    m_timestampPreviewLabel->setFrameShape(QFrame::StyledPanel);
+    m_timestampPreviewLabel->setMinimumHeight(28);
     m_timestampPreviewLabel->setText(expandFormatPattern(m_timestampFormatEdit->text()));
-    previewLayout->addWidget(m_timestampPreviewLabel);
+    previewLayout->addWidget(m_timestampPreviewLabel, 1);
     timestampLayout->addLayout(previewLayout);
 
     mainLayout->addWidget(m_timestampGroup);
@@ -120,16 +139,24 @@ void LogConfigDialog::setupUi()
            "%h: 小时，%M: 分钟，%s: 秒，%N: 毫秒，%t: 时_分_秒，%a: 语言环境")
     );
     m_formatHelpLabel->setWordWrap(true);
-    m_formatHelpLabel->setStyleSheet("color: #666; font-size: 11px;");
+    m_formatHelpLabel->setProperty("class", "hint");
     mainLayout->addWidget(m_formatHelpLabel);
 
-    // ===== 按钮 =====
+    // ===== 按钮：重置靠左，其余次操作在左、主操作在右 =====
+    m_resetButton->setIcon(IconProvider::themedIcon("reset"));
+    m_resetButton->setProperty("class", "ghost");
+    m_applyButton->setProperty("class", "tonal");
+    m_okButton->setProperty("class", "primary");
+    m_okButton->setDefault(true);
+    m_cancelButton->setProperty("class", "ghost");
+
     QHBoxLayout *buttonLayout = new QHBoxLayout();
+    buttonLayout->setSpacing(8);
     buttonLayout->addWidget(m_resetButton);
     buttonLayout->addStretch();
+    buttonLayout->addWidget(m_cancelButton);
     buttonLayout->addWidget(m_applyButton);
     buttonLayout->addWidget(m_okButton);
-    buttonLayout->addWidget(m_cancelButton);
     mainLayout->addLayout(buttonLayout);
 
     // 连接信号

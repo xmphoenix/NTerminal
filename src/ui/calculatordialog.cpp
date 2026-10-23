@@ -3,6 +3,8 @@
 #include <QHBoxLayout>
 #include <QGridLayout>
 #include <QGroupBox>
+#include <QVector>
+#include <QPair>
 #include <QDebug>
 
 CalculatorDialog::CalculatorDialog(QWidget *parent)
@@ -15,7 +17,8 @@ CalculatorDialog::CalculatorDialog(QWidget *parent)
 {
     setupUi();
     setWindowTitle(tr("计算器"));
-    resize(400, 500);
+    setMinimumWidth(440);
+    resize(460, 560);
 }
 
 CalculatorDialog::~CalculatorDialog()
@@ -25,19 +28,34 @@ CalculatorDialog::~CalculatorDialog()
 void CalculatorDialog::setupUi()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(24, 20, 24, 20);
+    mainLayout->setSpacing(14);
 
-    // 显示区域
+    // 头部：标题 + 说明
+    QLabel *titleLabel = new QLabel(tr("程序员计算器"), this);
+    titleLabel->setProperty("class", "sectionTitle");
+    QLabel *hintLabel = new QLabel(tr("支持二 / 八 / 十 / 十六进制运算与即时进制换算"), this);
+    hintLabel->setProperty("class", "hint");
+    hintLabel->setWordWrap(true);
+    mainLayout->addWidget(titleLabel);
+    mainLayout->addWidget(hintLabel);
+
+    // 显示区域：大号等宽数字，模拟计算器屏幕
     m_display = new QLineEdit(this);
+    m_display->setObjectName("calcDisplay");
     m_display->setReadOnly(true);
     m_display->setAlignment(Qt::AlignRight);
     m_display->setText("0");
     QFont displayFont = m_display->font();
-    displayFont.setPointSize(16);
+    displayFont.setPixelSize(28);
+    displayFont.setWeight(QFont::DemiBold);
     m_display->setFont(displayFont);
+    m_display->setMinimumHeight(60);
     mainLayout->addWidget(m_display);
 
     // 进制选择
     QHBoxLayout *baseLayout = new QHBoxLayout();
+    baseLayout->setSpacing(8);
     baseLayout->addWidget(new QLabel(tr("进制:"), this));
     m_baseCombo = new QComboBox(this);
     m_baseCombo->addItem(tr("十六进制 (16)"), 16);
@@ -47,46 +65,40 @@ void CalculatorDialog::setupUi()
     m_baseCombo->setCurrentIndex(1); // 默认十进制
     connect(m_baseCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &CalculatorDialog::onBaseChanged);
-    baseLayout->addWidget(m_baseCombo);
-    baseLayout->addStretch();
+    baseLayout->addWidget(m_baseCombo, 1);
     mainLayout->addLayout(baseLayout);
 
-    // 进制转换显示
+    // 进制转换显示：每行「标签 + 数值」，数值使用次级容器样式
     QGroupBox *conversionGroup = new QGroupBox(tr("进制转换"), this);
-    QVBoxLayout *convLayout = new QVBoxLayout(conversionGroup);
+    QGridLayout *convLayout = new QGridLayout(conversionGroup);
+    convLayout->setContentsMargins(0, 0, 0, 0);
+    convLayout->setHorizontalSpacing(12);
+    convLayout->setVerticalSpacing(8);
+    convLayout->setColumnStretch(1, 1);
 
-    QHBoxLayout *hexLayout = new QHBoxLayout();
-    hexLayout->addWidget(new QLabel(tr("十六进制:"), this));
-    m_hexLabel = new QLabel("0", this);
-    m_hexLabel->setStyleSheet("QLabel { background-color: white; padding: 5px; }");
-    hexLayout->addWidget(m_hexLabel, 1);
-    convLayout->addLayout(hexLayout);
+    const QVector<QPair<QString, QLabel *>> conversionRows = {
+        { tr("十六进制"), m_hexLabel = new QLabel("0", this) },
+        { tr("十进制"),   m_decLabel = new QLabel("0", this) },
+        { tr("八进制"),   m_octLabel = new QLabel("0", this) },
+        { tr("二进制"),   m_binLabel = new QLabel("0", this) },
+    };
 
-    QHBoxLayout *decLayout = new QHBoxLayout();
-    decLayout->addWidget(new QLabel(tr("十进制:"), this));
-    m_decLabel = new QLabel("0", this);
-    m_decLabel->setStyleSheet("QLabel { background-color: white; padding: 5px; }");
-    decLayout->addWidget(m_decLabel, 1);
-    convLayout->addLayout(decLayout);
-
-    QHBoxLayout *octLayout = new QHBoxLayout();
-    octLayout->addWidget(new QLabel(tr("八进制:"), this));
-    m_octLabel = new QLabel("0", this);
-    m_octLabel->setStyleSheet("QLabel { background-color: white; padding: 5px; }");
-    octLayout->addWidget(m_octLabel, 1);
-    convLayout->addLayout(octLayout);
-
-    QHBoxLayout *binLayout = new QHBoxLayout();
-    binLayout->addWidget(new QLabel(tr("二进制:"), this));
-    m_binLabel = new QLabel("0", this);
-    m_binLabel->setStyleSheet("QLabel { background-color: white; padding: 5px; }");
-    binLayout->addWidget(m_binLabel, 1);
-    convLayout->addLayout(binLayout);
+    int convRow = 0;
+    for (const auto &row : conversionRows) {
+        row.second->setObjectName("calcValue");
+        row.second->setMinimumWidth(160);
+        row.second->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        convLayout->addWidget(new QLabel(row.first + ":", this), convRow, 0);
+        convLayout->addWidget(row.second, convRow, 1);
+        ++convRow;
+    }
 
     mainLayout->addWidget(conversionGroup);
 
-    // 按钮区域
+    // 按钮区域：三个按键网格靠左，运算区靠右
     QGridLayout *buttonLayout = new QGridLayout();
+    buttonLayout->setHorizontalSpacing(8);
+    buttonLayout->setVerticalSpacing(8);
 
     // 数字按钮 (根据当前进制动态启用/禁用)
     QStringList numbers = {"7", "8", "9", "4", "5", "6", "1", "2", "3", "0"};
@@ -95,9 +107,15 @@ void CalculatorDialog::setupUi()
     int row = 0, col = 0;
     for (const QString &num : numbers) {
         QPushButton *btn = new QPushButton(num, this);
-        btn->setMinimumSize(50, 40);
+        btn->setProperty("class", "tonal");
+        btn->setMinimumSize(52, 42);
         connect(btn, &QPushButton::clicked, this, &CalculatorDialog::onNumberClicked);
-        buttonLayout->addWidget(btn, row, col);
+        // 0 键跨三列，与上方数字区等宽，避免底行出现空洞
+        if (num == "0") {
+            buttonLayout->addWidget(btn, row, col, 1, 3);
+        } else {
+            buttonLayout->addWidget(btn, row, col);
+        }
         col++;
         if (col > 2) {
             col = 0;
@@ -110,7 +128,8 @@ void CalculatorDialog::setupUi()
     col = 3;
     for (const QString &hex : hexDigits) {
         QPushButton *btn = new QPushButton(hex, this);
-        btn->setMinimumSize(50, 40);
+        btn->setProperty("class", "tonal");
+        btn->setMinimumSize(52, 42);
         btn->setObjectName("hexButton");
         connect(btn, &QPushButton::clicked, this, &CalculatorDialog::onNumberClicked);
         buttonLayout->addWidget(btn, row, col);
@@ -127,28 +146,32 @@ void CalculatorDialog::setupUi()
     col = 5;
     for (const QString &op : operators) {
         QPushButton *btn = new QPushButton(op, this);
-        btn->setMinimumSize(50, 40);
+        btn->setMinimumSize(52, 42);
         connect(btn, &QPushButton::clicked, this, &CalculatorDialog::onOperatorClicked);
         buttonLayout->addWidget(btn, row++, col);
     }
 
     // 功能按钮
     QPushButton *clearBtn = new QPushButton("C", this);
-    clearBtn->setMinimumSize(50, 40);
+    clearBtn->setProperty("class", "ghost");
+    clearBtn->setMinimumSize(52, 42);
     connect(clearBtn, &QPushButton::clicked, this, &CalculatorDialog::onClearClicked);
     buttonLayout->addWidget(clearBtn, 3, 3);
 
     QPushButton *backspaceBtn = new QPushButton("←", this);
-    backspaceBtn->setMinimumSize(50, 40);
+    backspaceBtn->setProperty("class", "ghost");
+    backspaceBtn->setMinimumSize(52, 42);
     connect(backspaceBtn, &QPushButton::clicked, this, &CalculatorDialog::onBackspaceClicked);
     buttonLayout->addWidget(backspaceBtn, 3, 4);
 
     QPushButton *equalBtn = new QPushButton("=", this);
-    equalBtn->setMinimumSize(50, 40);
+    equalBtn->setProperty("class", "primary");
+    equalBtn->setMinimumSize(52, 42);
     connect(equalBtn, &QPushButton::clicked, this, &CalculatorDialog::onEqualClicked);
     buttonLayout->addWidget(equalBtn, 3, 5);
 
     mainLayout->addLayout(buttonLayout);
+    mainLayout->addStretch();
 
     updateDisplay();
 }

@@ -1,10 +1,12 @@
 #include "ui/connectiondialog.h"
+#include "ui/iconprovider.h"
 #include <QPushButton>
 #include <QLineEdit>
 #include <QComboBox>
 #include <QSpinBox>
 #include <QCheckBox>
 #include <QGroupBox>
+#include <QFrame>
 #include <QStackedWidget>
 #include <QFormLayout>
 #include <QVBoxLayout>
@@ -93,27 +95,63 @@ ConnectionDialog::~ConnectionDialog()
 {
 }
 
+void ConnectionDialog::setPreferredType(Common::ConnectionType type)
+{
+    if (!m_typeComboBox) {
+        return;
+    }
+    const int index = m_typeComboBox->findData(static_cast<int>(type));
+    if (index >= 0) {
+        m_typeComboBox->setCurrentIndex(index);
+    }
+}
+
 void ConnectionDialog::setupUi()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(24, 20, 24, 20);
+    mainLayout->setSpacing(16);
+
+    // 头部：标题 + 说明（现代弹窗的"标题区"）
+    QLabel *titleLabel = new QLabel(tr("新建连接"));
+    titleLabel->setProperty("class", "sectionTitle");
+    QLabel *hintLabel = new QLabel(tr("选择协议并填写连接信息"));
+    hintLabel->setProperty("class", "hint");
+    mainLayout->addWidget(titleLabel);
+    mainLayout->addWidget(hintLabel);
 
     // Session name
     QFormLayout *formLayout = new QFormLayout();
+    formLayout->setHorizontalSpacing(16);
+    formLayout->setVerticalSpacing(10);
+    formLayout->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    formLayout->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     m_sessionNameEdit = new QLineEdit(tr("新建连接"));
     formLayout->addRow(tr("会话名称:"), m_sessionNameEdit);
 
-    // Connection type
+    // Connection type（带协议图标，下拉与收起状态都能一眼辨认）
     m_typeComboBox = new QComboBox();
-    m_typeComboBox->addItem(tr("串口"), static_cast<int>(Serial));
-    m_typeComboBox->addItem("Telnet", static_cast<int>(Telnet));
-    m_typeComboBox->addItem("SSH", static_cast<int>(SSH));
-    m_typeComboBox->addItem("Rlogin", static_cast<int>(Rlogin));
-    m_typeComboBox->addItem("SFTP", static_cast<int>(SFTP));
-    m_typeComboBox->addItem("FTP", static_cast<int>(FTP));
-    m_typeComboBox->addItem("TFTP", static_cast<int>(TFTP));
+    m_typeComboBox->addItem(IconProvider::themedIcon("serial"), tr("串口"), static_cast<int>(Serial));
+    m_typeComboBox->addItem(IconProvider::themedIcon("telnet"), "Telnet", static_cast<int>(Telnet));
+    m_typeComboBox->addItem(IconProvider::themedIcon("terminal"), "SSH", static_cast<int>(SSH));
+    m_typeComboBox->addItem(IconProvider::themedIcon("globe"), "Rlogin", static_cast<int>(Rlogin));
+    m_typeComboBox->addItem(IconProvider::themedIcon("sftp"), "SFTP", static_cast<int>(SFTP));
+    m_typeComboBox->addItem(IconProvider::themedIcon("transfer"), "FTP", static_cast<int>(FTP));
+    m_typeComboBox->addItem(IconProvider::themedIcon("download"), "TFTP", static_cast<int>(TFTP));
     formLayout->addRow(tr("连接类型:"), m_typeComboBox);
 
     mainLayout->addLayout(formLayout);
+
+    // 细分隔线：基本信息与协议参数分成两个视觉区块
+    QFrame *divider = new QFrame(this);
+    divider->setObjectName("divider");
+    divider->setFrameShape(QFrame::NoFrame);
+    divider->setFixedHeight(1);
+    mainLayout->addWidget(divider);
+
+    QLabel *protocolLabel = new QLabel(tr("协议参数"), this);
+    protocolLabel->setProperty("class", "subheading");
+    mainLayout->addWidget(protocolLabel);
 
     // Settings stack
     m_settingsStack = new QStackedWidget();
@@ -127,24 +165,44 @@ void ConnectionDialog::setupUi()
     createFtpSettingsWidget();
     createTftpSettingsWidget();
 
-    mainLayout->addWidget(m_settingsStack);
+    // 七个协议页统一表单度量，避免各页缩进不一致
+    for (int i = 0; i < m_settingsStack->count(); ++i) {
+        QWidget *page = m_settingsStack->widget(i);
+        QFormLayout *pageForm = page ? qobject_cast<QFormLayout *>(page->layout()) : nullptr;
+        if (pageForm) {
+            pageForm->setContentsMargins(0, 0, 0, 0);
+            pageForm->setHorizontalSpacing(16);
+            pageForm->setVerticalSpacing(10);
+            pageForm->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+            pageForm->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+        }
+    }
 
-    // Buttons
+    mainLayout->addWidget(m_settingsStack, 1);
+    mainLayout->addStretch(1);
+
+    // Buttons：次操作在左、主操作在右（Material/HIG 通用次序）
     QHBoxLayout *buttonLayout = new QHBoxLayout();
+    buttonLayout->setSpacing(8);
     m_okButton = new QPushButton(tr("确定"));
     m_cancelButton = new QPushButton(tr("取消"));
+    m_okButton->setProperty("class", "primary");
+    m_okButton->setDefault(true);
+    m_cancelButton->setProperty("class", "ghost");
     buttonLayout->addStretch();
-    buttonLayout->addWidget(m_okButton);
     buttonLayout->addWidget(m_cancelButton);
-    
+    buttonLayout->addWidget(m_okButton);
+
     mainLayout->addLayout(buttonLayout);
-    
+
+    setMinimumWidth(440);
+
     // Connect signals
     connect(m_typeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ConnectionDialog::onConnectionTypeChanged);
     connect(m_okButton, &QPushButton::clicked, this, &QDialog::accept);
     connect(m_cancelButton, &QPushButton::clicked, this, &QDialog::reject);
-    
+
     // Set initial type
     onConnectionTypeChanged(0);
 }
@@ -156,7 +214,8 @@ void ConnectionDialog::createSerialSettingsWidget()
 
     // Port selection
     m_portComboBox = new QComboBox();
-    QPushButton *refreshButton = new QPushButton(tr("刷新"));
+    QPushButton *refreshButton = new QPushButton(IconProvider::themedIcon("reconnect"), tr("刷新"));
+    refreshButton->setProperty("class", "tonal");
     QHBoxLayout *portLayout = new QHBoxLayout();
     portLayout->addWidget(m_portComboBox);
     portLayout->addWidget(refreshButton);
@@ -267,7 +326,8 @@ void ConnectionDialog::createSshSettingsWidget()
     
     QHBoxLayout *keyLayout = new QHBoxLayout();
     m_sshKeyPathEdit = new QLineEdit();
-    m_browseKeyButton = new QPushButton(tr("浏览..."));
+    m_browseKeyButton = new QPushButton(IconProvider::themedIcon("folder-open"), tr("浏览..."));
+    m_browseKeyButton->setProperty("class", "tonal");
     keyLayout->addWidget(m_sshKeyPathEdit);
     keyLayout->addWidget(m_browseKeyButton);
     layout->addRow(tr("SSH 密钥:"), keyLayout);
@@ -460,7 +520,8 @@ void ConnectionDialog::createSftpSettingsWidget()
 
     QHBoxLayout *keyLayout = new QHBoxLayout();
     m_sftpKeyPathEdit = new QLineEdit();
-    m_browseSftpKeyButton = new QPushButton(tr("浏览..."));
+    m_browseSftpKeyButton = new QPushButton(IconProvider::themedIcon("folder-open"), tr("浏览..."));
+    m_browseSftpKeyButton->setProperty("class", "tonal");
     keyLayout->addWidget(m_sftpKeyPathEdit);
     keyLayout->addWidget(m_browseSftpKeyButton);
     layout->addRow(tr("SSH 密钥:"), keyLayout);

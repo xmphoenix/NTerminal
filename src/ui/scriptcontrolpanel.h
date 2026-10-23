@@ -1,13 +1,13 @@
 #ifndef SCRIPTCONTROLPANEL_H
 #define SCRIPTCONTROLPANEL_H
 
-#include <QWidget>
+#include <QDialog>
 #include <QPushButton>
 #include <QLabel>
 #include <QTimer>
 #include <QDateTime>
 
-class ScriptControlPanel : public QWidget
+class ScriptControlPanel : public QDialog
 {
     Q_OBJECT
 
@@ -27,6 +27,10 @@ signals:
 
 private slots:
     void updateRunningTime();
+
+protected:
+    // 原生标题栏只保留关闭按钮（Windows 会自行补上最小化/最大化）
+    void showEvent(QShowEvent *event) override;
 
 private:
     void setupUI();

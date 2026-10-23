@@ -6,6 +6,7 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QApplication>
+#include <QStyle>
 #include <QDebug>
 
 ScriptDialog::ScriptDialog(QWidget *parent)
@@ -33,10 +34,23 @@ ScriptDialog::~ScriptDialog()
 void ScriptDialog::setupUI()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(24, 20, 24, 20);
+    mainLayout->setSpacing(14);
+
+    // 头部：标题 + 说明
+    QLabel *titleLabel = new QLabel(tr("选择 Python 脚本"), this);
+    titleLabel->setProperty("class", "sectionTitle");
+    QLabel *hintLabel = new QLabel(tr("从最近使用或内置脚本中挑选，也可以直接浏览本地 .py 文件"), this);
+    hintLabel->setProperty("class", "hint");
+    hintLabel->setWordWrap(true);
+    mainLayout->addWidget(titleLabel);
+    mainLayout->addWidget(hintLabel);
 
     // 最近使用的脚本
     QGroupBox *recentGroup = new QGroupBox(tr("最近使用"), this);
     QVBoxLayout *recentLayout = new QVBoxLayout(recentGroup);
+    recentLayout->setContentsMargins(0, 0, 0, 0);
+    recentLayout->setSpacing(8);
 
     m_recentList = new QListWidget(this);
     m_recentList->setMaximumHeight(100);
@@ -49,6 +63,8 @@ void ScriptDialog::setupUI()
     // 内置脚本
     QGroupBox *builtinGroup = new QGroupBox(tr("内置脚本"), this);
     QVBoxLayout *builtinLayout = new QVBoxLayout(builtinGroup);
+    builtinLayout->setContentsMargins(0, 0, 0, 0);
+    builtinLayout->setSpacing(8);
 
     m_builtinList = new QListWidget(this);
     connect(m_builtinList, &QListWidget::itemClicked,
@@ -60,12 +76,14 @@ void ScriptDialog::setupUI()
     // 脚本描述
     m_descriptionLabel = new QLabel(this);
     m_descriptionLabel->setWordWrap(true);
-    m_descriptionLabel->setStyleSheet("QLabel { color: gray; font-style: italic; }");
+    m_descriptionLabel->setProperty("class", "hint");
     mainLayout->addWidget(m_descriptionLabel);
 
     // 浏览文件
     QHBoxLayout *browseLayout = new QHBoxLayout();
+    browseLayout->setSpacing(8);
     m_browseButton = new QPushButton(tr("浏览文件..."), this);
+    m_browseButton->setProperty("class", "tonal");
     connect(m_browseButton, &QPushButton::clicked,
             this, &ScriptDialog::onBrowseClicked);
     browseLayout->addWidget(m_browseButton);
@@ -74,27 +92,33 @@ void ScriptDialog::setupUI()
 
     // 脚本路径
     QHBoxLayout *pathLayout = new QHBoxLayout();
+    pathLayout->setSpacing(8);
     pathLayout->addWidget(new QLabel(tr("脚本路径:"), this));
     m_pathEdit = new QLineEdit(this);
+    m_pathEdit->setPlaceholderText(tr("尚未选择脚本"));
     connect(m_pathEdit, &QLineEdit::textChanged,
             this, &ScriptDialog::onPathChanged);
-    pathLayout->addWidget(m_pathEdit);
+    pathLayout->addWidget(m_pathEdit, 1);
     mainLayout->addLayout(pathLayout);
 
-    // 按钮
+    // 按钮：次操作在左、主操作在右
     QHBoxLayout *buttonLayout = new QHBoxLayout();
+    buttonLayout->setSpacing(8);
     buttonLayout->addStretch();
 
+    m_cancelButton = new QPushButton(tr("取消"), this);
+    m_cancelButton->setProperty("class", "ghost");
+    connect(m_cancelButton, &QPushButton::clicked,
+            this, &QDialog::reject);
+    buttonLayout->addWidget(m_cancelButton);
+
     m_okButton = new QPushButton(tr("确定"), this);
+    m_okButton->setProperty("class", "primary");
+    m_okButton->setDefault(true);
     m_okButton->setEnabled(false);
     connect(m_okButton, &QPushButton::clicked,
             this, &ScriptDialog::onOkClicked);
     buttonLayout->addWidget(m_okButton);
-
-    m_cancelButton = new QPushButton(tr("取消"), this);
-    connect(m_cancelButton, &QPushButton::clicked,
-            this, &QDialog::reject);
-    buttonLayout->addWidget(m_cancelButton);
 
     mainLayout->addLayout(buttonLayout);
 }
@@ -214,6 +238,7 @@ void ScriptDialog::onRecentScriptClicked(QListWidgetItem *item)
         m_pathEdit->setText(scriptPath);
         m_selectedPath = scriptPath;
         m_descriptionLabel->clear();
+        m_descriptionLabel->setProperty("state", QVariant());
 
         // 取消内置脚本列表的选择
         m_builtinList->clearSelection();
@@ -230,10 +255,13 @@ void ScriptDialog::onPathChanged(const QString &path)
 
     if (!path.isEmpty() && !exists) {
         m_descriptionLabel->setText(tr("⚠ 文件不存在"));
-        m_descriptionLabel->setStyleSheet("QLabel { color: red; }");
-    } else if (exists) {
-        m_descriptionLabel->setStyleSheet("QLabel { color: gray; font-style: italic; }");
+        m_descriptionLabel->setProperty("state", "error");
+    } else {
+        m_descriptionLabel->setProperty("state", QVariant());
     }
+    // 属性变化后需要重新应用样式表
+    m_descriptionLabel->style()->unpolish(m_descriptionLabel);
+    m_descriptionLabel->style()->polish(m_descriptionLabel);
 }
 
 void ScriptDialog::onOkClicked()

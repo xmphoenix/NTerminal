@@ -4,6 +4,38 @@
 #include <QPalette>
 #include <QFile>
 #include <QDebug>
+#include <QWidget>
+#include <QEvent>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
+
+namespace {
+
+// 深色主题时把 Windows 原生标题栏切成深色（Win10 1809+ 属性 20，旧版 19）。
+// 动态加载 dwmapi，避免为这一项功能在工程里增加链接依赖。
+#ifdef Q_OS_WIN
+void setImmersiveDarkTitleBar(HWND hwnd, bool dark)
+{
+    using DwmSetWindowAttributeFn = HRESULT(WINAPI *)(HWND, DWORD, LPCVOID, DWORD);
+    static const DwmSetWindowAttributeFn setAttribute = [] {
+        HMODULE dwm = LoadLibraryW(L"dwmapi.dll");
+        return dwm ? reinterpret_cast<DwmSetWindowAttributeFn>(
+                         GetProcAddress(dwm, "DwmSetWindowAttribute"))
+                   : nullptr;
+    }();
+    if (!setAttribute || !hwnd) {
+        return;
+    }
+    BOOL value = dark ? TRUE : FALSE;
+    if (FAILED(setAttribute(hwnd, 20, &value, sizeof(value)))) {
+        setAttribute(hwnd, 19, &value, sizeof(value));
+    }
+}
+#endif
+
+} // namespace
 
 ThemeManager *ThemeManager::m_instance = nullptr;
 
@@ -29,6 +61,9 @@ void ThemeManager::initialize()
     initTerminalThemes();
     initAppThemes();
     loadSettings();
+    if (qApp) {
+        qApp->installEventFilter(this);
+    }
 }
 
 void ThemeManager::initTerminalThemes()
@@ -489,6 +524,7 @@ void ThemeManager::initTerminalThemes()
 
 // 从基础色派生扩展 tokens（手工主题只需定义基础色）。
 // 深/浅模式由 windowBackground 亮度判定，保证任意主题都有完整色板。
+// 逐项补齐：手工精调过的 token 保留原值，只补它没有定义的项。
 static void deriveAppTokens(AppTheme &t)
 {
     const bool dark = t.windowBackground.lightness() < 128;
@@ -496,19 +532,44 @@ static void deriveAppTokens(AppTheme &t)
     const QColor bg = t.windowBackground;
     // 浅色：面板比窗口底色略深（侧栏/工具栏下沉），输入框与终端为白色（抬起），
     // 用明度差 + 更清晰的描边划分子窗口；深色：面板比底色略亮。
-    t.panel = dark ? bg.lighter(114) : bg.darker(106);
-    t.panelHover = dark ? bg.lighter(124) : bg.darker(112);
-    t.panelRaised = dark ? bg.lighter(131) : QColor(255, 255, 255);
-    t.border = dark ? bg.lighter(138) : bg.darker(120);
-    t.borderStrong = dark ? bg.lighter(155) : bg.darker(140);
-    t.textDim = dark ? t.windowText.darker(142) : t.windowText.lighter(148);
-    t.textFaint = dark ? t.windowText.darker(182) : t.windowText.lighter(185);
-    t.accent = t.highlight;
-    t.accentHover = t.highlight.lighter(112);
-    t.success = dark ? QColor(0x3F, 0xB9, 0x50) : QColor(0x1F, 0x88, 0x3D);
-    t.warning = dark ? QColor(0xD2, 0x99, 0x22) : QColor(0x9A, 0x67, 0x00);
-    t.danger = dark ? QColor(0xF8, 0x51, 0x49) : QColor(0xCF, 0x22, 0x2E);
-    t.radius = 6;
+    if (!t.panel.isValid())
+        t.panel = dark ? bg.lighter(114) : bg.darker(106);
+    if (!t.panelHover.isValid())
+        t.panelHover = dark ? bg.lighter(124) : bg.darker(112);
+    if (!t.panelRaised.isValid())
+        t.panelRaised = dark ? bg.lighter(131) : QColor(255, 255, 255);
+    if (!t.surfaceAlt.isValid())
+        t.surfaceAlt = dark ? bg.lighter(108) : bg.darker(103);
+    if (!t.border.isValid())
+        t.border = dark ? bg.lighter(138) : bg.darker(120);
+    if (!t.borderStrong.isValid())
+        t.borderStrong = dark ? bg.lighter(155) : bg.darker(140);
+    // 发丝线比普通描边更弱，只用来分区，不参与控件轮廓
+    if (!t.hairline.isValid())
+        t.hairline = dark ? bg.lighter(121) : bg.darker(110);
+    if (!t.scrollbar.isValid())
+        t.scrollbar = dark ? bg.lighter(150) : bg.darker(116);
+    if (!t.textDim.isValid())
+        t.textDim = dark ? t.windowText.darker(142) : t.windowText.lighter(148);
+    if (!t.textFaint.isValid())
+        t.textFaint = dark ? t.windowText.darker(182) : t.windowText.lighter(185);
+    if (!t.accent.isValid())
+        t.accent = t.highlight;
+    if (!t.accentHover.isValid())
+        t.accentHover = t.highlight.lighter(112);
+    // 强调色用作文字时：深色主题提亮、浅色主题压暗，保证次级（tonal）按钮的对比度
+    if (!t.accentText.isValid())
+        t.accentText = dark ? t.accent.lighter(148) : t.accent.darker(118);
+    if (!t.success.isValid())
+        t.success = dark ? QColor(0x3F, 0xB9, 0x50) : QColor(0x1F, 0x88, 0x3D);
+    if (!t.warning.isValid())
+        t.warning = dark ? QColor(0xD2, 0x99, 0x22) : QColor(0x9A, 0x67, 0x00);
+    if (!t.danger.isValid())
+        t.danger = dark ? QColor(0xF8, 0x51, 0x49) : QColor(0xCF, 0x22, 0x2E);
+    // 圆角是结构 token，不随手工主题变化
+    t.radiusSm = 6;
+    t.radius = 8;
+    t.radiusLg = 12;
     if (t.menuBackground == QColor()) t.menuBackground = t.panel;
     if (t.menuText == QColor()) t.menuText = t.windowText;
     if (t.buttonBackground == QColor()) t.buttonBackground = t.panelRaised;
@@ -655,12 +716,10 @@ void ThemeManager::initAppThemes()
     theme.toolTipText = QColor(216, 222, 233);
     m_appThemes[theme.id] = theme;
 
-    // 统一派生扩展 tokens：未显式精调的主题（panel 为空）自动推导，
-    // 保证任意主题都具备完整设计语言色板
+    // 统一派生/补齐扩展 tokens：手工精调过的主题保留自己的色板，
+    // 只补它没有定义的项，保证任意主题都具备完整设计语言色板
     for (auto it = m_appThemes.begin(); it != m_appThemes.end(); ++it) {
-        if (!it.value().panel.isValid()) {
-            deriveAppTokens(it.value());
-        }
+        deriveAppTokens(it.value());
     }
 
     // 缺省外壳主题：小清新（薄荷绿）
@@ -697,13 +756,32 @@ QString ThemeManager::currentAppThemeId() const
     return m_currentAppThemeId;
 }
 
-void ThemeManager::setTerminalTheme(const QString &id)
+void ThemeManager::setTerminalTheme(const QString &id, bool userInitiated)
 {
+    if (!userInitiated) {
+        // 跟随外壳主题：仅在配色确实变化时通知
+        if (m_terminalThemes.contains(id) && m_currentTerminalThemeId != id) {
+            m_currentTerminalThemeId = id;
+            emit terminalThemeChanged(m_terminalThemes[id]);
+        }
+        return;
+    }
     if (m_terminalThemes.contains(id) && m_currentTerminalThemeId != id) {
         m_currentTerminalThemeId = id;
+        m_terminalThemeAuto = false;   // 用户显式选择后不再自动配对
         emit terminalThemeChanged(m_terminalThemes[id]);
         saveSettings();
     }
+}
+
+QString ThemeManager::pairedTerminalThemeId(const AppTheme &appTheme) const
+{
+    // 同名配色（Nord / Dracula / Solarized …）优先，保证外壳与终端同一视觉语言
+    if (m_terminalThemes.contains(appTheme.id)) {
+        return appTheme.id;
+    }
+    return appTheme.dark ? QStringLiteral("vscode-dark")
+                         : QStringLiteral("vscode-light");
 }
 
 void ThemeManager::setAppTheme(const QString &id)
@@ -712,6 +790,9 @@ void ThemeManager::setAppTheme(const QString &id)
         m_currentAppThemeId = id;
         emit appThemeChanged(m_appThemes[id]);
         applyAppTheme(m_appThemes[id]);
+        if (m_terminalThemeAuto) {
+            setTerminalTheme(pairedTerminalThemeId(m_appThemes[id]), false);
+        }
         saveSettings();
     }
 }
@@ -732,6 +813,7 @@ void ThemeManager::saveSettings()
     settings.beginGroup("Theme");
     settings.setValue("TerminalTheme", m_currentTerminalThemeId);
     settings.setValue("AppTheme", m_currentAppThemeId);
+    settings.setValue("TerminalThemeAuto", m_terminalThemeAuto);
     settings.endGroup();
 }
 
@@ -743,16 +825,20 @@ void ThemeManager::loadSettings()
     // 缺省主题：小清新外壳 + 浅底终端。用户显式切换后以保存值为准。
     QString terminalThemeId = settings.value("TerminalTheme", "vscode-light").toString();
     QString appThemeId = settings.value("AppTheme", "fresh-light").toString();
-    
-    if (m_terminalThemes.contains(terminalThemeId)) {
-        m_currentTerminalThemeId = terminalThemeId;
-    }
-    
+    m_terminalThemeAuto = settings.value("TerminalThemeAuto", true).toBool();
+
     if (m_appThemes.contains(appThemeId)) {
         m_currentAppThemeId = appThemeId;
         applyAppTheme(m_appThemes[appThemeId]);
     }
-    
+
+    if (m_terminalThemeAuto) {
+        // 跟随模式：终端明暗与外壳保持一致（首次启动即深色/浅色配套）
+        m_currentTerminalThemeId = pairedTerminalThemeId(m_appThemes.value(m_currentAppThemeId));
+    } else if (m_terminalThemes.contains(terminalThemeId)) {
+        m_currentTerminalThemeId = terminalThemeId;
+    }
+
     settings.endGroup();
 }
 
@@ -808,30 +894,73 @@ void ThemeManager::applyStylesheet()
         { "@panel@",        theme.panel.name() },
         { "@panelHover@",   theme.panelHover.name() },
         { "@panelRaised@",  theme.panelRaised.name() },
+        { "@surfaceAlt@",   theme.surfaceAlt.name() },
         { "@border@",       theme.border.name() },
         { "@borderStrong@", theme.borderStrong.name() },
+        { "@hairline@",     theme.hairline.name() },
+        { "@scrollbar@",    theme.scrollbar.name() },
         { "@text@",         theme.windowText.name() },
         { "@textDim@",      theme.textDim.name() },
         { "@textFaint@",    theme.textFaint.name() },
         { "@accent@",       theme.accent.name() },
         { "@accentHover@",  theme.accentHover.name() },
-        { "@accentSoft@",   rgba(theme.accent, 0.14) },
+        { "@accentText@",   theme.accentText.name() },
+        { "@onAccent@",     theme.highlightText.name() },
+        { "@accentSoft@",   rgba(theme.accent, theme.dark ? 0.20 : 0.14) },
+        { "@accentSoftStrong@", rgba(theme.accent, theme.dark ? 0.34 : 0.26) },
         { "@success@",      theme.success.name() },
+        { "@successSoft@",  rgba(theme.success, 0.14) },
         { "@warning@",      theme.warning.name() },
+        { "@warningSoft@",  rgba(theme.warning, 0.14) },
         { "@danger@",       theme.danger.name() },
         { "@dangerSoft@",   rgba(theme.danger, 0.12) },
+        // 勾选图标按强调色明暗自动选白色/深色描边版本
+        { "@checkIcon@",    theme.accent.lightness() < 150
+                                ? QStringLiteral(":/icons/check.svg")
+                                : QStringLiteral(":/icons/check-dark.svg") },
+        { "@radiusSm@",     QString::number(theme.radiusSm) },
         { "@radius@",       QString::number(theme.radius) },
-        { "@fontSize@",     "12" },
+        { "@radiusLg@",     QString::number(theme.radiusLg) },
+        { "@fontSize@",     "13" },
     };
     for (const Token &token : tokens) {
         qss.replace(QLatin1String(token.key), token.value);
     }
 
     qApp->setStyleSheet(qss);
+
+    // 已存在的窗口立即跟随明暗（新窗口在 Show 事件里处理）
+    const auto windows = QApplication::topLevelWidgets();
+    for (QWidget *window : windows) {
+        applyWindowChrome(window);
+    }
 }
 
 QColor ThemeManager::iconColor() const
 {
     const AppTheme theme = currentAppTheme();
     return theme.textDim.isValid() ? theme.textDim : theme.windowText;
+}
+
+void ThemeManager::applyWindowChrome(QWidget *window)
+{
+#ifdef Q_OS_WIN
+    if (!window || !window->isWindow()) {
+        return;
+    }
+    setImmersiveDarkTitleBar(reinterpret_cast<HWND>(window->winId()),
+                             currentAppTheme().dark);
+#else
+    Q_UNUSED(window);
+#endif
+}
+
+bool ThemeManager::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() == QEvent::Show) {
+        if (QWidget *widget = qobject_cast<QWidget *>(watched)) {
+            applyWindowChrome(widget);
+        }
+    }
+    return QObject::eventFilter(watched, event);
 }

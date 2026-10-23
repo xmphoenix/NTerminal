@@ -30,6 +30,9 @@ public:
     // 返回用户配置（Common::ConnectionSettings 为全项目唯一定义）
     Common::ConnectionSettings getSettings() const;
 
+    // 预选连接类型（从"传输"菜单直接打开 SFTP/FTP 时使用）
+    void setPreferredType(Common::ConnectionType type);
+
 private slots:
     void onConnectionTypeChanged(int index);
     void refreshSerialPorts();

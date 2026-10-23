@@ -1,5 +1,8 @@
 #include "ui/scriptlogviewer.h"
+#include "ui/iconprovider.h"
+#include "theme/thememanager.h"
 #include <QVBoxLayout>
+#include <QLabel>
 #include <QHBoxLayout>
 #include <QFileDialog>
 #include <QFile>
@@ -30,22 +33,39 @@ ScriptLogViewer::~ScriptLogViewer()
 void ScriptLogViewer::setupUI()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(24, 20, 24, 20);
+    mainLayout->setSpacing(14);
+
+    // 头部：标题 + 说明
+    QLabel *titleLabel = new QLabel(tr("脚本日志"), this);
+    titleLabel->setProperty("class", "sectionTitle");
+    QLabel *hintLabel = new QLabel(tr("运行输出按级别着色，可一键清空或导出为文本文件"), this);
+    hintLabel->setProperty("class", "hint");
+    hintLabel->setWordWrap(true);
+    mainLayout->addWidget(titleLabel);
+    mainLayout->addWidget(hintLabel);
 
     // 日志文本区域
     m_logText = new QTextEdit(this);
     m_logText->setReadOnly(true);
-    m_logText->setFont(QFont("Consolas", 9));
-    mainLayout->addWidget(m_logText);
+    QFont monoFont = m_logText->font();
+    monoFont.setFamilies({"JetBrains Mono", "Consolas", "Cascadia Mono"});
+    monoFont.setPixelSize(12);
+    m_logText->setFont(monoFont);
+    mainLayout->addWidget(m_logText, 1);
 
     // 按钮
     QHBoxLayout *buttonLayout = new QHBoxLayout();
+    buttonLayout->setSpacing(8);
 
     m_clearButton = new QPushButton(tr("清空日志"), this);
+    m_clearButton->setProperty("class", "ghost");
     connect(m_clearButton, &QPushButton::clicked,
             this, &ScriptLogViewer::clearLog);
     buttonLayout->addWidget(m_clearButton);
 
     m_exportButton = new QPushButton(tr("导出日志"), this);
+    m_exportButton->setIcon(IconProvider::themedIcon("download"));
     connect(m_exportButton, &QPushButton::clicked,
             this, &ScriptLogViewer::exportLog);
     buttonLayout->addWidget(m_exportButton);
@@ -53,6 +73,8 @@ void ScriptLogViewer::setupUI()
     buttonLayout->addStretch();
 
     m_closeButton = new QPushButton(tr("关闭"), this);
+    m_closeButton->setProperty("class", "primary");
+    m_closeButton->setDefault(true);
     connect(m_closeButton, &QPushButton::clicked,
             this, &QDialog::accept);
     buttonLayout->addWidget(m_closeButton);
@@ -129,33 +151,36 @@ void ScriptLogViewer::exportLog()
 
 QString ScriptLogViewer::formatLogMessage(const QString &level, const QString &message) const
 {
+    const AppTheme theme = ThemeManager::instance()->currentAppTheme();
     QString timestamp = QDateTime::currentDateTime().toString("HH:mm:ss");
     QString color = getLevelColor(level);
 
-    QString html = QString("<span style='color: gray;'>[%1]</span> "
-                           "<span style='color: %2; font-weight: bold;'>[%3]</span> "
-                           "<span>%4</span>")
-                       .arg(timestamp)
-                       .arg(color)
-                       .arg(level.toUpper())
-                       .arg(message.toHtmlEscaped());
+    QString html = QStringLiteral("<span style=\"color:%1;\">[%2]</span> "
+                                  "<span style=\"color:%3; font-weight: bold;\">[%4]</span> "
+                                  "<span>%5</span>")
+                       .arg(theme.textFaint.name(),
+                            timestamp,
+                            color,
+                            level.toUpper(),
+                            message.toHtmlEscaped());
 
     return html;
 }
 
 QString ScriptLogViewer::getLevelColor(const QString &level) const
 {
-    QString levelLower = level.toLower();
+    const AppTheme theme = ThemeManager::instance()->currentAppTheme();
+    const QString levelLower = level.toLower();
 
     if (levelLower == "error") {
-        return "red";
+        return theme.danger.name();
     } else if (levelLower == "warning") {
-        return "orange";
+        return theme.warning.name();
     } else if (levelLower == "info") {
-        return "blue";
+        return theme.accent.name();
     } else if (levelLower == "debug") {
-        return "gray";
+        return theme.textDim.name();
     } else {
-        return "black";
+        return theme.windowText.name();
     }
 }

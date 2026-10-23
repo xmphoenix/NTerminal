@@ -35,7 +35,7 @@ void TerminalTabBar::paintEvent(QPaintEvent *event)
         bg.fillRect(rect(), theme.panel);
         // 标签条底边线：选中标签随后会用自己的背景把它盖住，
         // 于是"选中的标签与终端面板连成一体，其余部分有分界线"。
-        bg.fillRect(0, height() - 1, width(), 1, theme.border);
+        bg.fillRect(0, height() - 1, width(), 1, theme.hairline);
     }
 
     // 标签项外观（文字/背景/选中底线）交给 QSS

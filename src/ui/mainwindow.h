@@ -12,6 +12,7 @@ class QSplitter;
 class QTreeWidget;
 class QTreeWidgetItem;
 class QTabWidget;
+class QStackedWidget;
 class QLineEdit;
 class QComboBox;
 class QLabel;
@@ -72,6 +73,10 @@ private:
     QWidget *buildTopBar();
     QWidget *buildSidebar();
     QWidget *buildTerminalArea();
+    // 无标签页时的空状态引导页（选择会话 / 新建会话）
+    QWidget *buildEmptyState();
+    // 在空状态与标签页之间切换
+    void updateEmptyState();
     void buildStatusBarWidgets();
     void applyMenuIcons();
     // 应用主题切换后：清空图标缓存并按属性 "iconName" 重建按钮图标
@@ -87,7 +92,9 @@ private:
     void showThemeSettings();
     void applyTerminalTheme(class TerminalProxy *terminal);
     // 弹出连接对话框并建立新终端标签页（applyTheme: 是否立即应用当前主题/字体）
-    void openConnectionFromDialog(bool applyTheme);
+    // type: 预选协议（传输菜单可直达 SFTP/FTP）
+    void openConnectionFromDialog(bool applyTheme,
+                                 Common::ConnectionType type = Common::ConnectionType::Serial);
     // 按已保存会话打开新标签页
     void openSession(const Common::ConnectionSettings &settings, const QString &name);
     
@@ -113,6 +120,8 @@ private:
     QLineEdit *m_quickConnectEdit = nullptr;
     TerminalTabBar *m_terminalTabBar = nullptr;
     QTabWidget *m_screenTabWidget = nullptr;
+    QStackedWidget *m_mainStack = nullptr;
+    QWidget *m_emptyState = nullptr;
     QLineEdit *m_commandLineEdit = nullptr;
 
     QMap<QString, TerminalProxy*> m_terminals;
@@ -159,6 +168,18 @@ private:
     QAction *m_calculatorAction = nullptr;
     QAction *m_portScannerAction = nullptr;
     QAction *m_asciiTableAction = nullptr;
+    QAction *m_networkServicesAction = nullptr;
+    QAction *m_printAction = nullptr;
+    QAction *m_aboutAction = nullptr;
+    // 编辑 / 视图 / 传输 / 插件菜单动作
+    QAction *m_copyAction = nullptr;
+    QAction *m_pasteAction = nullptr;
+    QAction *m_clearScreenAction = nullptr;
+    QAction *m_toggleSidebarAction = nullptr;
+    QAction *m_fullScreenAction = nullptr;
+    QAction *m_sftpAction = nullptr;
+    QAction *m_ftpAction = nullptr;
+    QAction *m_pluginDirAction = nullptr;
 
     // 脚本相关 Action
     QAction *m_loadScriptAction = nullptr;

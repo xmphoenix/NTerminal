@@ -22,6 +22,7 @@ QHash<QString, QString> buildPaths()
     p["new-session"]   = R"(<path d="M12 5v14M5 12h14"/>)";
     p["disconnect"]    = R"(<path d="M12 3v9"/><path d="M6.4 6.4a8 8 0 1 0 11.2 0"/>)";
     p["reconnect"]     = R"(<path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/>)";
+    p["reset"]         = R"(<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>)";
     p["duplicate"]     = R"(<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>)";
     p["transfer"]      = R"(<path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/>)";
     p["script"]        = R"(<path d="m8 6-6 6 6 6"/><path d="m16 6 6 6-6 6"/>)";
@@ -47,6 +48,17 @@ QHash<QString, QString> buildPaths()
     p["chevron-down"]  = R"(<path d="m6 9 6 6 6-6"/>)";
     p["chevron-right"] = R"(<path d="m9 6 6 6-6 6"/>)";
     p["split"]         = R"(<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/>)";
+    p["play"]          = R"(<path d="M8 5.5v13l10-6.5z"/>)";
+    p["stop"]          = R"(<rect x="6" y="6" width="12" height="12" rx="2"/>)";
+    p["download"]      = R"(<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>)";
+    p["copy"]          = R"(<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>)";
+    p["paste"]         = R"(<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v4H9z"/>)";
+    p["clear"]         = R"(<path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M9 7V4h6v3"/>)";
+    p["fullscreen"]    = R"(<path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>)";
+    p["save"]          = R"(<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/>)";
+    p["calculator"]    = R"(<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8"/><path d="M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 19h.01M12 19h.01"/>)";
+    p["globe"]         = R"(<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/>)";
+    p["grid"]          = R"(<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>)";
     return p;
 }
 

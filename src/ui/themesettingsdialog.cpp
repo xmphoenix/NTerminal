@@ -5,6 +5,7 @@
 #include <QFrame>
 #include <QScrollArea>
 #include <QFontDatabase>
+#include <QSignalBlocker>
 
 ThemeSettingsDialog::ThemeSettingsDialog(QWidget *parent)
     : QDialog(parent)
@@ -34,70 +35,109 @@ ThemeSettingsDialog::~ThemeSettingsDialog()
 void ThemeSettingsDialog::setupUi()
 {
     setWindowTitle(tr("主题设置"));
-    setMinimumSize(650, 600);
+    setMinimumSize(640, 560);
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(24, 20, 24, 20);
+    mainLayout->setSpacing(14);
 
-    QGroupBox *appThemeGroup = new QGroupBox(tr("应用主题"), this);
+    // 头部：标题 + 说明
+    QLabel *titleLabel = new QLabel(tr("主题设置"));
+    titleLabel->setProperty("class", "sectionTitle");
+    QLabel *hintLabel = new QLabel(tr("外观、字体与终端配色会立即预览，确定后保存"));
+    hintLabel->setProperty("class", "hint");
+    mainLayout->addWidget(titleLabel);
+    mainLayout->addWidget(hintLabel);
+
+    // 内容区可滚动：小屏/放大字号时不会挤压或裁切分组
+    QScrollArea *scrollArea = new QScrollArea(this);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    QWidget *content = new QWidget;
+    content->setObjectName("themeSettingsContent");
+    QVBoxLayout *contentLayout = new QVBoxLayout(content);
+    contentLayout->setContentsMargins(0, 0, 0, 0);
+    contentLayout->setSpacing(14);
+
+    QGroupBox *appThemeGroup = new QGroupBox(tr("应用主题"), content);
     QFormLayout *appThemeLayout = new QFormLayout(appThemeGroup);
+    appThemeLayout->setHorizontalSpacing(16);
+    appThemeLayout->setVerticalSpacing(10);
+    appThemeLayout->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     appThemeLayout->addRow(tr("主题:"), m_appThemeCombo);
 
-    m_appThemePreview->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
-    m_appThemePreview->setMinimumHeight(60);
+    m_appThemePreview->setFrameShape(QFrame::StyledPanel);
+    m_appThemePreview->setMinimumHeight(52);
     m_appThemePreview->setAlignment(Qt::AlignCenter);
     appThemeLayout->addRow(tr("预览:"), m_appThemePreview);
 
-    mainLayout->addWidget(appThemeGroup);
+    contentLayout->addWidget(appThemeGroup);
 
-    QGroupBox *fontGroup = new QGroupBox(tr("字体设置"), this);
+    QGroupBox *fontGroup = new QGroupBox(tr("字体设置"), content);
     QFormLayout *fontLayout = new QFormLayout(fontGroup);
+    fontLayout->setHorizontalSpacing(16);
+    fontLayout->setVerticalSpacing(10);
+    fontLayout->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
 
     m_fontSizeSpinBox->setRange(8, 72);
     m_fontSizeSpinBox->setValue(10);
 
     QHBoxLayout *fontSizeLayout = new QHBoxLayout();
-    fontSizeLayout->addWidget(m_fontCombo);
+    fontSizeLayout->setSpacing(8);
+    fontSizeLayout->addWidget(m_fontCombo, 1);
     fontSizeLayout->addWidget(new QLabel(tr("字号:")));
     fontSizeLayout->addWidget(m_fontSizeSpinBox);
 
     fontLayout->addRow(tr("字体:"), fontSizeLayout);
 
-    m_fontPreview->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
-    m_fontPreview->setMinimumHeight(60);
+    m_fontPreview->setFrameShape(QFrame::StyledPanel);
+    m_fontPreview->setMinimumHeight(52);
     m_fontPreview->setAlignment(Qt::AlignCenter);
     m_fontPreview->setText("The quick brown fox jumps over the lazy dog. 0123456789");
     fontLayout->addRow(tr("预览:"), m_fontPreview);
 
-    mainLayout->addWidget(fontGroup);
+    contentLayout->addWidget(fontGroup);
 
-    QGroupBox *terminalThemeGroup = new QGroupBox(tr("终端主题"), this);
+    QGroupBox *terminalThemeGroup = new QGroupBox(tr("终端主题"), content);
     QFormLayout *terminalThemeLayout = new QFormLayout(terminalThemeGroup);
+    terminalThemeLayout->setHorizontalSpacing(16);
+    terminalThemeLayout->setVerticalSpacing(10);
+    terminalThemeLayout->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     terminalThemeLayout->addRow(tr("主题:"), m_terminalThemeCombo);
 
-    mainLayout->addWidget(terminalThemeGroup);
+    contentLayout->addWidget(terminalThemeGroup);
 
     QWidget *colorPreviewWidget = new QWidget();
-    m_colorLayout->setSpacing(4);
-    m_colorLayout->setContentsMargins(8, 8, 8, 8);
+    m_colorLayout->setSpacing(6);
+    m_colorLayout->setContentsMargins(2, 2, 2, 2);
     colorPreviewWidget->setLayout(m_colorLayout);
 
-    QScrollArea *scrollArea = new QScrollArea();
-    scrollArea->setWidget(colorPreviewWidget);
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setMinimumHeight(200);
-
+    m_terminalPreviewGroup->setParent(content);
     QVBoxLayout *previewLayout = new QVBoxLayout(m_terminalPreviewGroup);
-    previewLayout->addWidget(scrollArea);
+    previewLayout->setContentsMargins(0, 0, 0, 0);
+    previewLayout->addWidget(colorPreviewWidget);
+    m_terminalPreviewGroup->setMinimumHeight(230);
 
-    mainLayout->addWidget(m_terminalPreviewGroup);
+    contentLayout->addWidget(m_terminalPreviewGroup);
+    contentLayout->addStretch();
 
-    mainLayout->addStretch();
+    scrollArea->setWidget(content);
+    mainLayout->addWidget(scrollArea, 1);
+
+    // 次操作在左、主操作在右；"应用"用柔和色调，表示可反复执行
+    m_applyButton->setProperty("class", "tonal");
+    m_okButton->setProperty("class", "primary");
+    m_okButton->setDefault(true);
+    m_cancelButton->setProperty("class", "ghost");
 
     QHBoxLayout *buttonLayout = new QHBoxLayout();
+    buttonLayout->setSpacing(8);
     buttonLayout->addStretch();
+    buttonLayout->addWidget(m_cancelButton);
     buttonLayout->addWidget(m_applyButton);
     buttonLayout->addWidget(m_okButton);
-    buttonLayout->addWidget(m_cancelButton);
 
     mainLayout->addLayout(buttonLayout);
 
@@ -274,6 +314,19 @@ void ThemeSettingsDialog::onAppThemeChanged(int index)
 {
     Q_UNUSED(index);
     m_selectedAppThemeId = m_appThemeCombo->currentData().toString();
+
+    // 自动跟随模式：外壳明暗变化时，终端配色预览同步切到配套主题
+    ThemeManager *tm = ThemeManager::instance();
+    if (tm->terminalThemeFollowsApp()) {
+        const AppTheme appTheme = tm->appTheme(m_selectedAppThemeId);
+        const int pairedIndex =
+            m_terminalThemeCombo->findData(tm->pairedTerminalThemeId(appTheme));
+        if (pairedIndex >= 0 && pairedIndex != m_terminalThemeCombo->currentIndex()) {
+            QSignalBlocker blocker(m_terminalThemeCombo);
+            m_terminalThemeCombo->setCurrentIndex(pairedIndex);
+            m_selectedTerminalThemeId = m_terminalThemeCombo->currentData().toString();
+        }
+    }
     updatePreview();
 }
 
@@ -302,8 +355,14 @@ void ThemeSettingsDialog::onApply()
     ThemeManager *tm = ThemeManager::instance();
     FontManager *fm = FontManager::instance();
 
+    // 只在用户确实改了终端配色时才视为"手动选择"，否则保持自动跟随外壳明暗
+    const bool terminalThemeChanged =
+        m_selectedTerminalThemeId != tm->currentTerminalThemeId();
+
     tm->setAppTheme(m_selectedAppThemeId);
-    tm->setTerminalTheme(m_selectedTerminalThemeId);
+    if (terminalThemeChanged) {
+        tm->setTerminalTheme(m_selectedTerminalThemeId);
+    }
     fm->setCurrentFont(m_selectedFontId);
     fm->setCurrentFontSize(m_selectedFontSize);
 }

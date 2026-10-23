@@ -10,8 +10,10 @@
 
         <!-- QSS 引用的图标资源（其余图标内嵌于 IconProvider） -->
         <file>icons/chevron-down.svg</file>
+        <file>icons/chevron-up.svg</file>
         <file>icons/close.svg</file>
         <file>icons/check.svg</file>
+        <file>icons/check-dark.svg</file>
 
         <!-- 如需添加更多字体，请下载后取消下面行的注释 -->
         <!-- <file>fonts/FiraCode-Regular.ttf</file> -->

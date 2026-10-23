@@ -1,4 +1,6 @@
 #include "ui/portscannerdialog.h"
+#include "ui/iconprovider.h"
+#include "theme/thememanager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
@@ -49,17 +51,35 @@ PortScannerDialog::~PortScannerDialog()
 void PortScannerDialog::setupUi()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(24, 20, 24, 20);
+    mainLayout->setSpacing(14);
+
+    // 头部：标题 + 说明
+    QLabel *titleLabel = new QLabel(tr("端口扫描"), this);
+    titleLabel->setProperty("class", "sectionTitle");
+    QLabel *hintLabel = new QLabel(tr("探测目标主机的常用端口或指定端口范围，仅用于你拥有权限的网络"), this);
+    hintLabel->setProperty("class", "hint");
+    hintLabel->setWordWrap(true);
+    mainLayout->addWidget(titleLabel);
+    mainLayout->addWidget(hintLabel);
 
     // 目标主机设置
     QGroupBox *targetGroup = new QGroupBox(tr("目标主机"), this);
     QGridLayout *targetLayout = new QGridLayout(targetGroup);
+    targetLayout->setContentsMargins(0, 0, 0, 0);
+    targetLayout->setHorizontalSpacing(10);
+    targetLayout->setVerticalSpacing(10);
+    targetLayout->setColumnStretch(1, 1);
+    targetLayout->setColumnStretch(2, 1);
+    targetLayout->setColumnStretch(3, 1);
 
     targetLayout->addWidget(new QLabel(tr("主机/IP:"), this), 0, 0);
     m_hostEdit = new QLineEdit(this);
     m_hostEdit->setPlaceholderText(tr("例如：192.168.1.1 或 example.com"));
     targetLayout->addWidget(m_hostEdit, 0, 1, 1, 3);
 
-    m_pingButton = new QPushButton(tr("Ping"), this);
+    m_pingButton = new QPushButton(IconProvider::themedIcon("globe"), tr("Ping"), this);
+    m_pingButton->setProperty("class", "tonal");
     connect(m_pingButton, &QPushButton::clicked, this, &PortScannerDialog::onPingHost);
     targetLayout->addWidget(m_pingButton, 0, 4);
 
@@ -68,6 +88,10 @@ void PortScannerDialog::setupUi()
     // 端口范围设置
     QGroupBox *portGroup = new QGroupBox(tr("端口范围"), this);
     QGridLayout *portLayout = new QGridLayout(portGroup);
+    portLayout->setContentsMargins(0, 0, 0, 0);
+    portLayout->setHorizontalSpacing(10);
+    portLayout->setVerticalSpacing(10);
+    portLayout->setColumnStretch(3, 1);
 
     m_commonPortsCheck = new QCheckBox(tr("仅扫描常用端口"), this);
     m_commonPortsCheck->setChecked(true);
@@ -101,26 +125,38 @@ void PortScannerDialog::setupUi()
 
     // 控制按钮
     QHBoxLayout *buttonLayout = new QHBoxLayout();
-    m_startButton = new QPushButton(tr("开始扫描"), this);
+    buttonLayout->setSpacing(8);
+    m_startButton = new QPushButton(IconProvider::themedIcon("play"), tr("开始扫描"), this);
+    m_startButton->setProperty("class", "primary");
     connect(m_startButton, &QPushButton::clicked, this, &PortScannerDialog::onStartScan);
     buttonLayout->addWidget(m_startButton);
 
-    m_stopButton = new QPushButton(tr("停止"), this);
+    m_stopButton = new QPushButton(IconProvider::themedIcon("stop"), tr("停止"), this);
+    m_stopButton->setProperty("class", "ghost");
     m_stopButton->setEnabled(false);
     connect(m_stopButton, &QPushButton::clicked, this, &PortScannerDialog::onStopScan);
     buttonLayout->addWidget(m_stopButton);
 
     buttonLayout->addStretch();
+    QPushButton *closeButton = new QPushButton(tr("关闭"), this);
+    closeButton->setProperty("class", "ghost");
+    connect(closeButton, &QPushButton::clicked, this, &QDialog::reject);
+    buttonLayout->addWidget(closeButton);
     mainLayout->addLayout(buttonLayout);
 
     // 日志输出
     QLabel *logLabel = new QLabel(tr("扫描结果:"), this);
+    logLabel->setProperty("class", "hint");
     mainLayout->addWidget(logLabel);
 
     m_logText = new QTextEdit(this);
     m_logText->setReadOnly(true);
-    m_logText->setFont(QFont("Courier New", 9));
-    mainLayout->addWidget(m_logText);
+    m_logText->setPlaceholderText(tr("扫描结果将显示在这里…"));
+    QFont monoFont = m_logText->font();
+    monoFont.setFamilies({"JetBrains Mono", "Consolas", "Cascadia Mono"});
+    monoFont.setPixelSize(12);
+    m_logText->setFont(monoFont);
+    mainLayout->addWidget(m_logText, 1);
 }
 
 void PortScannerDialog::onStartScan()
@@ -292,7 +328,22 @@ void PortScannerDialog::onSocketTimeout()
 
 void PortScannerDialog::appendLog(const QString &message, const QString &color)
 {
-    QString html = QString("<span style='color:%1;'>%2</span>").arg(color).arg(message);
+    // 颜色使用主题令牌，保证浅色/深色主题下都清晰可读
+    const AppTheme theme = ThemeManager::instance()->currentAppTheme();
+    QColor c = theme.windowText;
+    if (color == QLatin1String("blue")) {
+        c = theme.accent;
+    } else if (color == QLatin1String("green")) {
+        c = theme.success;
+    } else if (color == QLatin1String("red")) {
+        c = theme.danger;
+    } else if (color == QLatin1String("orange")) {
+        c = theme.warning;
+    }
+
+    QString html = QStringLiteral("<span style=\"color:%1;\">%2</span>")
+                       .arg(c.name(),
+                            message.toHtmlEscaped().replace(QLatin1Char('\n'), QStringLiteral("<br>")));
     m_logText->append(html);
 }
 

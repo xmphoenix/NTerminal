@@ -44,7 +44,7 @@ QSize SessionItemDelegate::sizeHint(const QStyleOptionViewItem &option,
                                     const QModelIndex &index) const
 {
     Q_UNUSED(option);
-    return QSize(200, index.data(SessionGroupRole).toBool() ? 28 : 44);
+    return QSize(200, index.data(SessionGroupRole).toBool() ? 30 : 52);
 }
 
 void SessionItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
@@ -119,69 +119,67 @@ void SessionItemDelegate::paintSession(QPainter *painter,
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
 
-    const QRect r = option.rect.adjusted(2, 1, -2, -1);
+    const QRect r = option.rect.adjusted(2, 2, -2, -2);
 
-    // 背景
+    // 背景：Material 列表项式圆角填充，不再画侧边指示条
     if (selected) {
         QColor bg = theme.accent;
-        bg.setAlphaF(0.14);
+        bg.setAlphaF(0.16);
         painter->setPen(Qt::NoPen);
         painter->setBrush(bg);
         painter->drawRoundedRect(r, theme.radius, theme.radius);
-        // 左侧选中指示条
-        QRect bar(r.left(), r.top() + 9, 3, r.height() - 18);
-        painter->setBrush(theme.accent);
-        painter->drawRoundedRect(bar, 1.5, 1.5);
     } else if (hovered) {
         painter->setPen(Qt::NoPen);
         painter->setBrush(theme.panelHover);
         painter->drawRoundedRect(r, theme.radius, theme.radius);
     }
 
-    // 状态点
+    // 协议图标底座（圆角方块，类似手机端 App 图标）
+    const QRect chip(r.left() + 8, r.center().y() - 14, 28, 28);
+    QColor chipBg = style.color;
+    chipBg.setAlphaF(selected ? 0.20 : 0.12);
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(chipBg);
+    painter->drawRoundedRect(chip, 8, 8);
+    const QRect iconRect(chip.center().x() - 8, chip.center().y() - 8, 16, 16);
+    painter->drawPixmap(iconRect, IconProvider::pixmap(style.icon, style.color, 16, dpr));
+
+    // 连接状态点：贴在图标底座右下角，外圈用底色留白
+    const QPoint dotCenter(chip.right() - 1, chip.bottom() - 1);
     const QColor dotColor = active ? theme.success : theme.textFaint;
     painter->setPen(Qt::NoPen);
-    if (active) {
-        QColor glow = dotColor;
-        glow.setAlphaF(0.18);
-        painter->setBrush(glow);
-        painter->drawEllipse(QPoint(r.left() + 14, r.center().y()), 5, 5);
-    }
+    painter->setBrush(selected ? theme.panelRaised : theme.panel);
+    painter->drawEllipse(dotCenter, 5, 5);
     painter->setBrush(dotColor);
-    painter->drawEllipse(QPoint(r.left() + 14, r.center().y()), 3, 3);
+    painter->drawEllipse(dotCenter, 3, 3);
 
-    // 协议图标
-    const QRect iconRect(r.left() + 24, r.center().y() - 7, 14, 14);
-    painter->drawPixmap(iconRect, IconProvider::pixmap(style.icon, style.color, 14, dpr));
-
-    // 徽标（右对齐）
+    // 徽标（右对齐，胶囊形）
     QFont badgeFont = option.font;
     badgeFont.setPixelSize(9);
-    badgeFont.setWeight(QFont::Bold);
+    badgeFont.setWeight(QFont::DemiBold);
     badgeFont.setLetterSpacing(QFont::AbsoluteSpacing, 0.3);
     const QFontMetrics badgeMetrics(badgeFont);
     const QString badge = QString::fromLatin1(style.badge);
-    const int badgeW = badgeMetrics.horizontalAdvance(badge) + 8;
-    const QRect badgeRect(r.right() - badgeW - 6, r.center().y() - 8, badgeW, 16);
+    const int badgeW = badgeMetrics.horizontalAdvance(badge) + 12;
+    const QRect badgeRect(r.right() - badgeW - 8, r.center().y() - 9, badgeW, 18);
     QColor badgeBg = style.color;
     badgeBg.setAlphaF(0.12);
-    QColor badgeBorder = style.color;
-    badgeBorder.setAlphaF(0.28);
     painter->setBrush(badgeBg);
-    painter->setPen(QPen(badgeBorder, 1));
-    painter->drawRoundedRect(badgeRect, 3, 3);
+    painter->setPen(Qt::NoPen);
+    painter->drawRoundedRect(badgeRect, theme.radiusSm, theme.radiusSm);
     painter->setFont(badgeFont);
     painter->setPen(style.color);
     painter->drawText(badgeRect, Qt::AlignCenter, badge);
 
     // 名称 + 副文本
-    const int textLeft = r.left() + 44;
-    const int textRight = badgeRect.left() - 6;
+    const int textLeft = chip.right() + 10;
+    const int textRight = badgeRect.left() - 8;
     QFont nameFont = option.font;
-    nameFont.setPixelSize(12);
+    nameFont.setPixelSize(13);
+    nameFont.setWeight(QFont::Medium);
     painter->setFont(nameFont);
     painter->setPen(theme.windowText);
-    painter->drawText(QRect(textLeft, r.top() + 5, textRight - textLeft, 17),
+    painter->drawText(QRect(textLeft, r.top() + 8, textRight - textLeft, 18),
                       Qt::AlignLeft | Qt::AlignVCenter,
                       index.data(Qt::DisplayRole).toString());
 
@@ -191,7 +189,7 @@ void SessionItemDelegate::paintSession(QPainter *painter,
     subFont.setFamily(QStringLiteral("Consolas"));
     painter->setFont(subFont);
     painter->setPen(theme.textFaint);
-    painter->drawText(QRect(textLeft, r.top() + 22, textRight - textLeft, 15),
+    painter->drawText(QRect(textLeft, r.top() + 26, textRight - textLeft, 15),
                       Qt::AlignLeft | Qt::AlignVCenter,
                       index.data(SessionHostRole).toString());
 

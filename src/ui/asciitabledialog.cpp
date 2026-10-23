@@ -1,4 +1,6 @@
 #include "ui/asciitabledialog.h"
+#include "ui/iconprovider.h"
+#include "theme/thememanager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -23,15 +25,28 @@ AsciiTableDialog::~AsciiTableDialog()
 void AsciiTableDialog::setupUi()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(24, 20, 24, 20);
+    mainLayout->setSpacing(14);
+
+    // 头部：标题 + 说明
+    QLabel *titleLabel = new QLabel(tr("ASCII 码表"), this);
+    titleLabel->setProperty("class", "sectionTitle");
+    QLabel *hintLabel = new QLabel(tr("查询 0–255 的十进制 / 十六进制 / 字符对照，点击行即可复制"), this);
+    hintLabel->setProperty("class", "hint");
+    hintLabel->setWordWrap(true);
+    mainLayout->addWidget(titleLabel);
+    mainLayout->addWidget(hintLabel);
 
     // 搜索框
     QHBoxLayout *searchLayout = new QHBoxLayout();
+    searchLayout->setSpacing(8);
     searchLayout->addWidget(new QLabel(tr("搜索:"), this));
     m_searchEdit = new QLineEdit(this);
     m_searchEdit->setPlaceholderText(tr("输入十进制或十六进制值..."));
+    m_searchEdit->addAction(IconProvider::themedIcon("search"), QLineEdit::LeadingPosition);
     connect(m_searchEdit, &QLineEdit::textChanged,
             this, &AsciiTableDialog::onSearchTextChanged);
-    searchLayout->addWidget(m_searchEdit);
+    searchLayout->addWidget(m_searchEdit, 1);
     mainLayout->addLayout(searchLayout);
 
     // ASCII表格
@@ -41,21 +56,34 @@ void AsciiTableDialog::setupUi()
     m_table->setRowCount(256);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    // 行号与"十进制"列重复，隐藏纵向表头；关闭网格线，改用留白分隔（更接近移动端列表）
+    m_table->verticalHeader()->setVisible(false);
+    m_table->setShowGrid(false);
+    m_table->horizontalHeader()->setHighlightSections(false);
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->setAlternatingRowColors(true);
+    m_table->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
 
     connect(m_table, &QTableWidget::cellClicked,
             this, &AsciiTableDialog::onCellClicked);
 
-    mainLayout->addWidget(m_table);
+    mainLayout->addWidget(m_table, 1);
 
-    // 说明文本
+    // 底部：说明 + 关闭
+    QHBoxLayout *footerLayout = new QHBoxLayout();
+    footerLayout->setSpacing(8);
     QLabel *infoLabel = new QLabel(
         tr("单击某一行可将该字符复制到剪贴板。控制字符（0-31、127）以名称显示。"),
         this);
     infoLabel->setWordWrap(true);
-    infoLabel->setStyleSheet("QLabel { color: gray; font-size: 10px; }");
-    mainLayout->addWidget(infoLabel);
+    infoLabel->setProperty("class", "hint");
+    QPushButton *closeButton = new QPushButton(tr("关闭"), this);
+    closeButton->setProperty("class", "primary");
+    closeButton->setDefault(true);
+    connect(closeButton, &QPushButton::clicked, this, &QDialog::reject);
+    footerLayout->addWidget(infoLabel, 1);
+    footerLayout->addWidget(closeButton, 0, Qt::AlignVCenter);
+    mainLayout->addLayout(footerLayout);
 }
 
 void AsciiTableDialog::populateTable()
@@ -153,7 +181,7 @@ void AsciiTableDialog::onSearchTextChanged(const QString &text)
             for (int j = 0; j < m_table->columnCount(); ++j) {
                 QTableWidgetItem *item = m_table->item(i, j);
                 if (item) {
-                    item->setBackground(Qt::white);
+                    item->setData(Qt::BackgroundRole, QVariant());
                 }
             }
         }
@@ -175,13 +203,16 @@ void AsciiTableDialog::onSearchTextChanged(const QString &text)
     }
 
     if (ok && value >= 0 && value < 256) {
-        // 高亮对应行
+        // 高亮对应行（跟随主题强调色）
+        const QColor accent = ThemeManager::instance()->currentAppTheme().accent;
+        QColor highlight = accent;
+        highlight.setAlphaF(0.22);
         for (int i = 0; i < m_table->rowCount(); ++i) {
-            QColor bgColor = (i == value) ? QColor(255, 255, 0, 100) : Qt::white;
             for (int j = 0; j < m_table->columnCount(); ++j) {
                 QTableWidgetItem *item = m_table->item(i, j);
                 if (item) {
-                    item->setBackground(bgColor);
+                    item->setData(Qt::BackgroundRole,
+                                  (i == value) ? QVariant(highlight) : QVariant());
                 }
             }
         }

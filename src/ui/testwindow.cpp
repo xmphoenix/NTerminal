@@ -1,8 +1,11 @@
 #include "ui/testwindow.h"
+#include "ui/iconprovider.h"
+#include "theme/thememanager.h"
 #include "terminal/terminalproxy.h"
 #include <QFileDialog>
 #include <QDateTime>
 #include <QScrollBar>
+#include <QScreen>
 
 TestWindow::TestWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -25,7 +28,11 @@ TestWindow::TestWindow(QWidget *parent)
     , m_currentTerminal(nullptr)
 {
     setWindowTitle(tr("NTerminal 终端兼容性测试"));
-    resize(1200, 800);
+
+    // 按可用屏幕尺寸收敛默认大小，避免在 125%/150% 缩放下窗口超出屏幕
+    const QRect available = screen() ? screen()->availableGeometry()
+                                     : QRect(0, 0, 1200, 800);
+    resize(qMin(1200, available.width() - 80), qMin(800, available.height() - 80));
 
     // 初始化终端标准选择
     m_standardCombo->addItem(tr("VT100 (1978) - 基本 ANSI/VT100"), TerminalTester::VT100);
@@ -72,11 +79,13 @@ TestWindow::TestWindow(QWidget *parent)
     m_sequenceEdit->setFont(QFont("Consolas", 10));
     m_sequenceEdit->setMaximumBlockCount(200);
     
-    m_summaryLabel->setStyleSheet("QLabel { background-color: #e7f3fe; padding: 10px; font-size: 14px; }");
-    m_standardLabel->setStyleSheet("QLabel { background-color: #fff3cd; padding: 10px; font-size: 12px; }");
-    
-    m_runButton->setStyleSheet("QPushButton { background-color: #4CAF50; color: white; padding: 10px; font-size: 14px; }");
-    m_exportButton->setStyleSheet("QPushButton { background-color: #2196F3; color: white; padding: 10px; font-size: 14px; }");
+    // 用 QSS 主题样式代替写死的浅色调，保证深色主题下也可读
+    m_summaryLabel->setObjectName("testSummary");
+    m_standardLabel->setObjectName("testStandard");
+    m_runButton->setProperty("class", "primary");
+    m_runButton->setIcon(IconProvider::themedIcon("play"));
+    m_exportButton->setProperty("class", "tonal");
+    m_exportButton->setIcon(IconProvider::themedIcon("download"));
     
     updateStandardInfo();
 }
@@ -97,26 +106,40 @@ void TestWindow::setTerminal(TerminalProxy *terminal)
 
 void TestWindow::setupUI()
 {
-    // 顶部控制区
+    m_mainLayout->setContentsMargins(16, 14, 16, 14);
+    m_mainLayout->setSpacing(10);
+
+    QLabel *titleLabel = new QLabel(tr("终端兼容性测试"), this);
+    titleLabel->setProperty("class", "sectionTitle");
+    m_mainLayout->addWidget(titleLabel);
+
+    // 顶部控制区：左侧选择标准，右侧主/次操作
     QHBoxLayout *controlLayout = new QHBoxLayout(m_controlWidget);
+    controlLayout->setContentsMargins(0, 0, 0, 0);
+    controlLayout->setSpacing(8);
     controlLayout->addWidget(new QLabel(tr("测试标准:"), this));
     controlLayout->addWidget(m_standardCombo);
     controlLayout->addStretch();
     controlLayout->addWidget(m_runButton);
     controlLayout->addWidget(m_exportButton);
-    controlLayout->addWidget(m_summaryLabel);
-    
+
+    // 信息行：标准说明 + 实时统计（同宽对齐，互不挤压）
+    QHBoxLayout *infoLayout = new QHBoxLayout();
+    infoLayout->setSpacing(10);
+    infoLayout->addWidget(m_standardLabel, 1);
+    infoLayout->addWidget(m_summaryLabel, 0, Qt::AlignVCenter);
+
     m_mainLayout->addWidget(m_controlWidget);
-    m_mainLayout->addWidget(m_standardLabel);
-    
+    m_mainLayout->addLayout(infoLayout);
+
     // 标签页
     m_tabWidget->addTab(m_logEdit, tr("测试日志"));
     m_tabWidget->addTab(m_reportEdit, tr("文本报告"));
     m_tabWidget->addTab(m_sequenceEdit, tr("序列"));
-    
-    m_mainLayout->addWidget(m_tabWidget);
-    
-    m_summaryLabel->setText(tr("准备就绪。选择终端标准后点击“运行全部测试”开始。"));
+
+    m_mainLayout->addWidget(m_tabWidget, 1);
+
+    m_summaryLabel->setText(tr("准备就绪"));
 }
 
 void TestWindow::runAllTests()
@@ -163,7 +186,9 @@ void TestWindow::onTestStarted(const QString &testName)
 void TestWindow::onTestCompleted(const QString &testName, bool passed)
 {
     QString status = passed ? "[PASS]" : "[FAIL]";
-    QColor color = passed ? Qt::darkGreen : Qt::red;
+    // 跟随主题的语义色，深色背景下同样清晰
+    const AppTheme theme = ThemeManager::instance()->currentAppTheme();
+    QColor color = passed ? theme.success : theme.danger;
     
     m_logEdit->append(QString("<span style='color: %1;'>%2 %3</span>")
                          .arg(color.name())
