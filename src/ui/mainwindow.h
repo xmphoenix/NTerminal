@@ -78,6 +78,8 @@ private:
     void refreshIcons();
     void setupSessionManager();
     void saveCurrentSession();
+    // 登记会话并落盘（新建会话/快速连接在打开前调用）
+    void registerSession(const Common::ConnectionSettings &settings);
     void loadSession();
     void manageSessions();
     void populateSessionMenu();

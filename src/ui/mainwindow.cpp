@@ -130,6 +130,18 @@ void MainWindow::saveCurrentSession()
     qDebug() << "Session saved:" << settings.sessionName;
 }
 
+void MainWindow::registerSession(const Common::ConnectionSettings &settings)
+{
+    // 新建会话/快速连接不经过“保存会话”菜单，若不在打开前登记，
+    // 连接后侧栏会话管理器和“会话”菜单里都不会出现这条会话。
+    if (settings.sessionName.isEmpty()) {
+        return;
+    }
+
+    m_sessionManager->addSession(settings.sessionName, settings);
+    m_sessionManager->saveSessions();
+}
+
 void MainWindow::setupSessionManager()
 {
     m_sessionManager = new SessionManager(this);
@@ -540,6 +552,8 @@ void MainWindow::onQuickConnect()
         settings.sessionName = host.isEmpty() ? tr("快速连接") : host;
     }
 
+    // 快速连接同样登记到会话管理器，避免“连上了但在侧栏里找不到”的情况
+    registerSession(settings);
     openSession(settings, settings.sessionName);
     m_quickConnectEdit->clear();
 }
@@ -1220,6 +1234,9 @@ void MainWindow::openConnectionFromDialog(bool applyTheme)
 
     Q_UNUSED(applyTheme);   // openSession 内统一注入当前主题/字体
     const Common::ConnectionSettings settings = dialog.getSettings();
+    // 对话框产出的是一份完整的会话定义：先登记并落盘，再打开标签页，
+    // 这样连接后会话管理器/“会话”菜单里立刻能看到它。
+    registerSession(settings);
     openSession(settings, settings.sessionName);
 }
 
