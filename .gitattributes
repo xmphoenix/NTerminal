@@ -1,0 +1,16 @@
+# ============================================================================
+# 行尾策略
+#
+# 文本文件在仓库与工作区统一使用 LF：Windows 上的 mingw/Qt/编辑器都能正常
+# 处理 LF，同时避免 core.autocrlf=true 时 "LF will be replaced by CRLF"
+# 的告警以及同一文件里 CRLF/LF 混用。
+# PowerShell / 批处理 / VS 工程文件保留 CRLF，兼容 cmd.exe 与旧工具。
+# ============================================================================
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.sln text eol=crlf
+*.vcxproj text eol=crlf
+*.vcxproj.filters text eol=crlf
+*.rc text eol=crlf
