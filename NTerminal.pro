@@ -23,6 +23,14 @@ CONFIG   += c++17
 TEMPLATE  = app
 TARGET    = NTerminal
 
+# ---- 版本信息（单一来源） ----
+# VERSION 同时用于 Windows 可执行文件的 VERSIONINFO 属性；
+# APP_VERSION 注入 C++，供窗口标题与"关于"对话框读取。
+VERSION   = 2.0.0
+DEFINES  += APP_VERSION=\\\"$$VERSION\\\"
+# 显示在 Windows 文件属性“详细信息”中的说明（保持 ASCII，避免资源脚本编码问题）
+QMAKE_TARGET_DESCRIPTION = NTerminal - multi-protocol terminal tool
+
 # ---- libssh（仅 SSH/SFTP 处理器依赖） ----
 unix {
     LIBS += -lssh
@@ -96,6 +104,7 @@ SOURCES += \
     src/theme/thememanager.cpp \
     src/theme/fontmanager.cpp \
     src/ui/mainwindow.cpp \
+    src/ui/aboutdialog.cpp \
     src/ui/connectiondialog.cpp \
     src/ui/iconprovider.cpp \
     src/ui/sessionitemdelegate.cpp \
@@ -117,6 +126,7 @@ SOURCES += \
 # ---- 头文件（Q_OBJECT 类必须列出以生成 moc） ----
 HEADERS += \
     src/app/launchoptions.h \
+    src/common/appinfo.h \
     src/common/connectionsettings.h \
     src/common/messagetypes.h \
     src/common/languagemanager.h \
@@ -156,6 +166,7 @@ HEADERS += \
     src/theme/thememanager.h \
     src/theme/fontmanager.h \
     src/ui/mainwindow.h \
+    src/ui/aboutdialog.h \
     src/ui/connectiondialog.h \
     src/ui/iconprovider.h \
     src/ui/sessionitemdelegate.h \

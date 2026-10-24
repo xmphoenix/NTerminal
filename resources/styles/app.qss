@@ -269,6 +269,10 @@ QDialog { font-size: 12px; }
 QDialog QLabel { color: @text@; }
 QLabel[class="hint"] { color: @textDim@; font-size: 11px; }
 QLabel[class="sectionTitle"] { color: @text@; font-size: 13px; font-weight: 700; }
+/* 关于对话框：图标底座、产品名与版本号 */
+#aboutIcon { background-color: @accentSoft@; border-radius: 14px; }
+#aboutTitle { color: @text@; font-size: 20px; font-weight: 700; }
+#aboutVersion { color: @accentText@; font-size: 12px; font-weight: 600; }
 QLabel[class="subheading"] { color: @textDim@; font-size: 11px; font-weight: 600; }
 QLabel[state="error"] { color: @danger@; font-size: 11px; }
 QFrame[frameShape="4"], QFrame[frameShape="5"] { color: @hairline@; }

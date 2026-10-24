@@ -1,6 +1,37 @@
 <?xml version='1.0' encoding='utf-8'?>
 <TS version="2.1" language="en_US">
 <context>
+    <name>AboutDialog</name>
+    <message>
+        <source>关于 NTerminal</source>
+        <translation>About NTerminal</translation>
+    </message>
+    <message>
+        <source>多协议终端工具</source>
+        <translation>Multi-protocol terminal tool</translation>
+    </message>
+    <message>
+        <source>版本 %1</source>
+        <translation>Version %1</translation>
+    </message>
+    <message>
+        <source>Qt 版本</source>
+        <translation>Qt version</translation>
+    </message>
+    <message>
+        <source>运行平台</source>
+        <translation>Platform</translation>
+    </message>
+    <message>
+        <source>支持协议</source>
+        <translation>Protocols</translation>
+    </message>
+    <message>
+        <source>确定</source>
+        <translation>OK</translation>
+    </message>
+</context>
+<context>
     <name>AsciiTableDialog</name>
     <message>
         <source>ASCII 码表</source>
@@ -561,12 +592,6 @@ if the target service is SSH, change the port to 22.</translation>
     <message>
         <source>关于 NTerminal</source>
         <translation>About NTerminal</translation>
-    </message>
-    <message>
-        <source>NTerminal 多协议终端工具
-版本 %1</source>
-        <translation>NTerminal multi-protocol terminal tool
-Version %1</translation>
     </message>
     <message>
         <source>%1 (副本)</source>

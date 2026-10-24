@@ -4,6 +4,7 @@
 #include "theme/fontmanager.h"
 #include "ui/testwindow.h"
 #include "app/launchoptions.h"
+#include "common/appinfo.h"
 #include "common/languagemanager.h"
 
 #include <QApplication>
@@ -53,7 +54,7 @@ static int runSessionProcess(const QString &sessionId, int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
     QCoreApplication::setApplicationName("NTerminal-Session");
-    QCoreApplication::setApplicationVersion("2.0.0");
+    QCoreApplication::setApplicationVersion(AppInfo::version());
 
     LogFile::init(sessionId);
     LogFile::log("Session process starting, ID: " + sessionId);
@@ -79,7 +80,7 @@ static int runTestWindow(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     QCoreApplication::setApplicationName("NTerminal-Tester");
-    QCoreApplication::setApplicationVersion("1.0.0");
+    QCoreApplication::setApplicationVersion(AppInfo::version());
 
     TestWindow testWindow;
     testWindow.show();
@@ -95,7 +96,7 @@ static int runGui(int argc, char *argv[])
     // QSettings 的缺省构造只取 organizationName()；为空时 Windows 后端不会创建
     // 注册表路径，主题/字体的保存会静默失效。统一到与其它模块相同的组织名。
     QCoreApplication::setOrganizationName("NTerminal");
-    QCoreApplication::setApplicationVersion("2.0.0");
+    QCoreApplication::setApplicationVersion(AppInfo::version());
 
     ThemeManager::instance()->initialize();
     FontManager::instance()->initialize();

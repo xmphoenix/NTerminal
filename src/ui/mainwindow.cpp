@@ -1,5 +1,6 @@
 #include "ui/mainwindow.h"
 #include "terminal/terminalproxy.h"
+#include "ui/aboutdialog.h"
 #include "ui/connectiondialog.h"
 #include "ui/iconprovider.h"
 #include "ui/sessionitemdelegate.h"
@@ -7,6 +8,7 @@
 #include "services/sessionmanager.h"
 #include "theme/thememanager.h"
 #include "theme/fontmanager.h"
+#include "common/appinfo.h"
 #include "common/languagemanager.h"
 #include "ui/themesettingsdialog.h"
 #include "ui/logconfigdialog.h"
@@ -827,7 +829,7 @@ void MainWindow::initMainWindowLayout()
     resize(preferred);
     move(available.center()
          - QPoint(preferred.width() / 2, (preferred.height() + titleBar) / 2));
-    setWindowTitle("NTerminal");
+    setWindowTitle(AppInfo::windowTitle());
 }
 
 QWidget *MainWindow::buildTopBar()
@@ -1381,9 +1383,8 @@ void MainWindow::initMainWindowMenu()
     m_aboutAction = new QAction(this);
     bindText([this] { m_aboutAction->setText(tr("关于 NTerminal")); });
     connect(m_aboutAction, &QAction::triggered, this, [this] {
-        QMessageBox::about(this, tr("关于 NTerminal"),
-                           tr("NTerminal 多协议终端工具\n版本 %1")
-                               .arg(QCoreApplication::applicationVersion()));
+        AboutDialog dialog(this);
+        dialog.exec();
     });
     m_helpMenu->addAction(m_aboutAction);
 
