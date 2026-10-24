@@ -19,6 +19,7 @@
 
 QT       += core gui
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets serialport network svg
+win32: QT += axcontainer
 
 CONFIG   += c++17
 
@@ -117,6 +118,7 @@ SOURCES += \
     src/ui/sessionitemdelegate.cpp \
     src/ui/terminaltabbar.cpp \
     src/ui/terminalsplitpage.cpp \
+    src/ui/rdpwidget.cpp \
     src/ui/terminaltester.cpp \
     src/ui/testwindow.cpp \
     src/ui/logconfigdialog.cpp \
@@ -189,6 +191,7 @@ HEADERS += \
     src/ui/sessionitemdelegate.h \
     src/ui/terminaltabbar.h \
     src/ui/terminalsplitpage.h \
+    src/ui/rdpwidget.h \
     src/ui/terminaltester.h \
     src/ui/testwindow.h \
     src/ui/logconfigdialog.h \

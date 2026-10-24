@@ -233,6 +233,9 @@ void SessionProcess::handleSessionConfig(const QByteArray &payload)
         case Common::ConnectionType::SCP:
             connectionTypeStr = "SCP";
             break;
+        case Common::ConnectionType::RDP:
+            connectionTypeStr = "RDP";
+            break;
         default:
             connectionTypeStr = "Unknown";
             break;

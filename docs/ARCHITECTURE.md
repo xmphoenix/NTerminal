@@ -61,7 +61,7 @@ session ─────────┘        └─（mcp：MCP 工具层，直
 | `update` | 自动更新：清单解析、语义化版本比较、下载、SHA-256 校验、生成独立更新脚本 | common, QtNetwork | `checkForUpdates`/`downloadUpdate`/`applyUpdate`/`applyPendingUpdate` |
 | `services` | 会话持久化（`SessionManager` → `~/.nterminal/sessions.json`） | common（**不依赖 UI**） | `loadSessions`/`saveSessions`/增删改查 |
 | `theme` | `ThemeManager`/`FontManager` 单例：主题生产、QSettings 持久化 | terminal（仅 TerminalTheme 结构） | `currentTerminalTheme()` + 变更信号 |
-| `ui` | 主窗口、连接对话框、工具对话框、终端测试器 | 全部下层 | — |
+| `ui` | 主窗口、连接对话框、工具对话框、终端测试器；RDP ActiveX 页面（Windows，Qt ActiveQt） | 全部下层 | — |
 | `app` | 进程模式分发 | 全部下层 | `LaunchOptions::parse`（纯函数） |
 
 ### 依赖规则（评审红线）

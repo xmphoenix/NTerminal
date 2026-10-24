@@ -1,10 +1,10 @@
 # NTerminal
 
-跨平台多协议终端工具（Qt 6 / C++17）。支持 Serial、Telnet、SSH、Rlogin、SFTP、FTP、TFTP、SCP 八种连接协议；SFTP / FTP / SCP 提供双栏图形化文件管理器（上传、下载、目录管理，不再使用命令行式界面）。内置 MCP（Model Context Protocol）服务，可让 Claude Desktop / Claude Code 等 AI 客户端直接读取终端、发送命令、管理文件传输与内置网络服务；同时提供自动更新、会话持久化、VT100~VT320/xterm 兼容性测试器与开发者工具箱。
+跨平台多协议终端工具（Qt 6 / C++17）。支持 Serial、Telnet、SSH、Rlogin、SFTP、FTP、TFTP、SCP、RDP 九种连接协议；SFTP / FTP / SCP 提供双栏图形化文件管理器（上传、下载、目录管理，不再使用命令行式界面），RDP 远程桌面直接嵌入主窗口标签页。内置 MCP（Model Context Protocol）服务，可让 Claude Desktop / Claude Code 等 AI 客户端直接读取终端、发送命令、管理文件传输与内置网络服务；同时提供自动更新、会话持久化、VT100~VT320/xterm 兼容性测试器与开发者工具箱。
 
 ## 构建与测试
 
-- 完整产品构建（需要 libssh，Windows 下缺失时自动触发 `build_libssh.ps1`）：`qmake NTerminal.pro && mingw32-make -j8`
+- 完整产品构建（需要 libssh，Windows 下缺失时自动触发 `build_libssh.ps1`；RDP 需要 Qt ActiveQt，随 Qt 6 安装提供）：`qmake NTerminal.pro && mingw32-make -j8`
 - 单元测试（78 个用例，无需 libssh）：`cd tests && qmake ../tests/tests.pro && mingw32-make check`
 - Windows libssh 构建指南：[docs/LIBSSH_BUILD_GUIDE.md](docs/LIBSSH_BUILD_GUIDE.md)
 - 单元测试规范：[docs/TESTING.md](docs/TESTING.md)
@@ -28,6 +28,10 @@ Claude Desktop：在「MCP → 复制 Claude Desktop 配置」后粘贴到 `clau
 ## 终端分屏
 
 「视图」菜单提供单终端、左右双栏、上下双栏和 2×2 四终端布局。分屏以当前标签页为单位，新增分屏会复用当前终端的连接参数并建立独立会话；点击任一分屏即可将其设为当前终端，底部命令输入栏和状态栏会跟随当前分屏。缩小布局时多出的会话会被关闭。
+
+## RDP 远程桌面
+
+「新建会话」选择 **RDP**，填写主机、端口（默认 3389）、用户名、密码，可选域和 NLA/CredSSP。连接成功后 Windows 自带的 Remote Desktop ActiveX 控件会把远端桌面直接绘制在当前标签页中，不打开外部 `mstsc` 窗口。xrdp 服务器通常不需要勾选 NLA；Windows 域服务器通常需要。详见 [docs/RDP.md](docs/RDP.md)。
 
 ## 自动更新
 

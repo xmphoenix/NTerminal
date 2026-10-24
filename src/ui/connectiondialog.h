@@ -47,6 +47,7 @@ private slots:
     void onSftpHostChanged(const QString &text);
     void onFtpHostChanged(const QString &text);
     void onTftpHostChanged(const QString &text);
+    void onRdpHostChanged(const QString &text);
 
 private:
     void setupUi();
@@ -57,6 +58,7 @@ private:
     void createSftpSettingsWidget();
     void createFtpSettingsWidget();
     void createTftpSettingsWidget();
+    void createRdpSettingsWidget();
 
     QLineEdit *m_sessionNameEdit;
     QComboBox *m_typeComboBox;
@@ -112,6 +114,14 @@ private:
     // TFTP settings widgets
     QLineEdit *m_tftpHostEdit;
     QSpinBox *m_tftpPortSpinBox;
+
+    // RDP settings widgets
+    QLineEdit *m_rdpHostEdit;
+    QSpinBox *m_rdpPortSpinBox;
+    QLineEdit *m_rdpUsernameEdit;
+    QLineEdit *m_rdpPasswordEdit;
+    QLineEdit *m_rdpDomainEdit;
+    QCheckBox *m_rdpUseNlaCheckBox;
     
     QPushButton *m_okButton;
     QPushButton *m_cancelButton;

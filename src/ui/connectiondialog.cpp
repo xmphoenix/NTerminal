@@ -28,6 +28,7 @@ constexpr ConnectionType Rlogin = ConnectionType::Rlogin;
 constexpr ConnectionType SFTP   = ConnectionType::SFTP;
 constexpr ConnectionType FTP    = ConnectionType::FTP;
 constexpr ConnectionType TFTP   = ConnectionType::TFTP;
+constexpr ConnectionType RDP    = ConnectionType::RDP;
 constexpr ConnectionType SCP    = ConnectionType::SCP;
 }
 
@@ -72,6 +73,12 @@ ConnectionDialog::ConnectionDialog(QWidget *parent)
     , m_ftpPasswordEdit(nullptr)
     , m_tftpHostEdit(nullptr)
     , m_tftpPortSpinBox(nullptr)
+    , m_rdpHostEdit(nullptr)
+    , m_rdpPortSpinBox(nullptr)
+    , m_rdpUsernameEdit(nullptr)
+    , m_rdpPasswordEdit(nullptr)
+    , m_rdpDomainEdit(nullptr)
+    , m_rdpUseNlaCheckBox(nullptr)
     , m_okButton(nullptr)
     , m_cancelButton(nullptr)
 {
@@ -92,6 +99,8 @@ ConnectionDialog::ConnectionDialog(QWidget *parent)
     m_currentSettings.password = "";
     m_currentSettings.useSshKey = false;
     m_currentSettings.sshKeyPath = "";
+    m_currentSettings.rdpDomain = "";
+    m_currentSettings.rdpUseNla = false;
 }
 
 ConnectionDialog::~ConnectionDialog()
@@ -155,6 +164,7 @@ void ConnectionDialog::setupUi()
     m_typeComboBox->addItem(IconProvider::themedIcon("sftp"), "SCP", static_cast<int>(SCP));
     m_typeComboBox->addItem(IconProvider::themedIcon("transfer"), "FTP", static_cast<int>(FTP));
     m_typeComboBox->addItem(IconProvider::themedIcon("download"), "TFTP", static_cast<int>(TFTP));
+    m_typeComboBox->addItem(IconProvider::themedIcon("rdp"), "RDP", static_cast<int>(RDP));
     formLayout->addRow(tr("连接类型:"), m_typeComboBox);
 
     mainLayout->addLayout(formLayout);
@@ -181,6 +191,7 @@ void ConnectionDialog::setupUi()
     createSftpSettingsWidget();
     createFtpSettingsWidget();
     createTftpSettingsWidget();
+    createRdpSettingsWidget();
 
     // 七个协议页统一表单度量，避免各页缩进不一致
     for (int i = 0; i < m_settingsStack->count(); ++i) {
@@ -400,6 +411,10 @@ void ConnectionDialog::onConnectionTypeChanged(int index)
         m_settingsStack->setCurrentIndex(6);
         m_sessionNameEdit->setText(m_tftpHostEdit->text());
         break;
+    case RDP:
+        m_settingsStack->setCurrentIndex(7);
+        m_sessionNameEdit->setText(m_rdpHostEdit->text());
+        break;
     }
 }
 
@@ -485,6 +500,14 @@ void ConnectionDialog::onTftpHostChanged(const QString &text)
 {
     ConnectionType type = static_cast<ConnectionType>(m_typeComboBox->currentData().toInt());
     if (type == TFTP) {
+        m_sessionNameEdit->setText(text);
+    }
+}
+
+void ConnectionDialog::onRdpHostChanged(const QString &text)
+{
+    ConnectionType type = static_cast<ConnectionType>(m_typeComboBox->currentData().toInt());
+    if (type == RDP) {
         m_sessionNameEdit->setText(text);
     }
 }
@@ -605,6 +628,45 @@ void ConnectionDialog::createTftpSettingsWidget()
     m_settingsStack->addWidget(widget);
 }
 
+void ConnectionDialog::createRdpSettingsWidget()
+{
+    QWidget *widget = new QWidget();
+    QFormLayout *layout = new QFormLayout(widget);
+
+    m_rdpHostEdit = new QLineEdit("127.0.0.1");
+    layout->addRow(tr("主机:"), m_rdpHostEdit);
+
+    m_rdpPortSpinBox = new QSpinBox();
+    m_rdpPortSpinBox->setRange(1, 65535);
+    m_rdpPortSpinBox->setValue(3389);
+    layout->addRow(tr("端口:"), m_rdpPortSpinBox);
+
+    m_rdpUsernameEdit = new QLineEdit();
+    layout->addRow(tr("用户名:"), m_rdpUsernameEdit);
+
+    m_rdpPasswordEdit = new QLineEdit();
+    m_rdpPasswordEdit->setEchoMode(QLineEdit::Password);
+    layout->addRow(tr("密码:"), m_rdpPasswordEdit);
+
+    m_rdpDomainEdit = new QLineEdit();
+    layout->addRow(tr("域:"), m_rdpDomainEdit);
+
+    m_rdpUseNlaCheckBox = new QCheckBox(tr("使用 NLA / CredSSP"));
+    m_rdpUseNlaCheckBox->setToolTip(
+        tr("Windows 域服务器通常需要勾选；xrdp 通常不需要"));
+    layout->addRow(QString(), m_rdpUseNlaCheckBox);
+
+    auto *hint = new QLabel(
+        tr("RDP 画面将直接嵌入当前标签页；xrdp 服务器建议不勾选 NLA"), widget);
+    hint->setProperty("class", "hint");
+    layout->addRow(QString(), hint);
+
+    connect(m_rdpHostEdit, &QLineEdit::textChanged, this,
+            &ConnectionDialog::onRdpHostChanged);
+
+    m_settingsStack->addWidget(widget);
+}
+
 Common::ConnectionSettings ConnectionDialog::getSettings() const
 {
     ConnectionSettings settings = m_currentSettings;
@@ -673,6 +735,13 @@ Common::ConnectionSettings ConnectionDialog::getSettings() const
     } else if (type == TFTP) {
         settings.host = m_tftpHostEdit->text();
         settings.port = m_tftpPortSpinBox->value();
+    } else if (type == RDP) {
+        settings.host = m_rdpHostEdit->text();
+        settings.port = m_rdpPortSpinBox->value();
+        settings.username = m_rdpUsernameEdit->text();
+        settings.password = m_rdpPasswordEdit->text();
+        settings.rdpDomain = m_rdpDomainEdit->text().trimmed();
+        settings.rdpUseNla = m_rdpUseNlaCheckBox->isChecked();
     }
     
     return settings;

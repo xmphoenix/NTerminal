@@ -85,6 +85,8 @@ void TestCommon::settingsDefaults()
     QCOMPARE(s.flowControl, QSerialPort::NoFlowControl);
     QCOMPARE(s.port, 23);
     QCOMPARE(s.useSshKey, false);
+    QVERIFY(s.rdpDomain.isEmpty());
+    QCOMPARE(s.rdpUseNla, false);
     QVERIFY(s.sessionName.isEmpty());
 }
 
@@ -100,6 +102,7 @@ void TestCommon::settingsTypeStrings()
         { Common::ConnectionType::FTP, "FTP" },
         { Common::ConnectionType::TFTP, "TFTP" },
         { Common::ConnectionType::SCP, "SCP" },
+        { Common::ConnectionType::RDP, "RDP" },
     };
     for (const Row &row : rows) {
         Common::ConnectionSettings s;
@@ -149,6 +152,8 @@ void TestCommon::settingsJsonRoundTrip()
     s.password = "secret";
     s.useSshKey = true;
     s.sshKeyPath = "C:/keys/id_rsa";
+    s.rdpDomain = "EXAMPLE";
+    s.rdpUseNla = true;
 
     const Common::ConnectionSettings r = Common::ConnectionSettings::fromJson(s.toJson());
     QCOMPARE(r.sessionName, s.sessionName);
@@ -165,6 +170,8 @@ void TestCommon::settingsJsonRoundTrip()
     QCOMPARE(r.password, s.password);
     QCOMPARE(r.useSshKey, s.useSshKey);
     QCOMPARE(r.sshKeyPath, s.sshKeyPath);
+    QCOMPARE(r.rdpDomain, s.rdpDomain);
+    QCOMPARE(r.rdpUseNla, s.rdpUseNla);
 }
 
 void TestCommon::settingsJsonMissingFields()

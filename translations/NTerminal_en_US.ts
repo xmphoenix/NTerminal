@@ -308,6 +308,18 @@ The SSH default port is 22.
 If the target service is Telnet, change the connection type to Telnet;
 if the target service is SSH, change the port to 22.</translation>
     </message>
+    <message>
+        <source>使用 NLA / CredSSP</source>
+        <translation>Use NLA / CredSSP</translation>
+    </message>
+    <message>
+        <source>Windows 域服务器通常需要勾选；xrdp 通常不需要</source>
+        <translation>Usually required for Windows domain servers; not needed for xrdp</translation>
+    </message>
+    <message>
+        <source>RDP 画面将直接嵌入当前标签页；xrdp 服务器建议不勾选 NLA</source>
+        <translation>The RDP session is embedded in this tab; leave NLA off for xrdp servers</translation>
+    </message>
 </context>
 <context>
     <name>FileManagerDialog</name>
@@ -1018,6 +1030,10 @@ View the update?</translation>
     <message>
         <source>串口终端不支持复制分屏，请使用网络会话。</source>
         <translation>Serial terminals cannot be duplicated for split view. Use a network session.</translation>
+    </message>
+    <message>
+        <source>RDP 会话请在图形界面中打开</source>
+        <translation>Open RDP sessions from the graphical interface</translation>
     </message>
 </context>
 <context>
@@ -1861,6 +1877,41 @@ Restart now and install?</translation>
     <message>
         <source>更新源必须是 HTTPS 地址；本地测试可使用 http://127.0.0.1 或 file:// 地址。</source>
         <translation>The update feed must use HTTPS; http://127.0.0.1 and file:// are allowed for local testing.</translation>
+    </message>
+</context>
+<context>
+    <name>RdpWidget</name>
+    <message>
+        <source>正在启动 RDP 控件...</source>
+        <translation>Starting the RDP control...</translation>
+    </message>
+    <message>
+        <source>无法加载 Microsoft RDP 控件（MsTscAx）。请确认系统已安装远程桌面客户端。</source>
+        <translation>Cannot load the Microsoft RDP control (MsTscAx). Make sure the Remote Desktop client is installed.</translation>
+    </message>
+    <message>
+        <source>RDP 会话仅支持 Windows 客户端。</source>
+        <translation>RDP sessions are supported on Windows clients only.</translation>
+    </message>
+    <message>
+        <source>正在连接 RDP...</source>
+        <translation>Connecting via RDP...</translation>
+    </message>
+    <message>
+        <source>无法启动 RDP 连接。</source>
+        <translation>Cannot start the RDP connection.</translation>
+    </message>
+    <message>
+        <source>RDP 连接已断开（代码 %1）</source>
+        <translation>RDP connection closed (code %1)</translation>
+    </message>
+    <message>
+        <source>RDP 连接失败（错误 %1）</source>
+        <translation>RDP connection failed (error %1)</translation>
+    </message>
+    <message>
+        <source>RDP 连接已断开</source>
+        <translation>RDP connection closed</translation>
     </message>
 </context>
 </TS>

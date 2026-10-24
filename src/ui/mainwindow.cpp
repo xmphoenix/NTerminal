@@ -30,6 +30,7 @@
 #include "ui/updatesettingsdialog.h"
 #include "ui/filemanagerdialog.h"
 #include "ui/terminalsplitpage.h"
+#include "ui/rdpwidget.h"
 #include "mcp/mcpserver.h"
 #include "update/updatemanager.h"
 #include <QSplitter>
@@ -156,6 +157,11 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    for (RdpWidget *rdp : m_rdpSessions) {
+        rdp->disconnectSession();
+    }
+    m_rdpSessions.clear();
+
     for (FileManagerDialog *manager : m_fileManagers) {
         manager->stopSession();
     }
@@ -382,6 +388,10 @@ void MainWindow::closeTerminalTab(int index)
     // 文件管理器标签页：关闭前先处理正在进行的传输
     if (FileManagerDialog *manager = m_fileManagers.value(tabId, nullptr)) {
         manager->requestClose();
+        return;
+    }
+    if (m_rdpSessions.contains(tabId)) {
+        closeRdpTabById(tabId);
         return;
     }
     if (!tabId.isEmpty()) {
@@ -692,6 +702,7 @@ QString protocolName(Common::ConnectionType type)
     case Common::ConnectionType::FTP:    return QStringLiteral("FTP");
     case Common::ConnectionType::TFTP:   return QStringLiteral("TFTP");
     case Common::ConnectionType::SCP:    return QStringLiteral("SCP");
+    case Common::ConnectionType::RDP:    return QStringLiteral("RDP");
     }
     return MainWindow::tr("未知");
 }
@@ -733,6 +744,7 @@ int defaultPort(Common::ConnectionType type)
     case Common::ConnectionType::FTP:    return 21;
     case Common::ConnectionType::TFTP:   return 69;
     case Common::ConnectionType::SCP:    return 22;
+    case Common::ConnectionType::RDP:    return 3389;
     default: return 23;
     }
 }
@@ -762,6 +774,7 @@ void MainWindow::populateSessionTree()
         Common::ConnectionType::Telnet, Common::ConnectionType::Rlogin,
         Common::ConnectionType::Serial, Common::ConnectionType::FTP,
         Common::ConnectionType::TFTP, Common::ConnectionType::SCP,
+        Common::ConnectionType::RDP,
     };
 
     QMap<int, QTreeWidgetItem *> groups;
@@ -843,8 +856,9 @@ void MainWindow::onQuickConnect()
         Common::ConnectionType::Rlogin, Common::ConnectionType::Serial,
         Common::ConnectionType::SFTP, Common::ConnectionType::FTP,
         Common::ConnectionType::TFTP, Common::ConnectionType::SCP,
+        Common::ConnectionType::RDP,
     };
-    const int index = qBound(0, m_quickProtocolCombo->currentIndex(), 7);
+    const int index = qBound(0, m_quickProtocolCombo->currentIndex(), 8);
 
     Common::ConnectionSettings settings;
     settings.type = kQuickTypes[index];
@@ -910,6 +924,11 @@ void MainWindow::filterSessionTree(const QString &text)
 
 void MainWindow::openSession(const Common::ConnectionSettings &settings, const QString &name)
 {
+    if (settings.type == Common::ConnectionType::RDP) {
+        openRdpTab(settings, name);
+        return;
+    }
+
     // SFTP / FTP / SCP 使用图形化双栏文件管理器：直接在当前主窗口内
     // 以标签页显示，不再弹出独立对话框，也不再进入命令行式界面。
     if (settings.type == Common::ConnectionType::SFTP
@@ -987,6 +1006,58 @@ void MainWindow::closeFileManagerTabById(const QString &tabId)
     qDebug() << "Closed file manager tab:" << tabId;
 }
 
+void MainWindow::openRdpTab(const Common::ConnectionSettings &settings,
+                            const QString &name)
+{
+    const QString tabId = QStringLiteral("rdp_%1").arg(m_nextTerminalId++);
+    auto *rdp = new RdpWidget(settings, name, m_screenTabWidget);
+    m_rdpSessions.insert(tabId, rdp);
+
+    connect(rdp, &RdpWidget::connectionStateChanged, this, [this](bool) {
+        updateTabStates();
+        updateStatusBar();
+    });
+
+    const int tabIndex = m_screenTabWidget->addTab(rdp, rdp->tabTitle());
+    m_screenTabWidget->tabBar()->setTabData(tabIndex, tabId);
+    m_screenTabWidget->setCurrentIndex(tabIndex);
+    updateEmptyState();
+    updateCurrentTerminal(nullptr);
+    updateTabStates();
+
+    qDebug() << "Opened RDP tab:" << rdp->tabTitle() << tabId;
+}
+
+void MainWindow::closeRdpTabById(const QString &tabId)
+{
+    RdpWidget *rdp = m_rdpSessions.take(tabId);
+    if (!rdp) {
+        return;
+    }
+
+    int tabIndex = -1;
+    for (int i = 0; i < m_screenTabWidget->count(); ++i) {
+        if (m_screenTabWidget->tabBar()->tabData(i).toString() == tabId) {
+            tabIndex = i;
+            break;
+        }
+    }
+    if (tabIndex >= 0) {
+        m_screenTabWidget->removeTab(tabIndex);
+    }
+    rdp->disconnectSession();
+    rdp->deleteLater();
+    updateEmptyState();
+
+    if (m_screenTabWidget->count() == 0) {
+        updateCurrentTerminal(nullptr);
+    }
+    updateStatusBar();
+    updateTabStates();
+    updateLayoutActions();
+    qDebug() << "Closed RDP tab:" << tabId;
+}
+
 void MainWindow::updateTabStates()
 {
     if (m_terminalTabBar) {
@@ -1000,17 +1071,22 @@ void MainWindow::updateStatusBar()
         return;
     }
     TerminalProxy *terminal = getCurrentTerminal();
-    // 文件管理器标签页没有 TerminalProxy，连接状态取文件管理器会话
+    // 文件管理器/RDP 标签页没有 TerminalProxy，连接状态取对应页面
     FileManagerDialog *manager = nullptr;
+    RdpWidget *rdp = nullptr;
     if (m_screenTabWidget) {
         const int index = m_screenTabWidget->currentIndex();
         if (index >= 0) {
-            manager = m_fileManagers.value(
-                m_screenTabWidget->tabBar()->tabData(index).toString(), nullptr);
+            const QString tabId =
+                m_screenTabWidget->tabBar()->tabData(index).toString();
+            manager = m_fileManagers.value(tabId, nullptr);
+            rdp = m_rdpSessions.value(tabId, nullptr);
         }
     }
     const bool connected =
-        manager ? manager->isConnected() : (terminal && terminal->isConnected());
+        rdp ? rdp->isConnected()
+            : (manager ? manager->isConnected()
+                       : (terminal && terminal->isConnected()));
 
     m_statusConnection->setText(connected ? tr("● 已连接") : tr("○ 未连接"));
     // QSS 里给标签设了 color，会盖过调色板，所以用动态属性切换状态色并重算样式
@@ -1021,7 +1097,11 @@ void MainWindow::updateStatusBar()
         m_statusConnection->style()->polish(m_statusConnection);
     }
 
-    if (terminal) {
+    if (rdp) {
+        m_statusProtocol->setText(
+            QStringLiteral("RDP · %1").arg(rdp->connectionSummary()));
+        m_statusSize->clear();
+    } else if (terminal) {
         const Common::ConnectionSettings settings = terminal->getConnectionSettings();
         m_statusProtocol->setText(QStringLiteral("%1 · %2")
                                       .arg(protocolName(settings.type),
@@ -1295,7 +1375,8 @@ QWidget *MainWindow::buildTopBar()
         m_quickProtocolCombo->addItems({ QStringLiteral("SSH"), QStringLiteral("Telnet"),
                                          QStringLiteral("Rlogin"), tr("串口"),
                                          QStringLiteral("SFTP"), QStringLiteral("FTP"),
-                                         QStringLiteral("TFTP"), QStringLiteral("SCP") });
+                                         QStringLiteral("TFTP"), QStringLiteral("SCP"),
+                                         QStringLiteral("RDP") });
         m_quickProtocolCombo->setCurrentIndex(index < 0 ? 0 : index);
     });
     m_quickProtocolCombo->setFixedWidth(88);
@@ -1479,6 +1560,9 @@ QWidget *MainWindow::buildTerminalArea()
     // 标签左侧要留给连接状态图标：QSS 按此对象名设置扁平标签样式与左内边距
     m_terminalTabBar->setObjectName(QStringLiteral("terminalTabBar"));
     m_terminalTabBar->setStateProvider([this](const QString &tabId) {
+        if (RdpWidget *rdp = m_rdpSessions.value(tabId, nullptr)) {
+            return rdp->isConnected();
+        }
         if (FileManagerDialog *manager = m_fileManagers.value(tabId, nullptr)) {
             return manager->isConnected();
         }
@@ -2435,6 +2519,12 @@ QString MainWindow::openSessionForMcp(const QString &name, QString *error)
     for (const SessionManager::Session &session : sessions) {
         if (session.name != name) {
             continue;
+        }
+        if (session.settings.type == Common::ConnectionType::RDP) {
+            if (error) {
+                *error = tr("RDP 会话请在图形界面中打开");
+            }
+            return QString();
         }
 
         QString terminalId;

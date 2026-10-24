@@ -30,7 +30,8 @@ enum class ConnectionType {
     SFTP,
     FTP,
     TFTP,
-    SCP
+    SCP,
+    RDP
 };
 
 struct ConnectionSettings {
@@ -50,6 +51,10 @@ struct ConnectionSettings {
     QString password;
     bool useSshKey;
     QString sshKeyPath;
+
+    // RDP
+    QString rdpDomain;
+    bool rdpUseNla;
     
     ConnectionSettings()
         : type(ConnectionType::Serial)
@@ -60,6 +65,7 @@ struct ConnectionSettings {
         , flowControl(QSerialPort::NoFlowControl)
         , port(23)
         , useSshKey(false)
+        , rdpUseNla(false)
     {}
     
     QJsonObject toJson() const {
@@ -80,6 +86,8 @@ struct ConnectionSettings {
         obj["password"] = password;
         obj["useSshKey"] = useSshKey;
         obj["sshKeyPath"] = sshKeyPath;
+        obj["rdpDomain"] = rdpDomain;
+        obj["rdpUseNla"] = rdpUseNla;
 
         return obj;
     }
@@ -102,6 +110,8 @@ struct ConnectionSettings {
         settings.password = obj["password"].toString();
         settings.useSshKey = obj["useSshKey"].toBool(false);
         settings.sshKeyPath = obj["sshKeyPath"].toString();
+        settings.rdpDomain = obj["rdpDomain"].toString();
+        settings.rdpUseNla = obj["rdpUseNla"].toBool(false);
         
         return settings;
     }
@@ -117,6 +127,7 @@ struct ConnectionSettings {
             case ConnectionType::FTP: return "FTP";
             case ConnectionType::TFTP: return "TFTP";
             case ConnectionType::SCP: return "SCP";
+            case ConnectionType::RDP: return "RDP";
             default: return "Serial";
         }
     }
@@ -129,6 +140,7 @@ struct ConnectionSettings {
         if (str == "FTP") return ConnectionType::FTP;
         if (str == "TFTP") return ConnectionType::TFTP;
         if (str == "SCP") return ConnectionType::SCP;
+        if (str == "RDP") return ConnectionType::RDP;
         return ConnectionType::Serial;
     }
     

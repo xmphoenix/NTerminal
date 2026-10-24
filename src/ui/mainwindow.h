@@ -11,6 +11,7 @@
 class TerminalProxy;
 class TerminalSplitPage;
 class FileManagerDialog;
+class RdpWidget;
 enum class TerminalLayoutMode;
 class TerminalTabBar;
 class QSplitter;
@@ -116,6 +117,10 @@ private:
     void openFileManagerTab(const Common::ConnectionSettings &settings,
                             const QString &name);
     void closeFileManagerTabById(const QString &tabId);
+    // RDP：在主窗口内以标签页嵌入 Remote Desktop ActiveX 控件
+    void openRdpTab(const Common::ConnectionSettings &settings,
+                    const QString &name);
+    void closeRdpTabById(const QString &tabId);
 
     // 创建一个终端控件并注册到 MCP；不加入标签页（供标签页/分屏复用）
     TerminalProxy *createTerminalWidget(const QString &displayName,
@@ -159,6 +164,7 @@ private:
 
     QMap<QString, TerminalProxy*> m_terminals;
     QMap<QString, FileManagerDialog*> m_fileManagers;
+    QMap<QString, RdpWidget*> m_rdpSessions;
     TerminalProxy *m_currentTerminal = nullptr;
     int m_nextTerminalId = 1;
     bool m_geometryAdjusted = false;   // showEvent 只校正一次窗口尺寸
