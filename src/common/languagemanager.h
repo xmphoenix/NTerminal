@@ -20,7 +20,8 @@ public:
 
     static LanguageManager *instance();
 
-    // 读取保存的语言并应用（缺省中文）。需在创建主窗口之前调用。
+    // 读取保存的语言并应用。未保存过时跟随系统首选语言
+    // （中文系统→中文，其他系统→英文）。需在创建主窗口之前调用。
     void initialize();
 
     Language current() const { return m_language; }

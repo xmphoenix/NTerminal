@@ -100,6 +100,9 @@ CMakeLists.txt.user*
 # 编译输出的 bin 目录（DLL 文件会自动复制）
 /bin/
 
+# 打包输出（发布 zip 与 update.json）
+/dist/
+
 # 预编译依赖库（OpenSSL/zlib），可自动下载
 # 如果已有本地副本，取消下面的注释以保留
 /openssl-deps/

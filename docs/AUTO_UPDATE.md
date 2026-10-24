@@ -72,7 +72,7 @@ powershell -ExecutionPolicy Bypass -File tools\package_update.ps1 `
     -Version 2.1.0 `
     -BaseUrl https://example.com/nterminal `
     -Notes "修复若干问题" `
-    -DeployQt -QtBin C:\Qt\6.10.2\mingw_64\bin
+    -DeployQt -Minimal -QtBin C:\Qt\6.10.2\mingw_64\bin
 ```
 
 产物：
@@ -84,7 +84,10 @@ powershell -ExecutionPolicy Bypass -File tools\package_update.ps1 `
 
 - 脚本只复制程序文件，排除 `debug/`、`*.log`、`received.*` 等运行产物
 - `-DeployQt` 会调用 `windeployqt` 把 Qt 运行库和插件放入包内；正式发布建议开启
-- 把 zip 和 `update.json` 上传到同一个静态 HTTPS 目录（或 GitHub Release 的固定链接）
+- `-Minimal` 只部署程序实际引用的 Qt 库，以及平台、SVG 图标、TLS、Windows 风格等少量插件和 `qtbase_zh_CN.qm`；同时跳过 `bin/plugins` 与 libssh 未引用的 `libssl`
+- 压缩时优先调用 Python 的 zlib level 9（比 `Compress-Archive` 略小），未安装 Python 时自动回退
+- 当前最小化发布包约 18.4 MB（解压后约 44.7 MB）；不加 `-Minimal` 会包含更多插件和全部 Qt 翻译
+- 把 zip 和 `update.json` 上传到同一个静态 HTTPS 目录（或 GitHub Release 的固定链接）；不传 `-BaseUrl` 时清单使用相对文件名
 - 发布前先在 `.pro` 中修改 `VERSION` 并重新构建，保持可执行文件版本与清单一致
 
 ## 安装机制
