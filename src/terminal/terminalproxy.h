@@ -8,6 +8,7 @@
 #include <QFont>
 #include <QDateTime>
 #include <QJsonObject>
+#include <functional>
 #include "common/connectionsettings.h"
 #include "common/messagetypes.h"
 #include "ipc/ipcclient.h"
@@ -79,6 +80,15 @@ public:
 
     void sendText(const QString &text);
     void sendData(const QByteArray &data);
+
+    // 文件传输期间接管远端字节流：返回 true 表示数据已被协议引擎消费，
+    // 不再送进终端解析/显示。
+    using IncomingFilter = std::function<bool(const QByteArray &)>;
+    // 返回本次过滤器的令牌；clearIncomingFilter(token) 只清除令牌匹配的过滤器，
+    // 避免上一个传输延迟清理时误删新传输刚安装的过滤器。
+    int setIncomingFilter(IncomingFilter filter);
+    void clearIncomingFilter(int token);
+    void clearIncomingFilter();
 
     // 测试/回放接口：将数据直接注入解析管线（等价于远端数据到达，
     // 不经过 IPC 与真实连接）。供 TerminalTester 与自动化测试驱动终端状态。
@@ -239,6 +249,8 @@ private:
     void drawSelectionBackground(QPainter &painter, int line, int lineInView, int topLine, int leftColumn, int visibleLines, int visibleColumns) const;
     
     QString m_sessionId;
+    IncomingFilter m_incomingFilter;
+    int m_incomingFilterToken = 0;
     QProcess *m_sessionProcess;
     Ipc::IpcClient *m_ipcClient;
     TerminalParser *m_parser;

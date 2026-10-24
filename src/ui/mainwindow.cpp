@@ -15,6 +15,12 @@
 #include "ui/asciitabledialog.h"
 #include "ui/portscannerdialog.h"
 #include "ui/networkservicesdialog.h"
+#include "ui/transferdialog.h"
+#include "transfer/zmodemtransfer.h"
+#include "transfer/ymodemtransfer.h"
+#include "transfer/xmodemtransfer.h"
+#include "transfer/kermittransfer.h"
+#include "transfer/asciitransfer.h"
 #include "ui/scriptdialog.h"
 #include "ui/scriptlogviewer.h"
 #include "ui/scriptcontrolpanel.h"
@@ -51,6 +57,7 @@
 #include <QJsonObject>
 #include <QMessageBox>
 #include <QClipboard>
+#include <QFileDialog>
 #include <QDir>
 #include <QDesktopServices>
 #include <QUrl>
@@ -1455,6 +1462,63 @@ void MainWindow::initMainWindowMenu()
     });
     m_transmitMenu->addAction(m_ftpAction);
 
+    // ---- 协议传输（ZMODEM/YMODEM/XMODEM/Kermit/ASCII） ----
+    m_transmitMenu->addSeparator();
+    m_protocolMenu = m_transmitMenu->addMenu(QString());
+    bindText([this] { m_protocolMenu->setTitle(tr("协议传输")); });
+
+    auto addTransferAction = [this](const QString &text,
+                                    FileTransfer::Kind kind, bool send,
+                                    const QString &iconName) {
+        auto *action = new QAction(text, this);
+        if (!iconName.isEmpty()) {
+            action->setIcon(IconProvider::themedIcon(iconName));
+        }
+        const FileTransfer::Kind kindCopy = kind;
+        const bool sendCopy = send;
+        connect(action, &QAction::triggered, this, [this, kindCopy, sendCopy] {
+            startFileTransfer(kindCopy, sendCopy);
+        });
+        m_protocolMenu->addAction(action);
+        return action;
+    };
+
+    // 语言切换时逐个重设文案（QAction 文案不能按当前文字反查）
+    QAction *zSend = addTransferAction(tr("ZMODEM 发送..."), FileTransfer::Kind::Zmodem,
+                                       true, QStringLiteral("send"));
+    bindText([zSend] { zSend->setText(tr("ZMODEM 发送...")); });
+    QAction *zRecv = addTransferAction(tr("ZMODEM 接收..."), FileTransfer::Kind::Zmodem,
+                                       false, QStringLiteral("download"));
+    bindText([zRecv] { zRecv->setText(tr("ZMODEM 接收...")); });
+    m_protocolMenu->addSeparator();
+    QAction *ySend = addTransferAction(tr("YMODEM 发送..."), FileTransfer::Kind::Ymodem,
+                                       true, QStringLiteral("send"));
+    bindText([ySend] { ySend->setText(tr("YMODEM 发送...")); });
+    QAction *yRecv = addTransferAction(tr("YMODEM 接收..."), FileTransfer::Kind::Ymodem,
+                                       false, QStringLiteral("download"));
+    bindText([yRecv] { yRecv->setText(tr("YMODEM 接收...")); });
+    m_protocolMenu->addSeparator();
+    QAction *xSend = addTransferAction(tr("XMODEM 发送..."), FileTransfer::Kind::Xmodem,
+                                       true, QStringLiteral("send"));
+    bindText([xSend] { xSend->setText(tr("XMODEM 发送...")); });
+    QAction *xRecv = addTransferAction(tr("XMODEM 接收..."), FileTransfer::Kind::Xmodem,
+                                       false, QStringLiteral("download"));
+    bindText([xRecv] { xRecv->setText(tr("XMODEM 接收...")); });
+    m_protocolMenu->addSeparator();
+    QAction *kSend = addTransferAction(tr("Kermit 发送..."), FileTransfer::Kind::Kermit,
+                                       true, QStringLiteral("send"));
+    bindText([kSend] { kSend->setText(tr("Kermit 发送...")); });
+    QAction *kRecv = addTransferAction(tr("Kermit 接收..."), FileTransfer::Kind::Kermit,
+                                       false, QStringLiteral("download"));
+    bindText([kRecv] { kRecv->setText(tr("Kermit 接收...")); });
+    m_protocolMenu->addSeparator();
+    QAction *aSend = addTransferAction(tr("ASCII 发送..."), FileTransfer::Kind::Ascii,
+                                       true, QStringLiteral("send"));
+    bindText([aSend] { aSend->setText(tr("ASCII 发送...")); });
+    QAction *aRecv = addTransferAction(tr("ASCII 接收..."), FileTransfer::Kind::Ascii,
+                                       false, QStringLiteral("download"));
+    bindText([aRecv] { aRecv->setText(tr("ASCII 接收...")); });
+
     // ---- 插件菜单：当前仅提供插件目录入口 ----
     m_pluginDirAction = new QAction(this);
     bindText([this] { m_pluginDirAction->setText(tr("打开插件目录...")); });
@@ -1688,6 +1752,115 @@ void MainWindow::showNetworkServices()
     // 模态对话框：服务对象由 ServerManager 单例持有，窗口关闭后服务继续运行
     NetworkServicesDialog dialog(this);
     dialog.exec();
+}
+
+// ---------------------------------------------------------------------------
+// 协议传输：ZMODEM / YMODEM / XMODEM / Kermit / ASCII
+// ---------------------------------------------------------------------------
+void MainWindow::startFileTransfer(FileTransfer::Kind kind, bool send)
+{
+    TerminalProxy *terminal = getCurrentTerminal();
+    if (!terminal) {
+        QMessageBox::information(this, tr("文件传输"),
+                                 tr("请先打开一个终端会话，再使用协议传输。"));
+        return;
+    }
+    if (!terminal->isConnected()) {
+        QMessageBox::information(this, tr("文件传输"),
+                                 tr("当前终端未连接，无法传输文件。"));
+        return;
+    }
+
+    const bool batch = kind == FileTransfer::Kind::Zmodem
+                       || kind == FileTransfer::Kind::Ymodem;
+    QStringList paths;
+    if (send) {
+        QFileDialog dialog(this, tr("选择要发送的文件"));
+        dialog.setFileMode(batch ? QFileDialog::ExistingFiles
+                                 : QFileDialog::ExistingFile);
+        dialog.setOption(QFileDialog::DontUseNativeDialog, true);
+        if (dialog.exec() != QDialog::Accepted) {
+            return;
+        }
+        paths = dialog.selectedFiles();
+    } else if (kind == FileTransfer::Kind::Xmodem
+               || kind == FileTransfer::Kind::Ascii) {
+        QFileDialog dialog(this, tr("选择接收文件的保存位置"));
+        dialog.setAcceptMode(QFileDialog::AcceptSave);
+        dialog.setOption(QFileDialog::DontUseNativeDialog, true);
+        dialog.selectFile(kind == FileTransfer::Kind::Ascii
+                              ? QStringLiteral("received.txt")
+                              : QStringLiteral("received.bin"));
+        if (dialog.exec() != QDialog::Accepted) {
+            return;
+        }
+        paths = dialog.selectedFiles();
+    } else {
+        QFileDialog dialog(this, tr("选择接收文件的保存目录"));
+        dialog.setFileMode(QFileDialog::Directory);
+        dialog.setOption(QFileDialog::ShowDirsOnly, true);
+        dialog.setOption(QFileDialog::DontUseNativeDialog, true);
+        if (dialog.exec() != QDialog::Accepted) {
+            return;
+        }
+        paths = dialog.selectedFiles();
+    }
+    if (paths.isEmpty()) {
+        return;
+    }
+
+    const FileTransfer::Direction direction =
+        send ? FileTransfer::Direction::Send : FileTransfer::Direction::Receive;
+    FileTransfer *transfer = nullptr;
+    switch (kind) {
+    case FileTransfer::Kind::Zmodem:
+        transfer = new ZmodemTransfer(direction, paths, this);
+        break;
+    case FileTransfer::Kind::Ymodem:
+        transfer = new YmodemTransfer(direction, paths, this);
+        break;
+    case FileTransfer::Kind::Xmodem:
+        transfer = new XmodemTransfer(direction, paths, this);
+        break;
+    case FileTransfer::Kind::Kermit:
+        transfer = new KermitTransfer(direction, paths, this);
+        break;
+    case FileTransfer::Kind::Ascii:
+        transfer = new AsciiTransfer(direction, paths, this);
+        break;
+    }
+    if (!transfer) {
+        return;
+    }
+
+    // 传输期间：终端收到的字节全部交给协议引擎，键盘由模态窗口挡住
+    transfer->setWriter([terminal](const QByteArray &data) {
+        terminal->sendData(data);
+    });
+    const int filterToken = terminal->setIncomingFilter(
+        [transfer](const QByteArray &data) {
+            transfer->onData(data);
+            return true;
+        });
+    connect(terminal, &TerminalProxy::connectionClosed, transfer,
+            &FileTransfer::cancel);
+    connect(transfer, &FileTransfer::finished, terminal, [terminal, filterToken] {
+        // 延迟清除：避免在过滤器自身执行期间销毁 std::function；
+        // 只清除本次传输安装的过滤器，防止晚到的清理误删下一个传输的过滤器。
+        QTimer::singleShot(0, terminal, [terminal, filterToken] {
+            terminal->clearIncomingFilter(filterToken);
+        });
+    });
+
+    TransferDialog dialog(transfer, this);
+    QTimer::singleShot(0, transfer, &FileTransfer::start);
+    dialog.exec();
+
+    if (!transfer->isFinished()) {
+        transfer->cancel();
+    }
+    terminal->clearIncomingFilter(filterToken);
+    transfer->deleteLater();
 }
 
 void MainWindow::showAsciiTable()

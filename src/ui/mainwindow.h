@@ -5,6 +5,7 @@
 #include <QList>
 #include <functional>
 #include "common/connectionsettings.h"
+#include "transfer/filetransfer.h"
 
 class TerminalProxy;
 class TerminalTabBar;
@@ -97,6 +98,8 @@ private:
     void populateSessionTree();
     void showThemeSettings();
     void applyTerminalTheme(class TerminalProxy *terminal);
+    // 协议传输（kind + 方向）：选择文件/目录后把终端字节流交给协议引擎
+    void startFileTransfer(FileTransfer::Kind kind, bool send);
     // 弹出连接对话框并建立新终端标签页（applyTheme: 是否立即应用当前主题/字体）
     // type: 预选协议（传输菜单可直达 SFTP/FTP）
     void openConnectionFromDialog(bool applyTheme,
@@ -151,6 +154,7 @@ private:
     QMenu *m_viewMenu = nullptr;
     QMenu *m_optMenu = nullptr;
     QMenu *m_transmitMenu = nullptr;
+    QMenu *m_protocolMenu = nullptr;
     QMenu *m_scriptMenu = nullptr;
     QMenu *m_toolsMenu = nullptr;
     QMenu *m_pluginMenu = nullptr;

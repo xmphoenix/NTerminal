@@ -80,6 +80,12 @@ SOURCES += \
     src/session/tftphandler.cpp \
     src/script/pythonscriptengine.cpp \
     src/services/sessionmanager.cpp \
+    src/transfer/filetransfer.cpp \
+    src/transfer/xmodemtransfer.cpp \
+    src/transfer/ymodemtransfer.cpp \
+    src/transfer/kermittransfer.cpp \
+    src/transfer/zmodemtransfer.cpp \
+    src/transfer/asciitransfer.cpp \
     src/services/serverservice.cpp \
     src/services/servermanager.cpp \
     src/services/tftpserver.cpp \
@@ -102,6 +108,7 @@ SOURCES += \
     src/ui/asciitabledialog.cpp \
     src/ui/portscannerdialog.cpp \
     src/ui/networkservicesdialog.cpp \
+    src/ui/transferdialog.cpp \
     src/ui/scriptdialog.cpp \
     src/ui/scriptlogviewer.cpp \
     src/ui/scriptcontrolpanel.cpp \
@@ -132,6 +139,13 @@ HEADERS += \
     src/session/tftphandler.h \
     src/script/pythonscriptengine.h \
     src/services/sessionmanager.h \
+    src/transfer/filetransfer.h \
+    src/transfer/xmodemcodec.h \
+    src/transfer/xmodemtransfer.h \
+    src/transfer/ymodemtransfer.h \
+    src/transfer/kermittransfer.h \
+    src/transfer/zmodemtransfer.h \
+    src/transfer/asciitransfer.h \
     src/services/serverservice.h \
     src/services/servermanager.h \
     src/services/tftpserver.h \
@@ -154,6 +168,7 @@ HEADERS += \
     src/ui/asciitabledialog.h \
     src/ui/portscannerdialog.h \
     src/ui/networkservicesdialog.h \
+    src/ui/transferdialog.h \
     src/ui/scriptdialog.h \
     src/ui/scriptlogviewer.h \
     src/ui/scriptcontrolpanel.h \

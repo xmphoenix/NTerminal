@@ -295,6 +295,26 @@ void TerminalProxy::sendText(const QString &text)
     sendData(text.toUtf8());
 }
 
+int TerminalProxy::setIncomingFilter(IncomingFilter filter)
+{
+    m_incomingFilter = std::move(filter);
+    ++m_incomingFilterToken;
+    return m_incomingFilterToken;
+}
+
+void TerminalProxy::clearIncomingFilter(int token)
+{
+    if (token == m_incomingFilterToken) {
+        m_incomingFilter = nullptr;
+    }
+}
+
+void TerminalProxy::clearIncomingFilter()
+{
+    m_incomingFilter = nullptr;
+    ++m_incomingFilterToken;
+}
+
 void TerminalProxy::sendData(const QByteArray &data)
 {
     if (m_ipcClient && m_ipcClient->isConnected()) {
@@ -1674,6 +1694,10 @@ void TerminalProxy::handleDataReceived(const QByteArray &payload)
     qDebug() << "[TerminalProxy] Received" << payload.size() << "bytes from IPC";
     qDebug() << "[TerminalProxy] Data hex:" << payload.toHex(' ');
     qDebug() << "=======================================================";
+
+    if (m_incomingFilter && m_incomingFilter(payload)) {
+        return;   // 传输协议接管，不显示也不解析
+    }
 
     emit dataReceived(payload);
     m_parser->processData(payload);

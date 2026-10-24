@@ -240,6 +240,12 @@ QSplitter::handle:horizontal:hover { background-color: @accentSoft@; }
                   font-size: 11px; }
 #serviceLog { background-color: @surfaceAlt@; border: 1px solid @border@; border-radius: @radius@;
               font-family: "Cascadia Code", "Consolas", monospace; font-size: 11px; padding: 4px; }
+/* 协议传输进度窗口 */
+#transferStatus { color: @textDim@; font-size: 12px; }
+#transferStatus[state="ok"] { color: @success@; }
+#transferStatus[state="fail"] { color: @danger@; }
+#transferLog { background-color: @surfaceAlt@; border: 1px solid @border@; border-radius: @radius@;
+               font-family: "Cascadia Code", "Consolas", monospace; font-size: 11px; padding: 4px; }
 QStatusBar { background-color: @panel@; color: @textDim@; border-top: 1px solid @hairline@;
              min-height: 22px; font-size: 11px; }
 QStatusBar::item { border: none; }
