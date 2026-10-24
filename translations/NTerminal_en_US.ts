@@ -1914,4 +1914,15 @@ Restart now and install?</translation>
         <translation>RDP connection closed</translation>
     </message>
 </context>
+<context>
+    <name>SingleInstance</name>
+    <message>
+        <source>NTerminal</source>
+        <translation>NTerminal</translation>
+    </message>
+    <message>
+        <source>NTerminal 已经在运行，只能启动一个实例。</source>
+        <translation>NTerminal is already running. Only one instance can be started.</translation>
+    </message>
+</context>
 </TS>

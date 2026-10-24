@@ -4,6 +4,7 @@
 #include "theme/fontmanager.h"
 #include "ui/testwindow.h"
 #include "app/launchoptions.h"
+#include "app/singleinstance.h"
 #include "common/appinfo.h"
 #include "common/languagemanager.h"
 #include "mcp/mcpbridge.h"
@@ -14,6 +15,7 @@
 #include <QStringList>
 #include <QDebug>
 #include <QFile>
+#include <QMessageBox>
 #include <QTextStream>
 
 // 会话进程调试日志（写入 rlogin_debug_<sessionId>.log）
@@ -110,12 +112,6 @@ static int runGui(int argc, char *argv[])
     QCoreApplication::setOrganizationName("NTerminal");
     QCoreApplication::setApplicationVersion(AppInfo::version());
 
-    // 上次下载的更新包：启动更新脚本后立即退出，由脚本等待本进程结束、
-    // 替换程序文件并重新启动（不经过安装程序）。
-    if (UpdateManager::applyPendingUpdate()) {
-        return 0;
-    }
-
     ThemeManager::instance()->initialize();
     FontManager::instance()->initialize();
 
@@ -123,7 +119,32 @@ static int runGui(int argc, char *argv[])
     // 选择结果写入配置，下次启动沿用。
     LanguageManager::instance()->initialize();
 
+    // 单实例：第二个主程序只负责唤起已运行的窗口并提示错误，然后退出。
+    // 放在读取待安装更新之前，避免重复启动的进程误触发更新脚本。
+    SingleInstance singleInstance(QStringLiteral("NTerminal"));
+    if (!singleInstance.tryAcquire()) {
+        singleInstance.notifyPrimary();
+        QMessageBox::warning(nullptr,
+            QCoreApplication::translate("SingleInstance", "NTerminal"),
+            QCoreApplication::translate("SingleInstance",
+                                        "NTerminal 已经在运行，只能启动一个实例。"));
+        return 0;
+    }
+
+    // 上次下载的更新包：启动更新脚本后立即退出，由脚本等待本进程结束、
+    // 替换程序文件并重新启动（不经过安装程序）。
+    if (UpdateManager::applyPendingUpdate()) {
+        return 0;
+    }
+
     MainWindow window;
+    // 另一个实例启动时，把已有窗口从最小化恢复并带到前台。
+    singleInstance.setActivationHandler([&window]() {
+        window.setWindowState((window.windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
+        window.show();
+        window.raise();
+        window.activateWindow();
+    });
     window.show();
     return app.exec();
 }

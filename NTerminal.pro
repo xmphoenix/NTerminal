@@ -71,6 +71,7 @@ INCLUDEPATH += $$PWD/src
 SOURCES += \
     src/app/main.cpp \
     src/app/launchoptions.cpp \
+    src/app/singleinstance.cpp \
     src/common/languagemanager.cpp \
     src/terminal/terminalproxy.cpp \
     src/terminal/terminalparser.cpp \
@@ -138,6 +139,7 @@ SOURCES += \
 # ---- 头文件（Q_OBJECT 类必须列出以生成 moc） ----
 HEADERS += \
     src/app/launchoptions.h \
+    src/app/singleinstance.h \
     src/common/appinfo.h \
     src/common/connectionsettings.h \
     src/common/messagetypes.h \
