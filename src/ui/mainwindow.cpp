@@ -14,6 +14,7 @@
 #include "ui/calculatordialog.h"
 #include "ui/asciitabledialog.h"
 #include "ui/portscannerdialog.h"
+#include "ui/networkservicesdialog.h"
 #include "ui/scriptdialog.h"
 #include "ui/scriptlogviewer.h"
 #include "ui/scriptcontrolpanel.h"
@@ -1684,8 +1685,9 @@ void MainWindow::showPortScanner()
 
 void MainWindow::showNetworkServices()
 {
-    qDebug() << "Network Services - To be implemented";
-    // TODO: 实现网络服务对话框
+    // 模态对话框：服务对象由 ServerManager 单例持有，窗口关闭后服务继续运行
+    NetworkServicesDialog dialog(this);
+    dialog.exec();
 }
 
 void MainWindow::showAsciiTable()

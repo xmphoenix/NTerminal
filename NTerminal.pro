@@ -80,6 +80,13 @@ SOURCES += \
     src/session/tftphandler.cpp \
     src/script/pythonscriptengine.cpp \
     src/services/sessionmanager.cpp \
+    src/services/serverservice.cpp \
+    src/services/servermanager.cpp \
+    src/services/tftpserver.cpp \
+    src/services/ftpserver.cpp \
+    src/services/httpserver.cpp \
+    src/services/telnetserver.cpp \
+    src/services/nfsserver.cpp \
     src/theme/thememanager.cpp \
     src/theme/fontmanager.cpp \
     src/ui/mainwindow.cpp \
@@ -94,6 +101,7 @@ SOURCES += \
     src/ui/calculatordialog.cpp \
     src/ui/asciitabledialog.cpp \
     src/ui/portscannerdialog.cpp \
+    src/ui/networkservicesdialog.cpp \
     src/ui/scriptdialog.cpp \
     src/ui/scriptlogviewer.cpp \
     src/ui/scriptcontrolpanel.cpp \
@@ -124,6 +132,13 @@ HEADERS += \
     src/session/tftphandler.h \
     src/script/pythonscriptengine.h \
     src/services/sessionmanager.h \
+    src/services/serverservice.h \
+    src/services/servermanager.h \
+    src/services/tftpserver.h \
+    src/services/ftpserver.h \
+    src/services/httpserver.h \
+    src/services/telnetserver.h \
+    src/services/nfsserver.h \
     src/theme/thememanager.h \
     src/theme/fontmanager.h \
     src/ui/mainwindow.h \
@@ -138,6 +153,7 @@ HEADERS += \
     src/ui/calculatordialog.h \
     src/ui/asciitabledialog.h \
     src/ui/portscannerdialog.h \
+    src/ui/networkservicesdialog.h \
     src/ui/scriptdialog.h \
     src/ui/scriptlogviewer.h \
     src/ui/scriptcontrolpanel.h \
