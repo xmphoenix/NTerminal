@@ -333,6 +333,10 @@ void MainWindow::closeTerminalTabById(const QString &terminalId)
         m_currentTerminal = nullptr;
         qDebug() << "Current terminal closed";
     }
+
+    // 关掉最后一个标签时不会触发 currentChanged，状态栏需在这里主动刷新，
+    // 否则连接信息与远端资源条会残留上一个会话的数据。
+    updateStatusBar();
 }
 
 TerminalProxy* MainWindow::getCurrentTerminal() const
@@ -634,16 +638,17 @@ void MainWindow::updateStatusBar()
     if (!m_statusConnection) {
         return;
     }
-    const AppTheme theme = ThemeManager::instance()->currentAppTheme();
     TerminalProxy *terminal = getCurrentTerminal();
     const bool connected = terminal && terminal->isConnected();
 
     m_statusConnection->setText(connected ? tr("● 已连接") : tr("○ 未连接"));
-    // 用调色板而非 setStyleSheet：避免运行时样式重算（QSS 已统一控制外观）
-    QPalette connPalette = m_statusConnection->palette();
-    connPalette.setColor(QPalette::WindowText,
-                         connected ? theme.success : theme.textFaint);
-    m_statusConnection->setPalette(connPalette);
+    // QSS 里给标签设了 color，会盖过调色板，所以用动态属性切换状态色并重算样式
+    const QString connState = connected ? QStringLiteral("on") : QStringLiteral("off");
+    if (m_statusConnection->property("state").toString() != connState) {
+        m_statusConnection->setProperty("state", connState);
+        m_statusConnection->style()->unpolish(m_statusConnection);
+        m_statusConnection->style()->polish(m_statusConnection);
+    }
 
     if (terminal) {
         const Common::ConnectionSettings settings = terminal->getConnectionSettings();
@@ -1029,6 +1034,8 @@ QWidget *MainWindow::buildTerminalArea()
     m_screenTabWidget->setMovable(true);
 
     m_terminalTabBar = new TerminalTabBar(m_screenTabWidget);
+    // 标签左侧要留给连接状态图标：QSS 按此对象名设置扁平标签样式与左内边距
+    m_terminalTabBar->setObjectName(QStringLiteral("terminalTabBar"));
     m_terminalTabBar->setStateProvider([this](const QString &tabId) {
         TerminalProxy *terminal = m_terminals.value(tabId, nullptr);
         return terminal && terminal->isConnected();
@@ -1499,7 +1506,7 @@ void MainWindow::refreshIcons()
         }
     }
     if (m_terminalTabBar) {
-        m_terminalTabBar->update();
+        m_terminalTabBar->refreshTheme();
     }
     if (m_statusStats) {
         m_statusStats->refreshIcons();
@@ -1563,6 +1570,10 @@ void MainWindow::showThemeSettings()
 
     for (auto it = m_terminals.begin(); it != m_terminals.end(); ++it) {
         applyTerminalTheme(it.value());
+    }
+    // 选中标签底色取自终端主题，终端主题变更后需要重算样式并重绘标签条
+    if (m_terminalTabBar) {
+        m_terminalTabBar->refreshTheme();
     }
 }
 

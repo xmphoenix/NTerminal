@@ -142,6 +142,20 @@ QTabBar::tab:hover { background-color: @panelHover@; color: @text@; }
 QTabBar::tab:selected { background-color: @panelRaised@; color: @text@; border-color: @border@; font-weight: 600; }
 QTabBar::close-button { image: url(:/icons/close.svg); subcontrol-position: right; }
 QTabBar::close-button:hover { background: @panelHover@; border-radius: 4px; }
+/* 终端标签条：扁平、首尾相接的 Xshell 风格。
+   选中标签的底色由 TerminalTabBar 用"终端文字区背景色"自绘并铺满标签矩形，
+   因此这里的 background 必须是 transparent，否则会盖住自绘底色。
+   左侧 26px 留给连接状态图标（由 TerminalTabBar 自绘）。 */
+QTabBar#terminalTabBar::tab {
+    background: transparent; border: none; border-radius: 0; margin: 0;
+    padding: 6px 9px 6px 26px; color: @textDim@; font-size: 12px; }
+QTabBar#terminalTabBar::tab:hover { background-color: @panelHover@; color: @text@; }
+QTabBar#terminalTabBar::tab:selected { background: transparent; color: @text@; font-weight: 600; }
+QTabBar#terminalTabBar::tab:selected:hover { background: transparent; }
+/* 终端配色与界面主题不配对时（用户单独换了终端配色），选中标签底色与
+   界面底色明暗可能相反；按终端底色的明暗取反文字色，保证可读性。 */
+QTabBar#terminalTabBar[terminalBgLight="true"]::tab:selected { color: #1E2A26; }
+QTabBar#terminalTabBar[terminalBgLight="false"]::tab:selected { color: #EDF2F0; }
 
 /* ------------------------------- 列表/树/表格 ------------------------------ */
 QTreeView, QTreeWidget, QListView, QListWidget, QTableView, QTableWidget {
@@ -212,6 +226,9 @@ QStatusBar { background-color: @panel@; color: @textDim@; border-top: 1px solid 
 QStatusBar::item { border: none; }
 QStatusBar QLabel { color: @textDim@; padding: 0 8px; font-size: 11px; }
 #statusProtocol { color: @text@; }
+/* 已连接 = 绿色，未连接 = 弱化灰（属性由 updateStatusBar 设置并重算样式） */
+#statusConnection[state="on"] { color: @success@; }
+#statusConnection[state="off"] { color: @textFaint@; }
 #statusLatency { padding-right: 12px; }
 
 /* 远端资源条：图标 + 数值，指标之间用细竖线分隔 */
