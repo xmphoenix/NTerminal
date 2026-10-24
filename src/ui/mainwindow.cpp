@@ -72,6 +72,11 @@
 #include <QDesktopServices>
 #include <QUrl>
 
+namespace {
+// 菜单栏与工具栏共用高度，保证两行视觉上连成一条紧凑的工具链
+constexpr int kTopBarHeight = 28;
+} // namespace
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , m_verticalSplitter(nullptr)
@@ -1339,8 +1344,10 @@ void MainWindow::setSidebarVisible(bool visible)
 QWidget *MainWindow::buildTopBar()
 {
     QWidget *bar = styledPanel("topBar");
+    bar->setFixedHeight(kTopBarHeight);
     QHBoxLayout *lay = new QHBoxLayout(bar);
-    lay->setContentsMargins(10, 6, 10, 6);
+    // 上下不留额外内边距：按钮/快速连接条与工具栏边界对齐
+    lay->setContentsMargins(10, 0, 10, 0);
     lay->setSpacing(6);
 
     // 主操作：新建会话（实心强调色按钮）
@@ -1352,7 +1359,7 @@ QWidget *MainWindow::buildTopBar()
     newBtn->setIcon(IconProvider::icon("new-session",
                                        ThemeManager::instance()->currentAppTheme().highlightText));
     newBtn->setCursor(Qt::PointingHandCursor);
-    newBtn->setMinimumHeight(30);
+    newBtn->setFixedHeight(kTopBarHeight);
     connect(newBtn, &QPushButton::clicked, this, [this]() {
         openConnectionFromDialog(true);
     });
@@ -1363,8 +1370,10 @@ QWidget *MainWindow::buildTopBar()
     quickBar->setObjectName("quickConnectBar");
     quickBar->setAttribute(Qt::WA_StyledBackground, true);
     quickBar->setMaximumWidth(520);
+    quickBar->setFixedHeight(kTopBarHeight);
     QHBoxLayout *quickLay = new QHBoxLayout(quickBar);
-    quickLay->setContentsMargins(4, 2, 4, 2);
+    // 右侧不留内边距，让“连接”按钮与快速连接条的外边界重合
+    quickLay->setContentsMargins(4, 0, 0, 0);
     quickLay->setSpacing(2);
 
     m_quickProtocolCombo = new QComboBox;
@@ -1380,17 +1389,20 @@ QWidget *MainWindow::buildTopBar()
         m_quickProtocolCombo->setCurrentIndex(index < 0 ? 0 : index);
     });
     m_quickProtocolCombo->setFixedWidth(88);
+    m_quickProtocolCombo->setFixedHeight(kTopBarHeight - 2);
     m_quickProtocolCombo->setCursor(Qt::PointingHandCursor);
 
     m_quickConnectEdit = new QLineEdit;
     bindText([this] { m_quickConnectEdit->setPlaceholderText(tr("user@host:port 快速连接")); });
     m_quickConnectEdit->setMinimumWidth(190);
+    m_quickConnectEdit->setFixedHeight(kTopBarHeight - 2);
 
     QPushButton *goBtn = new QPushButton;
+    goBtn->setObjectName("quickConnectGo");
     bindText([goBtn] { goBtn->setText(tr("连接")); });
     goBtn->setProperty("class", "tonal");
     goBtn->setCursor(Qt::PointingHandCursor);
-    goBtn->setFixedHeight(26);
+    goBtn->setFixedHeight(kTopBarHeight - 2);
     connect(goBtn, &QPushButton::clicked, this, &MainWindow::onQuickConnect);
     connect(m_quickConnectEdit, &QLineEdit::returnPressed, this, &MainWindow::onQuickConnect);
 
@@ -1420,7 +1432,7 @@ QWidget *MainWindow::buildTopBar()
         bindText([button, tip] { button->setToolTip(tip()); });
         button->setAutoRaise(true);
         button->setCursor(Qt::PointingHandCursor);
-        button->setMinimumSize(28, 28);
+        button->setFixedSize(kTopBarHeight, kTopBarHeight);
         connect(button, &QToolButton::clicked, this, handler);
         lay->addWidget(button);
         return button;
@@ -1755,6 +1767,7 @@ void MainWindow::initMainWindowMenu()
 {
     // 使用 QMainWindow 内置 menuBar，避免 new QMenuBar() 泄漏 Qt 预创建的默认菜单栏
     m_menuBar = this->menuBar();
+    m_menuBar->setFixedHeight(kTopBarHeight);
 
     // 菜单标题先留空，统一在 bindText 中按当前语言填写
     m_fileMenu = m_menuBar->addMenu(QString());

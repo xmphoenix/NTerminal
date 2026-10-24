@@ -17,8 +17,8 @@ QToolTip { background-color: @panelRaised@; color: @text@; border: 1px solid @bo
 
 /* -------------------------------- 菜单栏/菜单 ------------------------------- */
 QMenuBar { background-color: @panel@; color: @text@; border-bottom: 1px solid @hairline@;
-           padding: 2px 6px; font-size: 12px; }
-QMenuBar::item { background: transparent; color: @text@; padding: 4px 9px;
+           padding: 1px 6px; font-size: 12px; }
+QMenuBar::item { background: transparent; color: @text@; padding: 3px 9px;
                  border-radius: @radiusSm@; margin: 0 1px; }
 QMenuBar::item:selected { background-color: @panelHover@; }
 QMenuBar::item:pressed { background-color: @accentSoft@; color: @text@; }
@@ -192,6 +192,10 @@ QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; lef
 #quickConnectBar QComboBox:hover, #quickConnectBar QLineEdit:hover { background-color: @panelHover@; }
 #quickConnectBar QLineEdit:focus { border-color: @accent@; background-color: @panelRaised@; }
 #quickConnectBar QToolButton { border-radius: 7px; padding: 3px; }
+/* 连接按钮贴合快速连接条右边界 */
+#quickConnectGo { border-top-left-radius: 0; border-bottom-left-radius: 0;
+                  border-top-right-radius: 9px; border-bottom-right-radius: 9px;
+                  padding-left: 14px; padding-right: 14px; }
 #sidebar { background-color: @panel@; border-right: 1px solid @hairline@; }
 #sidebarHead { background-color: transparent; border-bottom: 1px solid @hairline@; }
 #sidebarTitle { font-weight: 700; font-size: 12px; color: @text@; }
