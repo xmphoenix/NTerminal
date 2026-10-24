@@ -123,6 +123,8 @@ QSlider::handle:horizontal:hover { border-color: @accent@; }
 QProgressBar { background-color: @panelHover@; border: none; border-radius: 4px;
                height: 8px; text-align: center; color: @textDim@; font-size: 11px; }
 QProgressBar::chunk { background-color: @accent@; border-radius: 4px; }
+/* 文件管理器传输进度：加高并显示百分比，便于大文件观察 */
+QProgressBar[class="transfer"] { height: 16px; font-size: 10px; color: @text@; }
 
 /* --------------------------------- 滚动条 --------------------------------- */
 QScrollBar:vertical { background: transparent; width: 12px; margin: 2px; }

@@ -11,6 +11,7 @@ class QComboBox;
 class QSpinBox;
 class QCheckBox;
 class QGroupBox;
+class QLabel;
 class QStackedWidget;
 class QFormLayout;
 
@@ -32,6 +33,8 @@ public:
 
     // 预选连接类型（从"传输"菜单直接打开 SFTP/FTP 时使用）
     void setPreferredType(Common::ConnectionType type);
+    // 隐藏"连接类型"选择行：协议已由「传输」菜单确定
+    void lockConnectionType();
 
 private slots:
     void onConnectionTypeChanged(int index);
@@ -57,7 +60,9 @@ private:
 
     QLineEdit *m_sessionNameEdit;
     QComboBox *m_typeComboBox;
-    
+    QLabel *m_hintLabel;
+    QFormLayout *m_formLayout;
+
     QStackedWidget *m_settingsStack;
     
     // Serial settings widgets

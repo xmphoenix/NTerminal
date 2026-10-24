@@ -99,6 +99,7 @@ void TestCommon::settingsTypeStrings()
         { Common::ConnectionType::SFTP, "SFTP" },
         { Common::ConnectionType::FTP, "FTP" },
         { Common::ConnectionType::TFTP, "TFTP" },
+        { Common::ConnectionType::SCP, "SCP" },
     };
     for (const Row &row : rows) {
         Common::ConnectionSettings s;

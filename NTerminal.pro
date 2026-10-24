@@ -8,6 +8,7 @@
 #   terminal/  终端核心（VT100/ANSI 解析器、终端代理、主题数据）
 #   session/   会话进程侧的协议连接处理器（工厂 + 7 种协议）
 #   mcp/       MCP 服务（工具/资源/权限/审计）与 stdio 桥接器
+#   files/     图形化文件管理器的 SFTP/SCP/FTP 客户端与工作线程
 #   update/    自动更新（清单/下载/校验/独立更新脚本）
 #   services/  GUI 侧会话管理服务
 #   theme/     主题/字体管理（单例，生产 TerminalTheme）
@@ -103,6 +104,9 @@ SOURCES += \
     src/services/nfsserver.cpp \
     src/mcp/mcpserver.cpp \
     src/mcp/mcpbridge.cpp \
+    src/files/sshfileclient.cpp \
+    src/files/ftpfileclient.cpp \
+    src/files/remotefilesession.cpp \
     src/update/updatemanager.cpp \
     src/theme/thememanager.cpp \
     src/theme/fontmanager.cpp \
@@ -125,6 +129,7 @@ SOURCES += \
     src/ui/mcplogviewer.cpp \
     src/ui/updatedialog.cpp \
     src/ui/updatesettingsdialog.cpp \
+    src/ui/filemanagerdialog.cpp \
     src/ui/systemstatswidget.cpp
 
 # ---- 头文件（Q_OBJECT 类必须列出以生成 moc） ----
@@ -168,6 +173,11 @@ HEADERS += \
     src/services/nfsserver.h \
     src/mcp/mcpserver.h \
     src/mcp/mcpbridge.h \
+    src/files/remotefileentry.h \
+    src/files/remotefileclient.h \
+    src/files/sshfileclient.h \
+    src/files/ftpfileclient.h \
+    src/files/remotefilesession.h \
     src/update/updatemanager.h \
     src/theme/thememanager.h \
     src/theme/fontmanager.h \
@@ -190,6 +200,7 @@ HEADERS += \
     src/ui/mcplogviewer.h \
     src/ui/updatedialog.h \
     src/ui/updatesettingsdialog.h \
+    src/ui/filemanagerdialog.h \
     src/ui/systemstatswidget.h
 
 RESOURCES += \

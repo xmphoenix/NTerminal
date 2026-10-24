@@ -1,5 +1,6 @@
-<?xml version='1.0' encoding='utf-8'?>
-<TS version="2.1" language="en_US">
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE TS>
+<TS version="2.1">
 <context>
     <name>AboutDialog</name>
     <message>
@@ -113,24 +114,24 @@
         <translation>Conversions</translation>
     </message>
     <message>
-        <source>十六进制:</source>
-        <translation>HEX:</translation>
-    </message>
-    <message>
-        <source>十进制:</source>
-        <translation>DEC:</translation>
-    </message>
-    <message>
-        <source>八进制:</source>
-        <translation>OCT:</translation>
+        <source>错误</source>
+        <translation>Error</translation>
     </message>
     <message>
         <source>二进制:</source>
         <translation>BIN:</translation>
     </message>
     <message>
-        <source>错误</source>
-        <translation>Error</translation>
+        <source>八进制:</source>
+        <translation>OCT:</translation>
+    </message>
+    <message>
+        <source>十进制:</source>
+        <translation>DEC:</translation>
+    </message>
+    <message>
+        <source>十六进制:</source>
+        <translation>HEX:</translation>
     </message>
 </context>
 <context>
@@ -138,6 +139,14 @@
     <message>
         <source>新建连接</source>
         <translation>New Connection</translation>
+    </message>
+    <message>
+        <source>填写连接信息</source>
+        <translation>Enter connection details</translation>
+    </message>
+    <message>
+        <source>选择协议并填写连接信息</source>
+        <translation>Choose a protocol and enter connection details</translation>
     </message>
     <message>
         <source>会话名称:</source>
@@ -150,6 +159,10 @@
     <message>
         <source>连接类型:</source>
         <translation>Connection type:</translation>
+    </message>
+    <message>
+        <source>协议参数</source>
+        <translation>Protocol settings</translation>
     </message>
     <message>
         <source>确定</source>
@@ -297,6 +310,267 @@ if the target service is SSH, change the port to 22.</translation>
     </message>
 </context>
 <context>
+    <name>FileManagerDialog</name>
+    <message>
+        <source>名称</source>
+        <translation>Name</translation>
+    </message>
+    <message>
+        <source>大小</source>
+        <translation>Size</translation>
+    </message>
+    <message>
+        <source>类型</source>
+        <translation>Type</translation>
+    </message>
+    <message>
+        <source>修改时间</source>
+        <translation>Modified</translation>
+    </message>
+    <message>
+        <source>文件夹</source>
+        <translation>Folder</translation>
+    </message>
+    <message>
+        <source>文件</source>
+        <translation>File</translation>
+    </message>
+    <message>
+        <source>文件管理器</source>
+        <translation>File Manager</translation>
+    </message>
+    <message>
+        <source>正在连接 %1:%2 ...</source>
+        <translation>Connecting to %1:%2...</translation>
+    </message>
+    <message>
+        <source>关闭文件管理器</source>
+        <translation>Close File Manager</translation>
+    </message>
+    <message>
+        <source>正在传输文件，确定取消并关闭吗？</source>
+        <translation>A transfer is in progress. Cancel it and close?</translation>
+    </message>
+    <message>
+        <source>关闭</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>取消</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>正在取消…</source>
+        <translation>Cancelling...</translation>
+    </message>
+    <message>
+        <source>上传 →</source>
+        <translation>Upload →</translation>
+    </message>
+    <message>
+        <source>← 下载</source>
+        <translation>← Download</translation>
+    </message>
+    <message>
+        <source>新建文件夹</source>
+        <translation>New Folder</translation>
+    </message>
+    <message>
+        <source>删除</source>
+        <translation>Delete</translation>
+    </message>
+    <message>
+        <source>重命名</source>
+        <translation>Rename</translation>
+    </message>
+    <message>
+        <source>取消传输</source>
+        <translation>Cancel Transfer</translation>
+    </message>
+    <message>
+        <source>本地</source>
+        <translation>Local</translation>
+    </message>
+    <message>
+        <source>后退</source>
+        <translation>Back</translation>
+    </message>
+    <message>
+        <source>前进</source>
+        <translation>Forward</translation>
+    </message>
+    <message>
+        <source>本地路径</source>
+        <translation>Local path</translation>
+    </message>
+    <message>
+        <source>上级目录</source>
+        <translation>Parent directory</translation>
+    </message>
+    <message>
+        <source>主目录</source>
+        <translation>Home</translation>
+    </message>
+    <message>
+        <source>根目录</source>
+        <translation>Root</translation>
+    </message>
+    <message>
+        <source>刷新</source>
+        <translation>Refresh</translation>
+    </message>
+    <message>
+        <source>远程 · %1</source>
+        <translation>Remote · %1</translation>
+    </message>
+    <message>
+        <source>远端路径</source>
+        <translation>Remote path</translation>
+    </message>
+    <message>
+        <source>权限</source>
+        <translation>Permissions</translation>
+    </message>
+    <message>
+        <source>所有者</source>
+        <translation>Owner</translation>
+    </message>
+    <message>
+        <source>正在取消传输…</source>
+        <translation>Cancelling transfer...</translation>
+    </message>
+    <message>
+        <source>已连接 · %1@%2:%3</source>
+        <translation>Connected · %1@%2:%3</translation>
+    </message>
+    <message>
+        <source>已连接。</source>
+        <translation>Connected.</translation>
+    </message>
+    <message>
+        <source>连接失败</source>
+        <translation>Connection failed</translation>
+    </message>
+    <message>
+        <source>连接失败（%1:%2）：%3</source>
+        <translation>Connection failed (%1:%2): %3</translation>
+    </message>
+    <message>
+        <source>目录 %1：%2 项</source>
+        <translation>Directory %1: %2 item(s)</translation>
+    </message>
+    <message>
+        <source>本地目录不存在：%1</source>
+        <translation>Local directory does not exist: %1</translation>
+    </message>
+    <message>
+        <source>正在读取目录 %1 ...</source>
+        <translation>Reading directory %1...</translation>
+    </message>
+    <message>
+        <source>SCP 模式当前只支持传输文件，暂不支持目录。</source>
+        <translation>SCP mode currently transfers files only; directories are not supported.</translation>
+    </message>
+    <message>
+        <source>上传</source>
+        <translation>Upload</translation>
+    </message>
+    <message>
+        <source>远端已存在同名项，继续会覆盖：
+%1
+
+是否继续？</source>
+        <translation>An item with the same name already exists on the remote side; continuing will overwrite:
+%1
+
+Continue?</translation>
+    </message>
+    <message>
+        <source>继续</source>
+        <translation>Continue</translation>
+    </message>
+    <message>
+        <source>正在上传 %1 项…</source>
+        <translation>Uploading %1 item(s)...</translation>
+    </message>
+    <message>
+        <source>下载</source>
+        <translation>Download</translation>
+    </message>
+    <message>
+        <source>本地已存在同名项，继续会覆盖：
+%1
+
+是否继续？</source>
+        <translation>An item with the same name already exists locally; continuing will overwrite:
+%1
+
+Continue?</translation>
+    </message>
+    <message>
+        <source>正在下载 %1 项…</source>
+        <translation>Downloading %1 item(s)...</translation>
+    </message>
+    <message>
+        <source>文件夹名称：</source>
+        <translation>Folder name:</translation>
+    </message>
+    <message>
+        <source>确定</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>文件夹名称不能包含 /</source>
+        <translation>Folder name must not contain /</translation>
+    </message>
+    <message>
+        <source>正在创建文件夹…</source>
+        <translation>Creating folder...</translation>
+    </message>
+    <message>
+        <source>确定删除以下远端项吗？
+%1</source>
+        <translation>Delete the following remote item(s)?
+%1</translation>
+    </message>
+    <message>
+        <source>正在删除…</source>
+        <translation>Deleting...</translation>
+    </message>
+    <message>
+        <source>新名称：</source>
+        <translation>New name:</translation>
+    </message>
+    <message>
+        <source>名称不能包含 /</source>
+        <translation>Name must not contain /</translation>
+    </message>
+    <message>
+        <source>正在重命名…</source>
+        <translation>Renaming...</translation>
+    </message>
+    <message>
+        <source>正在传输 %1 …</source>
+        <translation>Transferring %1...</translation>
+    </message>
+    <message>
+        <source>%1  %2 / %3</source>
+        <translation>%1  %2 / %3</translation>
+    </message>
+    <message>
+        <source>%1  %2</source>
+        <translation>%1  %2</translation>
+    </message>
+    <message>
+        <source>%1：%2</source>
+        <translation>%1: %2</translation>
+    </message>
+    <message>
+        <source>%1 失败：%2</source>
+        <translation>%1 failed: %2</translation>
+    </message>
+</context>
+<context>
     <name>LogConfigDialog</name>
     <message>
         <source>...</source>
@@ -389,6 +663,10 @@ if the target service is SSH, change the port to 22.</translation>
 </context>
 <context>
     <name>MainWindow</name>
+    <message>
+        <source>未找到终端会话: %1</source>
+        <translation>Terminal session not found: %1</translation>
+    </message>
     <message>
         <source>暂无已保存会话</source>
         <translation>No saved sessions</translation>
@@ -550,6 +828,10 @@ if the target service is SSH, change the port to 22.</translation>
         <translation>Exit</translation>
     </message>
     <message>
+        <source>更新设置...</source>
+        <translation>Update Settings...</translation>
+    </message>
+    <message>
         <source>语言</source>
         <translation>Language</translation>
     </message>
@@ -578,12 +860,24 @@ if the target service is SSH, change the port to 22.</translation>
         <translation>Enable MCP service</translation>
     </message>
     <message>
+        <source>无法启动 MCP 服务：%1</source>
+        <translation>Failed to start MCP service: %1</translation>
+    </message>
+    <message>
         <source>复制 Claude Desktop 配置</source>
         <translation>Copy Claude Desktop config</translation>
     </message>
     <message>
+        <source>已复制 Claude Desktop MCP 配置</source>
+        <translation>Claude Desktop MCP config copied</translation>
+    </message>
+    <message>
         <source>复制 Claude Code 命令</source>
         <translation>Copy Claude Code command</translation>
+    </message>
+    <message>
+        <source>已复制 Claude Code MCP 命令</source>
+        <translation>Claude Code MCP command copied</translation>
     </message>
     <message>
         <source>MCP 设置...</source>
@@ -594,20 +888,24 @@ if the target service is SSH, change the port to 22.</translation>
         <translation>View AI audit log</translation>
     </message>
     <message>
-        <source>无法启动 MCP 服务：%1</source>
-        <translation>Failed to start MCP service: %1</translation>
-    </message>
-    <message>
-        <source>已复制 Claude Desktop MCP 配置</source>
-        <translation>Claude Desktop MCP config copied</translation>
-    </message>
-    <message>
-        <source>已复制 Claude Code MCP 命令</source>
-        <translation>Claude Code MCP command copied</translation>
+        <source>检查更新...</source>
+        <translation>Check for Updates...</translation>
     </message>
     <message>
         <source>关于 NTerminal</source>
         <translation>About NTerminal</translation>
+    </message>
+    <message>
+        <source>SFTP 文件管理器...</source>
+        <translation>SFTP File Manager...</translation>
+    </message>
+    <message>
+        <source>FTP 文件管理器...</source>
+        <translation>FTP File Manager...</translation>
+    </message>
+    <message>
+        <source>SCP 文件管理器...</source>
+        <translation>SCP File Manager...</translation>
     </message>
     <message>
         <source>%1 (副本)</source>
@@ -618,44 +916,8 @@ if the target service is SSH, change the port to 22.</translation>
         <translation>Close</translation>
     </message>
     <message>
-        <source>警告</source>
-        <translation>Warning</translation>
-    </message>
-    <message>
-        <source>错误</source>
-        <translation>Error</translation>
-    </message>
-    <message>
-        <source>MCP · 关闭</source>
-        <translation>MCP · off</translation>
-    </message>
-    <message>
-        <source>只读</source>
-        <translation>Read-only</translation>
-    </message>
-    <message>
-        <source>确认</source>
-        <translation>Confirm</translation>
-    </message>
-    <message>
-        <source>控制</source>
-        <translation>Control</translation>
-    </message>
-    <message>
-        <source>MCP · %1</source>
-        <translation>MCP · %1</translation>
-    </message>
-    <message>
-        <source>AI 无法访问终端</source>
-        <translation>AI cannot access terminals</translation>
-    </message>
-    <message>
-        <source>AI 可通过 MCP 访问终端。端点文件：%1</source>
-        <translation>AI can access terminals through MCP. Endpoint file: %1</translation>
-    </message>
-    <message>
-        <source>未找到终端会话: %1</source>
-        <translation>Terminal session not found: %1</translation>
+        <source>当前会话已有传输正在进行。</source>
+        <translation>A transfer is already in progress for this session.</translation>
     </message>
     <message>
         <source>会话管理器不可用</source>
@@ -670,20 +932,36 @@ if the target service is SSH, change the port to 22.</translation>
         <translation>Saved session not found: %1</translation>
     </message>
     <message>
-        <source>检查更新...</source>
-        <translation>Check for Updates...</translation>
+        <source>MCP · 关闭</source>
+        <translation>MCP · off</translation>
     </message>
     <message>
-        <source>更新设置...</source>
-        <translation>Update Settings...</translation>
+        <source>AI 无法访问终端</source>
+        <translation>AI cannot access terminals</translation>
+    </message>
+    <message>
+        <source>只读</source>
+        <translation>Read-only</translation>
+    </message>
+    <message>
+        <source>控制</source>
+        <translation>Control</translation>
+    </message>
+    <message>
+        <source>确认</source>
+        <translation>Confirm</translation>
+    </message>
+    <message>
+        <source>MCP · %1</source>
+        <translation>MCP · %1</translation>
+    </message>
+    <message>
+        <source>AI 可通过 MCP 访问终端。端点文件：%1</source>
+        <translation>AI can access terminals through MCP. Endpoint file: %1</translation>
     </message>
     <message>
         <source>软件更新</source>
         <translation>Software Update</translation>
-    </message>
-    <message>
-        <source>当前会话已有传输正在进行。</source>
-        <translation>A transfer is already in progress for this session.</translation>
     </message>
     <message>
         <source>发现新版本 %1（当前 %2）。
@@ -696,6 +974,157 @@ if the target service is SSH, change the port to 22.</translation>
 %3
 
 View the update?</translation>
+    </message>
+    <message>
+        <source>错误</source>
+        <translation>Error</translation>
+    </message>
+    <message>
+        <source>警告</source>
+        <translation>Warning</translation>
+    </message>
+</context>
+<context>
+    <name>McpLogViewer</name>
+    <message>
+        <source>AI 操作日志</source>
+        <translation>AI audit log</translation>
+    </message>
+    <message>
+        <source>记录每次 MCP 工具调用（JSON Lines）：%1</source>
+        <translation>Records every MCP tool call (JSON Lines): %1</translation>
+    </message>
+    <message>
+        <source>暂无 AI 操作记录</source>
+        <translation>No AI activity yet</translation>
+    </message>
+    <message>
+        <source>刷新</source>
+        <translation>Refresh</translation>
+    </message>
+    <message>
+        <source>清空日志</source>
+        <translation>Clear log</translation>
+    </message>
+    <message>
+        <source>关闭</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>确定清空全部 AI 操作日志吗？</source>
+        <translation>Clear the entire AI audit log?</translation>
+    </message>
+</context>
+<context>
+    <name>McpServer</name>
+    <message>
+        <source>无法监听本地管道：%1</source>
+        <translation>Cannot listen on local pipe: %1</translation>
+    </message>
+    <message>
+        <source>无法写入 MCP 端点文件：%1</source>
+        <translation>Cannot write MCP endpoint file: %1</translation>
+    </message>
+    <message>
+        <source>AI 控制请求</source>
+        <translation>AI control request</translation>
+    </message>
+    <message>
+        <source>AI 客户端“%1”请求在 %2 上执行：
+
+%3
+
+%4</source>
+        <translation>AI client &quot;%1&quot; requests to run %3 on %2:
+
+%4</translation>
+    </message>
+    <message>
+        <source>允许</source>
+        <translation>Allow</translation>
+    </message>
+    <message>
+        <source>拒绝</source>
+        <translation>Deny</translation>
+    </message>
+</context>
+<context>
+    <name>McpSettingsDialog</name>
+    <message>
+        <source>MCP 设置</source>
+        <translation>MCP Settings</translation>
+    </message>
+    <message>
+        <source>端点文件：%1</source>
+        <translation>Endpoint file: %1</translation>
+    </message>
+    <message>
+        <source>MCP / AI 控制</source>
+        <translation>MCP / AI control</translation>
+    </message>
+    <message>
+        <source>AI 客户端（Claude Desktop、Claude Code 等）通过 MCP 协议读取终端内容、发送命令。所有调用都会写入审计日志。</source>
+        <translation>AI clients (Claude Desktop, Claude Code, etc.) can read terminal output and send commands through MCP. Every call is written to the audit log.</translation>
+    </message>
+    <message>
+        <source>服务</source>
+        <translation>Service</translation>
+    </message>
+    <message>
+        <source>启用 MCP 服务</source>
+        <translation>Enable MCP service</translation>
+    </message>
+    <message>
+        <source>在「MCP」菜单中可复制 Claude Desktop 配置或 Claude Code 命令；配置完成后由 AI 客户端启动 NTerminal.exe --mcp-stdio。</source>
+        <translation>Copy the Claude Desktop config or Claude Code command from the MCP menu. The AI client then launches NTerminal.exe --mcp-stdio.</translation>
+    </message>
+    <message>
+        <source>复制 Claude Desktop 配置</source>
+        <translation>Copy Claude Desktop config</translation>
+    </message>
+    <message>
+        <source>复制 Claude Code 命令</source>
+        <translation>Copy Claude Code command</translation>
+    </message>
+    <message>
+        <source>AI 权限</source>
+        <translation>AI permissions</translation>
+    </message>
+    <message>
+        <source>只读：AI 只能查看会话和终端内容</source>
+        <translation>Read-only: AI can only view sessions and terminal output</translation>
+    </message>
+    <message>
+        <source>每次确认：写入或关闭会话前弹窗询问</source>
+        <translation>Confirm: ask before writing or closing a session</translation>
+    </message>
+    <message>
+        <source>允许控制：写入不再询问（适合受信任的自动化）</source>
+        <translation>Allow control: do not ask for writes (for trusted automation)</translation>
+    </message>
+    <message>
+        <source>提供的工具</source>
+        <translation>Available tools</translation>
+    </message>
+    <message>
+        <source>会话管理、读屏/发送/按键/等待输出/执行命令、文件传输（ZMODEM/YMODEM/XMODEM/Kermit/ASCII）、内置网络服务（TFTP/FTP/HTTP/Telnet/NFS）、远端资源统计。完整参数由 MCP 客户端自动获取。</source>
+        <translation>Session management; read/send/keys/wait/run; file transfer (ZMODEM/YMODEM/XMODEM/Kermit/ASCII); built-in network services (TFTP/FTP/HTTP/Telnet/NFS); remote system stats. MCP clients fetch the full schemas automatically.</translation>
+    </message>
+    <message>
+        <source>确定</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>取消</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Claude Desktop 配置已复制到剪贴板。</source>
+        <translation>Claude Desktop config copied to the clipboard.</translation>
+    </message>
+    <message>
+        <source>Claude Code 命令已复制到剪贴板。</source>
+        <translation>Claude Code command copied to the clipboard.</translation>
     </message>
 </context>
 <context>
@@ -893,10 +1322,6 @@ View the update?</translation>
         <translation>Sequences</translation>
     </message>
     <message>
-        <source>准备就绪。选择终端标准后点击“运行全部测试”开始。</source>
-        <translation>Ready to test. Select terminal standard and click 'Run All Tests' to start.</translation>
-    </message>
-    <message>
         <source>     NTerminal 终端兼容性测试
 </source>
         <translation>     NTerminal Emulation Test
@@ -957,6 +1382,10 @@ View the update?</translation>
 [INFO] HTML 报告已导出到: %1</source>
         <translation>
 [INFO] HTML report exported to: %1</translation>
+    </message>
+    <message>
+        <source>准备就绪。选择终端标准后点击“运行全部测试”开始。</source>
+        <translation>Ready to test. Select terminal standard and click &apos;Run All Tests&apos; to start.</translation>
     </message>
 </context>
 <context>
@@ -1130,146 +1559,110 @@ View the update?</translation>
     </message>
 </context>
 <context>
-    <name>McpServer</name>
+    <name>UpdateDialog</name>
     <message>
-        <source>无法监听本地管道：%1</source>
-        <translation>Cannot listen on local pipe: %1</translation>
+        <source>软件更新</source>
+        <translation>Software Update</translation>
     </message>
     <message>
-        <source>无法写入 MCP 端点文件：%1</source>
-        <translation>Cannot write MCP endpoint file: %1</translation>
-    </message>
-    <message>
-        <source>AI 控制请求</source>
-        <translation>AI control request</translation>
-    </message>
-    <message>
-        <source>AI 客户端“%1”请求在 %2 上执行：
-
-%3
-
-%4</source>
-        <translation>AI client "%1" requests to run %3 on %2:
-
-%4</translation>
-    </message>
-    <message>
-        <source>允许</source>
-        <translation>Allow</translation>
-    </message>
-    <message>
-        <source>拒绝</source>
-        <translation>Deny</translation>
-    </message>
-</context>
-<context>
-    <name>McpSettingsDialog</name>
-    <message>
-        <source>MCP 设置</source>
-        <translation>MCP Settings</translation>
-    </message>
-    <message>
-        <source>MCP / AI 控制</source>
-        <translation>MCP / AI control</translation>
-    </message>
-    <message>
-        <source>AI 客户端（Claude Desktop、Claude Code 等）通过 MCP 协议读取终端内容、发送命令。所有调用都会写入审计日志。</source>
-        <translation>AI clients (Claude Desktop, Claude Code, etc.) can read terminal output and send commands through MCP. Every call is written to the audit log.</translation>
-    </message>
-    <message>
-        <source>服务</source>
-        <translation>Service</translation>
-    </message>
-    <message>
-        <source>启用 MCP 服务</source>
-        <translation>Enable MCP service</translation>
-    </message>
-    <message>
-        <source>端点文件：%1</source>
-        <translation>Endpoint file: %1</translation>
-    </message>
-    <message>
-        <source>在「MCP」菜单中可复制 Claude Desktop 配置或 Claude Code 命令；配置完成后由 AI 客户端启动 NTerminal.exe --mcp-stdio。</source>
-        <translation>Copy the Claude Desktop config or Claude Code command from the MCP menu. The AI client then launches NTerminal.exe --mcp-stdio.</translation>
-    </message>
-    <message>
-        <source>复制 Claude Desktop 配置</source>
-        <translation>Copy Claude Desktop config</translation>
-    </message>
-    <message>
-        <source>复制 Claude Code 命令</source>
-        <translation>Copy Claude Code command</translation>
-    </message>
-    <message>
-        <source>AI 权限</source>
-        <translation>AI permissions</translation>
-    </message>
-    <message>
-        <source>只读：AI 只能查看会话和终端内容</source>
-        <translation>Read-only: AI can only view sessions and terminal output</translation>
-    </message>
-    <message>
-        <source>每次确认：写入或关闭会话前弹窗询问</source>
-        <translation>Confirm: ask before writing or closing a session</translation>
-    </message>
-    <message>
-        <source>允许控制：写入不再询问（适合受信任的自动化）</source>
-        <translation>Allow control: do not ask for writes (for trusted automation)</translation>
-    </message>
-    <message>
-        <source>提供的工具</source>
-        <translation>Available tools</translation>
-    </message>
-    <message>
-        <source>会话管理、读屏/发送/按键/等待输出/执行命令、文件传输（ZMODEM/YMODEM/XMODEM/Kermit/ASCII）、内置网络服务（TFTP/FTP/HTTP/Telnet/NFS）、远端资源统计。完整参数由 MCP 客户端自动获取。</source>
-        <translation>Session management; read/send/keys/wait/run; file transfer (ZMODEM/YMODEM/XMODEM/Kermit/ASCII); built-in network services (TFTP/FTP/HTTP/Telnet/NFS); remote system stats. MCP clients fetch the full schemas automatically.</translation>
-    </message>
-    <message>
-        <source>确定</source>
-        <translation>OK</translation>
+        <source>正在检查更新…</source>
+        <translation>Checking for updates...</translation>
     </message>
     <message>
         <source>取消</source>
         <translation>Cancel</translation>
     </message>
     <message>
-        <source>Claude Desktop 配置已复制到剪贴板。</source>
-        <translation>Claude Desktop config copied to the clipboard.</translation>
-    </message>
-    <message>
-        <source>Claude Code 命令已复制到剪贴板。</source>
-        <translation>Claude Code command copied to the clipboard.</translation>
-    </message>
-</context>
-<context>
-    <name>McpLogViewer</name>
-    <message>
-        <source>AI 操作日志</source>
-        <translation>AI audit log</translation>
-    </message>
-    <message>
-        <source>记录每次 MCP 工具调用（JSON Lines）：%1</source>
-        <translation>Records every MCP tool call (JSON Lines): %1</translation>
-    </message>
-    <message>
-        <source>暂无 AI 操作记录</source>
-        <translation>No AI activity yet</translation>
-    </message>
-    <message>
-        <source>刷新</source>
-        <translation>Refresh</translation>
-    </message>
-    <message>
-        <source>清空日志</source>
-        <translation>Clear log</translation>
+        <source>下载并安装</source>
+        <translation>Download and Install</translation>
     </message>
     <message>
         <source>关闭</source>
         <translation>Close</translation>
     </message>
     <message>
-        <source>确定清空全部 AI 操作日志吗？</source>
-        <translation>Clear the entire AI audit log?</translation>
+        <source>稍后</source>
+        <translation>Later</translation>
+    </message>
+    <message>
+        <source>发布时间：%1
+</source>
+        <translation>Published: %1
+</translation>
+    </message>
+    <message>
+        <source>发现新版本 %1（当前 %2）。
+%3下载并校验后，可选择立即重启安装，或下次启动时安装。</source>
+        <translation>A new version %1 is available (current %2).
+%3After downloading and verification, you can restart now or install on next launch.</translation>
+    </message>
+    <message>
+        <source>正在下载更新…</source>
+        <translation>Downloading update...</translation>
+    </message>
+    <message>
+        <source>当前已是最新版本（%1）。</source>
+        <translation>NTerminal is up to date (%1).</translation>
+    </message>
+    <message>
+        <source>正在下载更新… %1 / %2</source>
+        <translation>Downloading update... %1 / %2</translation>
+    </message>
+    <message>
+        <source>正在下载更新… %1</source>
+        <translation>Downloading update... %1</translation>
+    </message>
+    <message>
+        <source>下载完成，SHA-256 校验通过。</source>
+        <translation>Download complete; SHA-256 verified.</translation>
+    </message>
+    <message>
+        <source>安装更新</source>
+        <translation>Install Update</translation>
+    </message>
+    <message>
+        <source>更新已下载并校验完成。
+
+是否立即重启并安装？</source>
+        <translation>The update has been downloaded and verified.
+
+Restart now and install?</translation>
+    </message>
+    <message>
+        <source>立即重启</source>
+        <translation>Restart Now</translation>
+    </message>
+    <message>
+        <source>下次启动</source>
+        <translation>Next Launch</translation>
+    </message>
+    <message>
+        <source>安装更新失败</source>
+        <translation>Update Installation Failed</translation>
+    </message>
+    <message>
+        <source>安装准备失败，请重试。</source>
+        <translation>Failed to prepare the installation. Please try again.</translation>
+    </message>
+    <message>
+        <source>重试</source>
+        <translation>Retry</translation>
+    </message>
+    <message>
+        <source>NTerminal 即将退出，更新程序会在退出后替换文件并重新启动。</source>
+        <translation>NTerminal will exit; the updater will replace the files and restart it.</translation>
+    </message>
+    <message>
+        <source>更新已准备好，下次启动 NTerminal 时会自动安装并重启。</source>
+        <translation>The update is ready and will be installed automatically the next time NTerminal starts.</translation>
+    </message>
+    <message>
+        <source>操作失败：%1</source>
+        <translation>Operation failed: %1</translation>
+    </message>
+    <message>
+        <source>操作已取消。</source>
+        <translation>Operation cancelled.</translation>
     </message>
 </context>
 <context>
@@ -1392,113 +1785,6 @@ View the update?</translation>
     </message>
 </context>
 <context>
-    <name>UpdateDialog</name>
-    <message>
-        <source>软件更新</source>
-        <translation>Software Update</translation>
-    </message>
-    <message>
-        <source>正在检查更新…</source>
-        <translation>Checking for updates...</translation>
-    </message>
-    <message>
-        <source>取消</source>
-        <translation>Cancel</translation>
-    </message>
-    <message>
-        <source>关闭</source>
-        <translation>Close</translation>
-    </message>
-    <message>
-        <source>下载并安装</source>
-        <translation>Download and Install</translation>
-    </message>
-    <message>
-        <source>稍后</source>
-        <translation>Later</translation>
-    </message>
-    <message>
-        <source>发现新版本 %1（当前 %2）。
-%3下载并校验后，可选择立即重启安装，或下次启动时安装。</source>
-        <translation>A new version %1 is available (current %2).
-%3After downloading and verification, you can restart now or install on next launch.</translation>
-    </message>
-    <message>
-        <source>发布时间：%1
-</source>
-        <translation>Published: %1
-</translation>
-    </message>
-    <message>
-        <source>正在下载更新…</source>
-        <translation>Downloading update...</translation>
-    </message>
-    <message>
-        <source>当前已是最新版本（%1）。</source>
-        <translation>NTerminal is up to date (%1).</translation>
-    </message>
-    <message>
-        <source>正在下载更新… %1 / %2</source>
-        <translation>Downloading update... %1 / %2</translation>
-    </message>
-    <message>
-        <source>正在下载更新… %1</source>
-        <translation>Downloading update... %1</translation>
-    </message>
-    <message>
-        <source>下载完成，SHA-256 校验通过。</source>
-        <translation>Download complete; SHA-256 verified.</translation>
-    </message>
-    <message>
-        <source>安装更新</source>
-        <translation>Install Update</translation>
-    </message>
-    <message>
-        <source>更新已下载并校验完成。
-
-是否立即重启并安装？</source>
-        <translation>The update has been downloaded and verified.
-
-Restart now and install?</translation>
-    </message>
-    <message>
-        <source>立即重启</source>
-        <translation>Restart Now</translation>
-    </message>
-    <message>
-        <source>下次启动</source>
-        <translation>Next Launch</translation>
-    </message>
-    <message>
-        <source>安装更新失败</source>
-        <translation>Update Installation Failed</translation>
-    </message>
-    <message>
-        <source>安装准备失败，请重试。</source>
-        <translation>Failed to prepare the installation. Please try again.</translation>
-    </message>
-    <message>
-        <source>重试</source>
-        <translation>Retry</translation>
-    </message>
-    <message>
-        <source>NTerminal 即将退出，更新程序会在退出后替换文件并重新启动。</source>
-        <translation>NTerminal will exit; the updater will replace the files and restart it.</translation>
-    </message>
-    <message>
-        <source>更新已准备好，下次启动 NTerminal 时会自动安装并重启。</source>
-        <translation>The update is ready and will be installed automatically the next time NTerminal starts.</translation>
-    </message>
-    <message>
-        <source>操作失败：%1</source>
-        <translation>Operation failed: %1</translation>
-    </message>
-    <message>
-        <source>操作已取消。</source>
-        <translation>Operation cancelled.</translation>
-    </message>
-</context>
-<context>
     <name>UpdateSettingsDialog</name>
     <message>
         <source>更新设置</source>
@@ -1521,8 +1807,8 @@ Restart now and install?</translation>
         <translation>Check for updates on startup</translation>
     </message>
     <message>
-        <source>清单格式：{"version":"2.1.0","notes":"更新说明","platforms":{"windows-x86_64":{"url":"https://.../NTerminal-2.1.0.zip","sha256":"&lt;64位十六进制&gt;","size":123456}}}</source>
-        <translation>Manifest format: {"version":"2.1.0","notes":"release notes","platforms":{"windows-x86_64":{"url":"https://.../NTerminal-2.1.0.zip","sha256":"&lt;64-char hex&gt;","size":123456}}}</translation>
+        <source>清单格式：{&quot;version&quot;:&quot;2.1.0&quot;,&quot;notes&quot;:&quot;更新说明&quot;,&quot;platforms&quot;:{&quot;windows-x86_64&quot;:{&quot;url&quot;:&quot;https://.../NTerminal-2.1.0.zip&quot;,&quot;sha256&quot;:&quot;&lt;64位十六进制&gt;&quot;,&quot;size&quot;:123456}}}</source>
+        <translation>Manifest format: {&quot;version&quot;:&quot;2.1.0&quot;,&quot;notes&quot;:&quot;release notes&quot;,&quot;platforms&quot;:{&quot;windows-x86_64&quot;:{&quot;url&quot;:&quot;https://.../NTerminal-2.1.0.zip&quot;,&quot;sha256&quot;:&quot;&lt;64-char hex&gt;&quot;,&quot;size&quot;:123456}}}</translation>
     </message>
     <message>
         <source>查看更新日志</source>

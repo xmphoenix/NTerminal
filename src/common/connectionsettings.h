@@ -29,7 +29,8 @@ enum class ConnectionType {
     Rlogin,
     SFTP,
     FTP,
-    TFTP
+    TFTP,
+    SCP
 };
 
 struct ConnectionSettings {
@@ -115,6 +116,7 @@ struct ConnectionSettings {
             case ConnectionType::SFTP: return "SFTP";
             case ConnectionType::FTP: return "FTP";
             case ConnectionType::TFTP: return "TFTP";
+            case ConnectionType::SCP: return "SCP";
             default: return "Serial";
         }
     }
@@ -126,6 +128,7 @@ struct ConnectionSettings {
         if (str == "SFTP") return ConnectionType::SFTP;
         if (str == "FTP") return ConnectionType::FTP;
         if (str == "TFTP") return ConnectionType::TFTP;
+        if (str == "SCP") return ConnectionType::SCP;
         return ConnectionType::Serial;
     }
     

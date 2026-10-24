@@ -28,6 +28,7 @@
 #include "ui/mcplogviewer.h"
 #include "ui/updatedialog.h"
 #include "ui/updatesettingsdialog.h"
+#include "ui/filemanagerdialog.h"
 #include "mcp/mcpserver.h"
 #include "update/updatemanager.h"
 #include <QSplitter>
@@ -154,6 +155,11 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    for (FileManagerDialog *manager : m_fileManagers) {
+        manager->stopSession();
+    }
+    m_fileManagers.clear();
+
     for (TerminalProxy *terminal : m_terminals) {
         if (terminal) {
             terminal->closeConnection();
@@ -340,10 +346,15 @@ void MainWindow::closeTerminalTab(int index)
         return;
     }
     
-    QString terminalId = m_screenTabWidget->tabBar()->tabData(index).toString();
-    
-    if (!terminalId.isEmpty()) {
-        closeTerminalTabById(terminalId);
+    const QString tabId = m_screenTabWidget->tabBar()->tabData(index).toString();
+
+    // 文件管理器标签页：关闭前先处理正在进行的传输
+    if (FileManagerDialog *manager = m_fileManagers.value(tabId, nullptr)) {
+        manager->requestClose();
+        return;
+    }
+    if (!tabId.isEmpty()) {
+        closeTerminalTabById(tabId);
     }
 }
 
@@ -407,6 +418,10 @@ void MainWindow::updateCurrentTerminal(TerminalProxy *terminal)
         m_currentTerminal = terminal;
         qDebug() << "Current terminal updated";
     }
+    // 文件管理器标签页没有终端，命令输入栏暂时不可用
+    if (m_commandLineEdit) {
+        m_commandLineEdit->setEnabled(terminal != nullptr);
+    }
     updateStatusBar();
     updateTabStates();
 }
@@ -445,6 +460,7 @@ QString protocolName(Common::ConnectionType type)
     case Common::ConnectionType::SFTP:   return QStringLiteral("SFTP");
     case Common::ConnectionType::FTP:    return QStringLiteral("FTP");
     case Common::ConnectionType::TFTP:   return QStringLiteral("TFTP");
+    case Common::ConnectionType::SCP:    return QStringLiteral("SCP");
     }
     return MainWindow::tr("未知");
 }
@@ -485,6 +501,7 @@ int defaultPort(Common::ConnectionType type)
     case Common::ConnectionType::SFTP:   return 22;
     case Common::ConnectionType::FTP:    return 21;
     case Common::ConnectionType::TFTP:   return 69;
+    case Common::ConnectionType::SCP:    return 22;
     default: return 23;
     }
 }
@@ -513,7 +530,7 @@ void MainWindow::populateSessionTree()
         Common::ConnectionType::SSH, Common::ConnectionType::SFTP,
         Common::ConnectionType::Telnet, Common::ConnectionType::Rlogin,
         Common::ConnectionType::Serial, Common::ConnectionType::FTP,
-        Common::ConnectionType::TFTP,
+        Common::ConnectionType::TFTP, Common::ConnectionType::SCP,
     };
 
     QMap<int, QTreeWidgetItem *> groups;
@@ -594,9 +611,9 @@ void MainWindow::onQuickConnect()
         Common::ConnectionType::SSH, Common::ConnectionType::Telnet,
         Common::ConnectionType::Rlogin, Common::ConnectionType::Serial,
         Common::ConnectionType::SFTP, Common::ConnectionType::FTP,
-        Common::ConnectionType::TFTP,
+        Common::ConnectionType::TFTP, Common::ConnectionType::SCP,
     };
-    const int index = qBound(0, m_quickProtocolCombo->currentIndex(), 6);
+    const int index = qBound(0, m_quickProtocolCombo->currentIndex(), 7);
 
     Common::ConnectionSettings settings;
     settings.type = kQuickTypes[index];
@@ -662,6 +679,15 @@ void MainWindow::filterSessionTree(const QString &text)
 
 void MainWindow::openSession(const Common::ConnectionSettings &settings, const QString &name)
 {
+    // SFTP / FTP / SCP 使用图形化双栏文件管理器：直接在当前主窗口内
+    // 以标签页显示，不再弹出独立对话框，也不再进入命令行式界面。
+    if (settings.type == Common::ConnectionType::SFTP
+        || settings.type == Common::ConnectionType::FTP
+        || settings.type == Common::ConnectionType::SCP) {
+        openFileManagerTab(settings, name);
+        return;
+    }
+
     const QString tabName = name.isEmpty() ? tr("Terminal %1").arg(m_terminals.size() + 1)
                                            : name;
     TerminalProxy *terminal = createNewTerminalTab(tabName);
@@ -678,6 +704,58 @@ void MainWindow::openSession(const Common::ConnectionSettings &settings, const Q
     updateStatusBar();
 }
 
+void MainWindow::openFileManagerTab(const Common::ConnectionSettings &settings,
+                                    const QString &name)
+{
+    const QString tabId =
+        QStringLiteral("filemanager_%1").arg(m_nextTerminalId++);
+    auto *manager = new FileManagerDialog(settings, name, m_screenTabWidget);
+    m_fileManagers.insert(tabId, manager);
+
+    connect(manager, &FileManagerDialog::closeRequested, this,
+            [this, tabId] { closeFileManagerTabById(tabId); });
+    connect(manager, &FileManagerDialog::connectionStateChanged, this,
+            [this](bool) {
+                updateTabStates();
+                updateStatusBar();
+            });
+
+    const int tabIndex = m_screenTabWidget->addTab(manager, manager->tabTitle());
+    m_screenTabWidget->tabBar()->setTabData(tabIndex, tabId);
+    m_screenTabWidget->setCurrentIndex(tabIndex);
+    updateEmptyState();
+    updateCurrentTerminal(nullptr);
+    updateTabStates();
+
+    qDebug() << "Opened file manager tab:" << manager->tabTitle() << tabId;
+}
+
+void MainWindow::closeFileManagerTabById(const QString &tabId)
+{
+    FileManagerDialog *manager = m_fileManagers.take(tabId);
+    if (!manager) {
+        return;
+    }
+
+    int tabIndex = -1;
+    for (int i = 0; i < m_screenTabWidget->count(); ++i) {
+        if (m_screenTabWidget->tabBar()->tabData(i).toString() == tabId) {
+            tabIndex = i;
+            break;
+        }
+    }
+    if (tabIndex >= 0) {
+        m_screenTabWidget->removeTab(tabIndex);
+    }
+    manager->deleteLater();
+    updateEmptyState();
+
+    if (m_screenTabWidget->count() == 0) {
+        updateCurrentTerminal(nullptr);
+    }
+    qDebug() << "Closed file manager tab:" << tabId;
+}
+
 void MainWindow::updateTabStates()
 {
     if (m_terminalTabBar) {
@@ -691,7 +769,17 @@ void MainWindow::updateStatusBar()
         return;
     }
     TerminalProxy *terminal = getCurrentTerminal();
-    const bool connected = terminal && terminal->isConnected();
+    // 文件管理器标签页没有 TerminalProxy，连接状态取文件管理器会话
+    FileManagerDialog *manager = nullptr;
+    if (m_screenTabWidget) {
+        const int index = m_screenTabWidget->currentIndex();
+        if (index >= 0) {
+            manager = m_fileManagers.value(
+                m_screenTabWidget->tabBar()->tabData(index).toString(), nullptr);
+        }
+    }
+    const bool connected =
+        manager ? manager->isConnected() : (terminal && terminal->isConnected());
 
     m_statusConnection->setText(connected ? tr("● 已连接") : tr("○ 未连接"));
     // QSS 里给标签设了 color，会盖过调色板，所以用动态属性切换状态色并重算样式
@@ -748,11 +836,10 @@ void MainWindow::onTabCloseRequested(int index)
 void MainWindow::onTabCurrentChanged(int index)
 {
     if (index >= 0 && index < m_screenTabWidget->count()) {
-        QString terminalId = m_screenTabWidget->tabBar()->tabData(index).toString();
-        TerminalProxy *terminal = getTerminalById(terminalId);
-        if (terminal) {
-            updateCurrentTerminal(terminal);
-        }
+        const QString tabId =
+            m_screenTabWidget->tabBar()->tabData(index).toString();
+        // 文件管理器标签页不在 m_terminals 中，此时当前终端置空
+        updateCurrentTerminal(getTerminalById(tabId));
     }
 }
 
@@ -914,7 +1001,7 @@ QWidget *MainWindow::buildTopBar()
         m_quickProtocolCombo->addItems({ QStringLiteral("SSH"), QStringLiteral("Telnet"),
                                          QStringLiteral("Rlogin"), tr("串口"),
                                          QStringLiteral("SFTP"), QStringLiteral("FTP"),
-                                         QStringLiteral("TFTP") });
+                                         QStringLiteral("TFTP"), QStringLiteral("SCP") });
         m_quickProtocolCombo->setCurrentIndex(index < 0 ? 0 : index);
     });
     m_quickProtocolCombo->setFixedWidth(88);
@@ -1090,6 +1177,9 @@ QWidget *MainWindow::buildTerminalArea()
     // 标签左侧要留给连接状态图标：QSS 按此对象名设置扁平标签样式与左内边距
     m_terminalTabBar->setObjectName(QStringLiteral("terminalTabBar"));
     m_terminalTabBar->setStateProvider([this](const QString &tabId) {
+        if (FileManagerDialog *manager = m_fileManagers.value(tabId, nullptr)) {
+            return manager->isConnected();
+        }
         TerminalProxy *terminal = m_terminals.value(tabId, nullptr);
         return terminal && terminal->isConnected();
     });
@@ -1544,20 +1634,27 @@ void MainWindow::initMainWindowMenu()
     });
     m_viewMenu->addAction(m_fullScreenAction);
 
-    // ---- 传输菜单：直达 SFTP / FTP 连接对话框 ----
+    // ---- 传输菜单：图形化 SFTP / FTP / SCP 文件管理器 ----
     m_sftpAction = new QAction(this);
-    bindText([this] { m_sftpAction->setText(tr("SFTP 连接...")); });
+    bindText([this] { m_sftpAction->setText(tr("SFTP 文件管理器...")); });
     connect(m_sftpAction, &QAction::triggered, this, [this] {
         openConnectionFromDialog(true, Common::ConnectionType::SFTP);
     });
     m_transmitMenu->addAction(m_sftpAction);
 
     m_ftpAction = new QAction(this);
-    bindText([this] { m_ftpAction->setText(tr("FTP 连接...")); });
+    bindText([this] { m_ftpAction->setText(tr("FTP 文件管理器...")); });
     connect(m_ftpAction, &QAction::triggered, this, [this] {
         openConnectionFromDialog(true, Common::ConnectionType::FTP);
     });
     m_transmitMenu->addAction(m_ftpAction);
+
+    m_scpAction = new QAction(this);
+    bindText([this] { m_scpAction->setText(tr("SCP 文件管理器...")); });
+    connect(m_scpAction, &QAction::triggered, this, [this] {
+        openConnectionFromDialog(true, Common::ConnectionType::SCP);
+    });
+    m_transmitMenu->addAction(m_scpAction);
 
     // ---- 协议传输（ZMODEM/YMODEM/XMODEM/Kermit/ASCII） ----
     m_transmitMenu->addSeparator();
@@ -1701,6 +1798,7 @@ void MainWindow::applyMenuIcons()
     if (m_fullScreenAction) m_fullScreenAction->setIcon(IconProvider::themedIcon("fullscreen"));
     if (m_sftpAction) m_sftpAction->setIcon(IconProvider::themedIcon("sftp"));
     if (m_ftpAction) m_ftpAction->setIcon(IconProvider::themedIcon("transfer"));
+    if (m_scpAction) m_scpAction->setIcon(IconProvider::themedIcon("sftp"));
     if (m_pluginDirAction) m_pluginDirAction->setIcon(IconProvider::themedIcon("grid"));
     if (m_languageMenu) m_languageMenu->menuAction()->setIcon(IconProvider::themedIcon("globe"));
     // 工具/测试动作按成员指针设置图标：菜单文案会随语言切换，不能按文字匹配
@@ -1716,6 +1814,12 @@ void MainWindow::openConnectionFromDialog(bool applyTheme, Common::ConnectionTyp
 {
     ConnectionDialog dialog(this);
     dialog.setPreferredType(type);
+    // 从「传输」菜单进入时协议已经确定，不再重复展示连接类型
+    if (type == Common::ConnectionType::SFTP
+        || type == Common::ConnectionType::FTP
+        || type == Common::ConnectionType::SCP) {
+        dialog.lockConnectionType();
+    }
     if (dialog.exec() != QDialog::Accepted) {
         return;
     }
@@ -1782,42 +1886,46 @@ void MainWindow::onTabContextMenu(const QPoint &pos)
         return;
     }
 
-    // 获取该tab对应的terminal
-    QString terminalId = m_screenTabWidget->tabBar()->tabData(tabIndex).toString();
-    TerminalProxy *terminal = getTerminalById(terminalId);
-    if (!terminal) {
-        return;
-    }
-
-    // 获取连接设置
-    Common::ConnectionSettings settings = terminal->getConnectionSettings();
+    // 获取该tab对应的terminal（文件管理器标签页没有 terminal）
+    const QString tabId = m_screenTabWidget->tabBar()->tabData(tabIndex).toString();
+    TerminalProxy *terminal = getTerminalById(tabId);
 
     // 创建上下文菜单
     QMenu contextMenu(this);
 
-    // 只有非串口会话才显示"复制会话"选项
-    if (settings.type != Common::ConnectionType::Serial) {
-        QAction *duplicateAction = contextMenu.addAction(tr("复制会话"));
-        connect(duplicateAction, &QAction::triggered, this, [this, settings]() {
-            // 创建新的tab，使用相同的连接设置
-            QString tabName = settings.sessionName.isEmpty() ?
-                tr("终端 %1").arg(m_terminals.size() + 1) :
-                tr("%1 (副本)").arg(settings.sessionName);
+    if (terminal) {
+        // 获取连接设置
+        const Common::ConnectionSettings settings =
+            terminal->getConnectionSettings();
 
-            TerminalProxy *newTerminal = createNewTerminalTab(tabName);
-            if (newTerminal) {
-                newTerminal->setConnectionSettings(settings);
-                applyTerminalTheme(newTerminal);
-                if (newTerminal->openConnection()) {
-                    qDebug() << "Duplicated session opened successfully";
-                } else {
-                    qDebug() << "Duplicated session failed to open";
-                }
-            }
-        });
+        // 只有非串口会话才显示"复制会话"选项
+        if (settings.type != Common::ConnectionType::Serial) {
+            QAction *duplicateAction = contextMenu.addAction(tr("复制会话"));
+            connect(duplicateAction, &QAction::triggered, this,
+                    [this, settings]() {
+                        // 创建新的tab，使用相同的连接设置
+                        QString tabName =
+                            settings.sessionName.isEmpty()
+                                ? tr("终端 %1").arg(m_terminals.size() + 1)
+                                : tr("%1 (副本)").arg(settings.sessionName);
+
+                        TerminalProxy *newTerminal =
+                            createNewTerminalTab(tabName);
+                        if (newTerminal) {
+                            newTerminal->setConnectionSettings(settings);
+                            applyTerminalTheme(newTerminal);
+                            if (newTerminal->openConnection()) {
+                                qDebug()
+                                    << "Duplicated session opened successfully";
+                            } else {
+                                qDebug() << "Duplicated session failed to open";
+                            }
+                        }
+                    });
+        }
+        contextMenu.addSeparator();
     }
 
-    contextMenu.addSeparator();
     QAction *closeAction = contextMenu.addAction(tr("关闭"));
     connect(closeAction, &QAction::triggered, this, [this, tabIndex]() {
         closeTerminalTab(tabIndex);

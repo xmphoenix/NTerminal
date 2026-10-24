@@ -230,6 +230,9 @@ void SessionProcess::handleSessionConfig(const QByteArray &payload)
         case Common::ConnectionType::TFTP:
             connectionTypeStr = "TFTP";
             break;
+        case Common::ConnectionType::SCP:
+            connectionTypeStr = "SCP";
+            break;
         default:
             connectionTypeStr = "Unknown";
             break;

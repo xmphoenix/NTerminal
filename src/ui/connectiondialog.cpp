@@ -28,12 +28,15 @@ constexpr ConnectionType Rlogin = ConnectionType::Rlogin;
 constexpr ConnectionType SFTP   = ConnectionType::SFTP;
 constexpr ConnectionType FTP    = ConnectionType::FTP;
 constexpr ConnectionType TFTP   = ConnectionType::TFTP;
+constexpr ConnectionType SCP    = ConnectionType::SCP;
 }
 
 ConnectionDialog::ConnectionDialog(QWidget *parent)
     : QDialog(parent)
     , m_sessionNameEdit(nullptr)
     , m_typeComboBox(nullptr)
+    , m_hintLabel(nullptr)
+    , m_formLayout(nullptr)
     , m_settingsStack(nullptr)
     , m_portComboBox(nullptr)
     , m_baudRateComboBox(nullptr)
@@ -106,6 +109,18 @@ void ConnectionDialog::setPreferredType(Common::ConnectionType type)
     }
 }
 
+void ConnectionDialog::lockConnectionType()
+{
+    if (!m_typeComboBox || !m_formLayout) {
+        return;
+    }
+    // 协议已由「传输」菜单确定，不再让用户在后续对话框里重复选择
+    m_formLayout->setRowVisible(m_typeComboBox, false);
+    if (m_hintLabel) {
+        m_hintLabel->setText(tr("填写连接信息"));
+    }
+}
+
 void ConnectionDialog::setupUi()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
@@ -115,13 +130,14 @@ void ConnectionDialog::setupUi()
     // 头部：标题 + 说明（现代弹窗的"标题区"）
     QLabel *titleLabel = new QLabel(tr("新建连接"));
     titleLabel->setProperty("class", "sectionTitle");
-    QLabel *hintLabel = new QLabel(tr("选择协议并填写连接信息"));
-    hintLabel->setProperty("class", "hint");
+    m_hintLabel = new QLabel(tr("选择协议并填写连接信息"));
+    m_hintLabel->setProperty("class", "hint");
     mainLayout->addWidget(titleLabel);
-    mainLayout->addWidget(hintLabel);
+    mainLayout->addWidget(m_hintLabel);
 
     // Session name
     QFormLayout *formLayout = new QFormLayout();
+    m_formLayout = formLayout;
     formLayout->setHorizontalSpacing(16);
     formLayout->setVerticalSpacing(10);
     formLayout->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
@@ -136,6 +152,7 @@ void ConnectionDialog::setupUi()
     m_typeComboBox->addItem(IconProvider::themedIcon("terminal"), "SSH", static_cast<int>(SSH));
     m_typeComboBox->addItem(IconProvider::themedIcon("globe"), "Rlogin", static_cast<int>(Rlogin));
     m_typeComboBox->addItem(IconProvider::themedIcon("sftp"), "SFTP", static_cast<int>(SFTP));
+    m_typeComboBox->addItem(IconProvider::themedIcon("sftp"), "SCP", static_cast<int>(SCP));
     m_typeComboBox->addItem(IconProvider::themedIcon("transfer"), "FTP", static_cast<int>(FTP));
     m_typeComboBox->addItem(IconProvider::themedIcon("download"), "TFTP", static_cast<int>(TFTP));
     formLayout->addRow(tr("连接类型:"), m_typeComboBox);
@@ -370,6 +387,8 @@ void ConnectionDialog::onConnectionTypeChanged(int index)
         m_sessionNameEdit->setText(m_rloginHostEdit->text());
         break;
     case SFTP:
+    case SCP:
+        // SCP 复用 SFTP 的主机/认证表单
         m_settingsStack->setCurrentIndex(4);
         m_sessionNameEdit->setText(m_sftpHostEdit->text());
         break;
@@ -449,7 +468,7 @@ void ConnectionDialog::onRloginHostChanged(const QString &text)
 void ConnectionDialog::onSftpHostChanged(const QString &text)
 {
     ConnectionType type = static_cast<ConnectionType>(m_typeComboBox->currentData().toInt());
-    if (type == SFTP) {
+    if (type == SFTP || type == SCP) {
         m_sessionNameEdit->setText(text);
     }
 }
@@ -639,7 +658,7 @@ Common::ConnectionSettings ConnectionDialog::getSettings() const
         settings.port = m_rloginPortSpinBox->value();
         settings.username = m_rloginUsernameEdit->text();
         settings.password = m_rloginPasswordEdit->text();
-    } else if (type == SFTP) {
+    } else if (type == SFTP || type == SCP) {
         settings.host = m_sftpHostEdit->text();
         settings.port = m_sftpPortSpinBox->value();
         settings.username = m_sftpUsernameEdit->text();

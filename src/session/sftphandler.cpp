@@ -4,6 +4,8 @@
 #include <QDirIterator>
 #include <QFileInfo>
 
+#include <fcntl.h>
+
 // Windows compatibility - define POSIX permission and file flags if not present
 #ifndef S_IRUSR
 #define S_IRUSR  00400
@@ -15,14 +17,6 @@
 #define S_IROTH  00004
 #define S_IWOTH  00002
 #define S_IXOTH  00001
-#endif
-
-#ifndef O_RDONLY
-#define O_RDONLY 0
-#define O_WRONLY 1
-#define O_RDWR   2
-#define O_CREAT  0100
-#define O_TRUNC  01000
 #endif
 
 SftpHandler::SftpHandler(const Common::ConnectionSettings &settings, QObject *parent)

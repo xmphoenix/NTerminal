@@ -14,6 +14,7 @@ NTerminal/
 │   ├── session/           # 会话工作进程侧（协议处理器）
 │   ├── terminal/          # 终端核心（解析器/屏幕模型/代理）
 │   ├── mcp/               # MCP 服务（工具/资源/权限/审计）+ stdio 桥
+│   ├── files/             # SFTP/SCP/FTP 文件客户端与工作线程
 │   ├── update/            # 自动更新（清单/下载/校验/独立更新脚本）
 │   ├── services/          # 应用服务（会话持久化）
 │   ├── theme/             # 外观管理（主题/字体单例）
@@ -43,6 +44,7 @@ main(argc, argv)
 ui ──────────────┐
 theme            │
 update           │
+files            │
 services ────────┼──► terminal ──► ipc ──► common
 mcp ─────────────┤        │
 session ─────────┘        └─（mcp：MCP 工具层，直接操作 TerminalProxy）
@@ -55,6 +57,7 @@ session ─────────┘        └─（mcp：MCP 工具层，直
 | `terminal` | VT/ANSI 状态机（`TerminalParser`，纯逻辑 50+ 信号）；屏幕模型与渲染（`TerminalProxy`）；主题数据结构（`TerminalTheme`） | common, ipc | `processData` / `processTerminalData` / 只读状态查询（`screenText`/`historyText`/`cellAt`/`cursorRow`...） |
 | `session` | 会话进程总控（`SessionProcess`）、会话日志（`SessionLogger`）、连接处理器抽象（`ConnectionHandler`）与工厂（`ConnectionHandlerFactory`）、7 种协议实现 | common, ipc | `open/close/sendData` + 4 信号 |
 | `mcp` | MCP 服务：本地命名管道上的 JSON-RPC（双协议时代）、工具/资源、AI 权限与审计；`McpBridge` 负责 stdio ↔ 管道 | common, terminal, services, QtNetwork/Widgets（仅确认弹窗） | `start/stop`、`registerTerminal`、工具调用 |
+| `files` | 图形化文件管理器后台：SFTP/SCP（libssh）与 FTP（QtNetwork）客户端，工作线程执行阻塞 I/O | common, QtNetwork, libssh | `RemoteFileSession`（list/upload/download/remove/rename） |
 | `update` | 自动更新：清单解析、语义化版本比较、下载、SHA-256 校验、生成独立更新脚本 | common, QtNetwork | `checkForUpdates`/`downloadUpdate`/`applyUpdate`/`applyPendingUpdate` |
 | `services` | 会话持久化（`SessionManager` → `~/.nterminal/sessions.json`） | common（**不依赖 UI**） | `loadSessions`/`saveSessions`/增删改查 |
 | `theme` | `ThemeManager`/`FontManager` 单例：主题生产、QSettings 持久化 | terminal（仅 TerminalTheme 结构） | `currentTerminalTheme()` + 变更信号 |
@@ -71,7 +74,8 @@ session ─────────┘        └─（mcp：MCP 工具层，直
 5. `mcp` 的协议/工具层不得 include `ui`；打开/关闭会话通过
    `setOpenSessionHandler`/`setCloseSessionHandler` 回调注入。
 6. `update` 不依赖 `ui`/`terminal`/`session`，只负责清单、下载、校验与更新脚本。
-7. 跨模块 include 一律带模块前缀（`#include "terminal/terminalproxy.h"`），
+7. `files` 不依赖 `ui`；阻塞网络操作只能在工作线程中执行，GUI 通过信号接收结果。
+8. 跨模块 include 一律带模块前缀（`#include "terminal/terminalproxy.h"`），
    模块内部用同目录相对名。
 
 ## 4. 关键数据流
@@ -89,6 +93,10 @@ AI → MCP 客户端 → NTerminal.exe --mcp-stdio → 本地命名管道 → Mc
    → 工具（list_sessions/read_screen/send_text/run_command...）
    → TerminalProxy / SessionManager → 终端标签与远端连接
    → 审计日志 ~/.nterminal/mcp-audit.log
+
+主窗口文件管理器标签页（FileManagerDialog）→ RemoteFileSession（工作线程）
+  → SshFileClient（SFTP/SCP）或 FtpFileClient（PASV）→ 远端目录 / 文件；
+  结果经信号回到 GUI 双栏表格；本地/远端条目可直接拖拽触发上传/下载
 ```
 
 - 连接建立：`MainWindow::openConnectionFromDialog` → `TerminalProxy::openConnection`

@@ -3,11 +3,13 @@
 
 #include <QMainWindow>
 #include <QList>
+#include <QMap>
 #include <functional>
 #include "common/connectionsettings.h"
 #include "transfer/filetransfer.h"
 
 class TerminalProxy;
+class FileManagerDialog;
 class TerminalTabBar;
 class QSplitter;
 class QTreeWidget;
@@ -106,7 +108,11 @@ private:
                                  Common::ConnectionType type = Common::ConnectionType::Serial);
     // 按已保存会话打开新标签页
     void openSession(const Common::ConnectionSettings &settings, const QString &name);
-    
+    // SFTP / FTP / SCP：在主窗口内以标签页显示图形化文件管理器
+    void openFileManagerTab(const Common::ConnectionSettings &settings,
+                            const QString &name);
+    void closeFileManagerTabById(const QString &tabId);
+
     TerminalProxy* createNewTerminalTab(const QString &tabName = QString(),
                                         QString *terminalIdOut = nullptr);
     // MCP 工具 open_saved_session：按已保存会话名打开标签，返回 terminal id
@@ -138,6 +144,7 @@ private:
     QLineEdit *m_commandLineEdit = nullptr;
 
     QMap<QString, TerminalProxy*> m_terminals;
+    QMap<QString, FileManagerDialog*> m_fileManagers;
     TerminalProxy *m_currentTerminal = nullptr;
     int m_nextTerminalId = 1;
     bool m_geometryAdjusted = false;   // showEvent 只校正一次窗口尺寸
@@ -196,6 +203,7 @@ private:
     QAction *m_fullScreenAction = nullptr;
     QAction *m_sftpAction = nullptr;
     QAction *m_ftpAction = nullptr;
+    QAction *m_scpAction = nullptr;
     QAction *m_pluginDirAction = nullptr;
 
     // MCP（AI 控制）

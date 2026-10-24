@@ -44,8 +44,11 @@ QHash<QString, QString> buildPaths()
     p["sftp"]          = R"(<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 17v-5"/><path d="m9 14 3-3 3 3"/>)";
     p["check"]         = R"(<path d="m5 12 5 5L20 7"/>)";
     p["close"]         = R"(<path d="M18 6 6 18M6 6l12 12"/>)";
+    p["chevron-up"]    = R"(<path d="m6 15 6-6 6 6"/>)";
     p["chevron-down"]  = R"(<path d="m6 9 6 6 6-6"/>)";
+    p["chevron-left"]  = R"(<path d="m15 18-6-6 6-6"/>)";
     p["chevron-right"] = R"(<path d="m9 6 6 6-6 6"/>)";
+    p["home"]          = R"(<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-6h6v6"/>)";
     p["split"]         = R"(<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/>)";
     p["play"]          = R"(<path d="M8 5.5v13l10-6.5z"/>)";
     p["stop"]          = R"(<rect x="6" y="6" width="12" height="12" rx="2"/>)";

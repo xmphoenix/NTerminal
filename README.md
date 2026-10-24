@@ -1,6 +1,6 @@
 # NTerminal
 
-跨平台多协议终端工具（Qt 6 / C++17）。支持 Serial、Telnet、SSH、Rlogin、SFTP、FTP、TFTP 七种连接协议，内置 MCP（Model Context Protocol）服务，可让 Claude Desktop / Claude Code 等 AI 客户端直接读取终端、发送命令、管理文件传输与内置网络服务；同时提供自动更新、会话持久化、VT100~VT320/xterm 兼容性测试器与开发者工具箱。
+跨平台多协议终端工具（Qt 6 / C++17）。支持 Serial、Telnet、SSH、Rlogin、SFTP、FTP、TFTP、SCP 八种连接协议；SFTP / FTP / SCP 提供双栏图形化文件管理器（上传、下载、目录管理，不再使用命令行式界面）。内置 MCP（Model Context Protocol）服务，可让 Claude Desktop / Claude Code 等 AI 客户端直接读取终端、发送命令、管理文件传输与内置网络服务；同时提供自动更新、会话持久化、VT100~VT320/xterm 兼容性测试器与开发者工具箱。
 
 ## 构建与测试
 
@@ -21,6 +21,10 @@ claude mcp add --transport stdio nterminal -- "C:\Path\NTerminal.exe" --mcp-stdi
 
 Claude Desktop：在「MCP → 复制 Claude Desktop 配置」后粘贴到 `claude_desktop_config.json`。桥接器会连接正在运行的 NTerminal，请先启动 GUI 并保持 MCP 服务启用。详细说明见 [docs/MCP.md](docs/MCP.md)。
 
+## 图形化文件管理器
+
+「传输 → SFTP / FTP / SCP 文件管理器...」会在主窗口内新开一个文件管理器标签页（不弹出独立窗口）：左侧本地文件，右侧远端目录。两侧都支持前进/后退、上级目录、根目录、主目录与刷新；文件和文件夹可直接在两侧拖拽上传/下载，也可多选后使用工具栏。支持新建目录、重命名、递归删除；大文件传输时进度条显示百分比，状态栏显示当前文件、已传/总量与实时速度，并可随时取消；SFTP/FTP/SCP 会话在侧栏双击也会打开该标签页。SCP 模式使用 SCP 传输文件，目录浏览仍使用 SFTP（要求服务器开启 SFTP 子系统）。详见 [docs/FILE_MANAGER.md](docs/FILE_MANAGER.md)。
+
 ## 自动更新
 
 「帮助 → 检查更新...」读取远程 `update.json`，比较版本、下载 zip、校验 SHA-256，退出后由独立更新脚本替换程序文件并自动重启；用户配置不会被覆盖。「设置 → 更新设置...」可填写更新源地址与启动时自动检查。
@@ -39,6 +43,7 @@ Claude Desktop：在「MCP → 复制 Claude Desktop 配置」后粘贴到 `clau
 - `src/session` — 会话进程：协议处理器抽象/工厂 + 7 种协议实现 + 会话日志
 - `src/terminal` — 终端核心：VT/ANSI 解析器、屏幕模型（TerminalProxy）、主题结构
 - `src/mcp` — MCP 服务（工具/资源/权限/审计）与 stdio 桥接器
+- `src/files` — SFTP / SCP / FTP 文件客户端与图形化文件管理器后台
 - `src/services` — 会话持久化（SessionManager）
 - `src/theme` — 主题与字体管理
 - `src/ui` — 主窗口与全部对话框

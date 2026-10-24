@@ -24,6 +24,8 @@ ProtocolStyle protocolStyle(Common::ConnectionType type)
         return { "terminal", QColor(0xC9, 0xA0, 0xFF), "RLOGIN" };
     case Common::ConnectionType::SFTP:
         return { "sftp", QColor(0x4C, 0x8D, 0xFF), "SFTP" };
+    case Common::ConnectionType::SCP:
+        return { "sftp", QColor(0x4C, 0x8D, 0xFF), "SCP" };
     case Common::ConnectionType::FTP:
     case Common::ConnectionType::TFTP:
         return { "transfer", QColor(0x8B, 0x91, 0x9A), "FTP" };
