@@ -82,6 +82,8 @@ private:
     QWidget *buildTopBar();
     QWidget *buildSidebar();
     QWidget *buildTerminalArea();
+    // 显示/隐藏会话管理器侧栏，并同步视图菜单的勾选状态
+    void setSidebarVisible(bool visible);
     // 无标签页时的空状态引导页（选择会话 / 新建会话）
     QWidget *buildEmptyState();
     // 在空状态与标签页之间切换
@@ -133,6 +135,7 @@ private:
     QSplitter *m_horizontalSplitter = nullptr;
     QWidget *m_topBar = nullptr;
     QWidget *m_sidebar = nullptr;
+    int m_sidebarWidth = 248;
     QTreeWidget *m_sessionTree = nullptr;
     QLineEdit *m_sessionSearch = nullptr;
     QComboBox *m_quickProtocolCombo = nullptr;

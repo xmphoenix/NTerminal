@@ -230,8 +230,15 @@ void MainWindow::manageSessions()
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
-    Q_UNUSED(watched);
-    Q_UNUSED(event);
+    // 双击会话管理器标题/标题栏空白处，收起侧栏
+    if (event->type() == QEvent::MouseButtonDblClick && watched) {
+        const QString name = watched->objectName();
+        if (name == QLatin1String("sidebarHead")
+            || name == QLatin1String("sidebarTitle")) {
+            setSidebarVisible(false);
+            return true;
+        }
+    }
     // 命令发送由 QLineEdit::returnPressed 处理（见 buildTerminalArea）
     return QMainWindow::eventFilter(watched, event);
 }
@@ -945,6 +952,10 @@ void MainWindow::initMainWindowLayout()
     m_horizontalSplitter->setSizes({248, 1000});
     outer->addWidget(m_horizontalSplitter, 1);
 
+    // 默认隐藏会话管理器，让终端区占据主要空间；Ctrl+B 或
+    // 「视图 → 会话侧栏」可随时显示。
+    setSidebarVisible(false);
+
     setCentralWidget(central);
     buildStatusBarWidgets();
 
@@ -960,6 +971,44 @@ void MainWindow::initMainWindowLayout()
     move(available.center()
          - QPoint(preferred.width() / 2, (preferred.height() + titleBar) / 2));
     setWindowTitle(AppInfo::windowTitle());
+}
+
+void MainWindow::setSidebarVisible(bool visible)
+{
+    if (m_sidebar) {
+        if (visible) {
+            m_sidebar->show();
+            // 重新显示时恢复隐藏前的宽度（QSplitter 默认会压到最小宽度）
+            if (m_horizontalSplitter) {
+                const QList<int> sizes = m_horizontalSplitter->sizes();
+                if (sizes.size() == 2) {
+                    const int total = sizes.at(0) + sizes.at(1);
+                    const int width =
+                        qBound(216, m_sidebarWidth, qMax(216, total - 200));
+                    if (sizes.at(0) != width) {
+                        m_horizontalSplitter->setSizes(
+                            {width, qMax(1, total - width)});
+                    }
+                }
+            }
+        } else {
+            // 构造期窗口尚未显示时 sizes() 还是初始值，不要覆盖默认宽度
+            if (isVisible() && m_horizontalSplitter) {
+                const QList<int> sizes = m_horizontalSplitter->sizes();
+                if (sizes.size() == 2 && sizes.at(0) > 0) {
+                    m_sidebarWidth = sizes.at(0);
+                }
+            }
+            m_sidebar->hide();
+        }
+    }
+
+    // 双击标题收起侧栏时同步菜单勾选状态，避免 Ctrl+B 状态不一致
+    if (m_toggleSidebarAction
+        && m_toggleSidebarAction->isChecked() != visible) {
+        QSignalBlocker blocker(m_toggleSidebarAction);
+        m_toggleSidebarAction->setChecked(visible);
+    }
 }
 
 QWidget *MainWindow::buildTopBar()
@@ -1096,6 +1145,14 @@ QWidget *MainWindow::buildSidebar()
     QLabel *title = new QLabel;
     title->setObjectName("sidebarTitle");
     bindText([title] { title->setText(tr("会话管理器")); });
+    // 标题栏和标题文字都响应双击：双击即收起会话管理器
+    head->installEventFilter(this);
+    title->installEventFilter(this);
+    bindText([this, title, head] {
+        const QString tip = tr("双击隐藏侧栏（Ctrl+B 显示）");
+        title->setToolTip(tip);
+        head->setToolTip(tip);
+    });
     QToolButton *headAdd = new QToolButton;
     headAdd->setIcon(IconProvider::themedIcon("new-session"));
     bindText([headAdd] { headAdd->setToolTip(tr("新建连接")); });
@@ -1613,13 +1670,11 @@ void MainWindow::initMainWindowMenu()
     m_toggleSidebarAction = new QAction(this);
     bindText([this] { m_toggleSidebarAction->setText(tr("会话侧栏")); });
     m_toggleSidebarAction->setCheckable(true);
-    m_toggleSidebarAction->setChecked(true);
+    // 默认不显示会话管理器；可在「视图 → 会话侧栏」或 Ctrl+B 打开
+    m_toggleSidebarAction->setChecked(false);
     m_toggleSidebarAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+B")));
-    connect(m_toggleSidebarAction, &QAction::toggled, this, [this](bool visible) {
-        if (m_sidebar) {
-            m_sidebar->setVisible(visible);
-        }
-    });
+    connect(m_toggleSidebarAction, &QAction::toggled, this,
+            &MainWindow::setSidebarVisible);
     m_viewMenu->addAction(m_toggleSidebarAction);
 
     m_fullScreenAction = new QAction(this);

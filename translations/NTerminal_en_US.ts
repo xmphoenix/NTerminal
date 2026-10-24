@@ -983,6 +983,14 @@ View the update?</translation>
         <source>警告</source>
         <translation>Warning</translation>
     </message>
+    <message>
+        <source>会话侧栏</source>
+        <translation>Session sidebar</translation>
+    </message>
+    <message>
+        <source>双击隐藏侧栏（Ctrl+B 显示）</source>
+        <translation>Double-click to hide the sidebar (Ctrl+B to show)</translation>
+    </message>
 </context>
 <context>
     <name>McpLogViewer</name>
