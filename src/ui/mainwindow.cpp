@@ -29,6 +29,7 @@
 #include "ui/updatedialog.h"
 #include "ui/updatesettingsdialog.h"
 #include "ui/filemanagerdialog.h"
+#include "ui/terminalsplitpage.h"
 #include "mcp/mcpserver.h"
 #include "update/updatemanager.h"
 #include <QSplitter>
@@ -230,6 +231,14 @@ void MainWindow::manageSessions()
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
+    // 点击分屏中的某个终端后，把它设为当前终端
+    if (event->type() == QEvent::FocusIn) {
+        auto *terminal = qobject_cast<TerminalProxy *>(watched);
+        if (terminal && m_terminals.values().contains(terminal)) {
+            setActiveTerminal(terminal);
+        }
+    }
+
     // 双击会话管理器标题/标题栏空白处，收起侧栏
     if (event->type() == QEvent::MouseButtonDblClick && watched) {
         const QString name = watched->objectName();
@@ -293,16 +302,16 @@ void MainWindow::populateSessionMenu()
     populateSessionTree();
 }
 
-TerminalProxy* MainWindow::createNewTerminalTab(const QString &tabName, QString *terminalIdOut)
+TerminalProxy* MainWindow::createTerminalWidget(const QString &displayName,
+                                                 QString *terminalIdOut)
 {
-    QString terminalId = QString("terminal_%1").arg(m_nextTerminalId++);
-    QString displayName = tabName.isEmpty() ? tr("终端 %1").arg(m_terminals.size() + 1) : tabName;
+    const QString terminalId =
+        QStringLiteral("terminal_%1").arg(m_nextTerminalId++);
     if (terminalIdOut) {
         *terminalIdOut = terminalId;
     }
-    
-    TerminalProxy *terminal = new TerminalProxy();
 
+    auto *terminal = new TerminalProxy();
     // 注入当前主题/字体（TerminalProxy 构造不访问单例，由创建方负责注入）
     applyTerminalTheme(terminal);
 
@@ -315,35 +324,50 @@ TerminalProxy* MainWindow::createNewTerminalTab(const QString &tabName, QString 
         updateTabStates();
         updateStatusBar();
     });
-    connect(terminal, &TerminalProxy::connectionError, this, [this](const QString &error) {
-        Q_UNUSED(error);
-        updateTabStates();
-        updateStatusBar();
-    });
-    // 远端资源每秒刷新一次；只有当前标签页才占用状态栏
+    connect(terminal, &TerminalProxy::connectionError, this,
+            [this](const QString &error) {
+                Q_UNUSED(error);
+                updateTabStates();
+                updateStatusBar();
+            });
+    // 远端资源每秒刷新一次；只有当前终端才占用状态栏
     connect(terminal, &TerminalProxy::systemStatsUpdated, this,
             [this, terminal](const QJsonObject &) {
                 if (m_currentTerminal == terminal) {
                     updateStatusStats();
                 }
             });
+    // 点击分屏中的任意终端时，更新当前终端/标签状态/状态栏
+    terminal->installEventFilter(this);
 
-    int tabIndex = m_screenTabWidget->addTab(terminal, displayName);
-    
     m_terminals.insert(terminalId, terminal);
     if (m_mcpServer) {
         m_mcpServer->registerTerminal(terminalId, displayName, terminal);
     }
+    return terminal;
+}
 
+TerminalProxy* MainWindow::createNewTerminalTab(const QString &tabName, QString *terminalIdOut)
+{
+    const QString displayName =
+        tabName.isEmpty() ? tr("终端 %1").arg(m_terminals.size() + 1) : tabName;
+    QString terminalId;
+    TerminalProxy *terminal = createTerminalWidget(displayName, &terminalId);
+    if (terminalIdOut) {
+        *terminalIdOut = terminalId;
+    }
+
+    auto *page = new TerminalSplitPage(m_screenTabWidget);
+    page->setLayoutMode(TerminalLayoutMode::Single, {terminal});
+    const int tabIndex = m_screenTabWidget->addTab(page, displayName);
     m_screenTabWidget->tabBar()->setTabData(tabIndex, terminalId);
-    
+
     m_screenTabWidget->setCurrentIndex(tabIndex);
     updateEmptyState();
-
     updateCurrentTerminal(terminal);
-    
+    updateLayoutActions();
+
     qDebug() << "Created new terminal tab:" << displayName << "ID:" << terminalId;
-    
     return terminal;
 }
 
@@ -371,42 +395,48 @@ void MainWindow::closeTerminalTabById(const QString &terminalId)
     if (!terminal) {
         return;
     }
-    
-    int tabIndex = -1;
-    for (int i = 0; i < m_screenTabWidget->count(); ++i) {
-        QString tabTerminalId = m_screenTabWidget->tabBar()->tabData(i).toString();
-        if (tabTerminalId == terminalId) {
-            tabIndex = i;
-            break;
-        }
-    }
-    
-    if (terminal->isConnected()) {
-        terminal->closeConnection();
-    }
-    
-    m_terminals.remove(terminalId);
-    if (m_mcpServer) {
-        m_mcpServer->unregisterTerminal(terminalId);
-    }
 
+    const int tabIndex = tabIndexForTerminal(terminal);
+    auto *page = tabIndex >= 0
+                     ? qobject_cast<TerminalSplitPage *>(
+                           m_screenTabWidget->widget(tabIndex))
+                     : nullptr;
+    const QVector<TerminalProxy *> panes =
+        page ? page->terminals() : QVector<TerminalProxy *>{terminal};
+
+    // 先移除标签，让 QTabWidget 切换到相邻标签
     if (tabIndex >= 0) {
         m_screenTabWidget->removeTab(tabIndex);
-        updateEmptyState();
     }
-    
-    terminal->deleteLater();
-    
-    qDebug() << "Closed terminal tab ID:" << terminalId;
-    
-    if (m_currentTerminal == terminal) {
+
+    for (TerminalProxy *pane : panes) {
+        const QString id = terminalIdFor(pane);
+        if (pane->isConnected()) {
+            pane->closeConnection();
+        }
+        m_terminals.remove(id);
+        if (m_mcpServer) {
+            m_mcpServer->unregisterTerminal(id);
+        }
+    }
+
+    // 页面销毁时其子终端一并销毁；这里不再单独 deleteLater 终端
+    if (page) {
+        page->deleteLater();
+    } else {
+        terminal->deleteLater();
+    }
+
+    if (panes.contains(m_currentTerminal)) {
         m_currentTerminal = nullptr;
         qDebug() << "Current terminal closed";
     }
 
-    // 关掉最后一个标签时不会触发 currentChanged，状态栏需在这里主动刷新，
-    // 否则连接信息与远端资源条会残留上一个会话的数据。
+    updateEmptyState();
     updateStatusBar();
+    updateLayoutActions();
+    qDebug() << "Closed terminal tab ID:" << terminalId
+             << "panes:" << panes.size();
 }
 
 TerminalProxy* MainWindow::getCurrentTerminal() const
@@ -431,6 +461,200 @@ void MainWindow::updateCurrentTerminal(TerminalProxy *terminal)
     }
     updateStatusBar();
     updateTabStates();
+}
+
+QString MainWindow::terminalIdFor(TerminalProxy *terminal) const
+{
+    return m_terminals.key(terminal, QString());
+}
+
+int MainWindow::tabIndexForTerminal(TerminalProxy *terminal) const
+{
+    if (!m_screenTabWidget || !terminal) {
+        return -1;
+    }
+    for (int i = 0; i < m_screenTabWidget->count(); ++i) {
+        if (auto *page = qobject_cast<TerminalSplitPage *>(
+                m_screenTabWidget->widget(i))) {
+            if (page->contains(terminal)) {
+                return i;
+            }
+        }
+    }
+    return -1;
+}
+
+TerminalSplitPage *MainWindow::currentTerminalPage() const
+{
+    return m_screenTabWidget
+               ? qobject_cast<TerminalSplitPage *>(
+                     m_screenTabWidget->currentWidget())
+               : nullptr;
+}
+
+void MainWindow::setActiveTerminal(TerminalProxy *terminal)
+{
+    if (!terminal) {
+        return;
+    }
+    const int index = tabIndexForTerminal(terminal);
+    if (index < 0) {
+        return;
+    }
+
+    if (auto *page = qobject_cast<TerminalSplitPage *>(
+            m_screenTabWidget->widget(index))) {
+        page->setActiveTerminal(terminal);
+        m_screenTabWidget->tabBar()->setTabData(index,
+                                               terminalIdFor(terminal));
+    }
+    updateCurrentTerminal(terminal);
+    updateLayoutActions();
+}
+
+void MainWindow::updateLayoutActions()
+{
+    QAction *actions[] = {
+        m_singleLayoutAction,
+        m_twoVerticalLayoutAction,
+        m_twoHorizontalLayoutAction,
+        m_fourLayoutAction,
+    };
+    TerminalSplitPage *page = currentTerminalPage();
+    for (QAction *action : actions) {
+        if (action) {
+            action->setEnabled(page != nullptr);
+        }
+    }
+    if (!page) {
+        return;
+    }
+
+    QAction *checked = nullptr;
+    switch (page->layoutMode()) {
+    case TerminalLayoutMode::Single:
+        checked = m_singleLayoutAction;
+        break;
+    case TerminalLayoutMode::TwoVertical:
+        checked = m_twoVerticalLayoutAction;
+        break;
+    case TerminalLayoutMode::TwoHorizontal:
+        checked = m_twoHorizontalLayoutAction;
+        break;
+    case TerminalLayoutMode::Four:
+        checked = m_fourLayoutAction;
+        break;
+    }
+    if (checked && !checked->isChecked()) {
+        checked->setChecked(true);
+    }
+}
+
+void MainWindow::applyTerminalLayout(TerminalLayoutMode mode)
+{
+    TerminalSplitPage *page = currentTerminalPage();
+    if (!page) {
+        return;
+    }
+
+    const QVector<TerminalProxy *> existing = page->terminals();
+    if (existing.isEmpty()) {
+        return;
+    }
+
+    TerminalProxy *active = page->activeTerminal();
+    if (!active || !existing.contains(active)) {
+        active = existing.first();
+    }
+
+    const int desired =
+        mode == TerminalLayoutMode::Single
+            ? 1
+            : (mode == TerminalLayoutMode::Four ? 4 : 2);
+
+    // 扩大/保持数量时沿用原顺序；缩小时优先保留当前终端。
+    QVector<TerminalProxy *> panes;
+    if (existing.size() <= desired) {
+        panes = existing;
+    } else {
+        panes.append(active);
+        for (TerminalProxy *terminal : existing) {
+            if (panes.size() >= desired) {
+                break;
+            }
+            if (terminal != active) {
+                panes.append(terminal);
+            }
+        }
+    }
+
+    for (TerminalProxy *terminal : existing) {
+        if (panes.contains(terminal)) {
+            continue;
+        }
+        const QString id = terminalIdFor(terminal);
+        if (terminal->isConnected()) {
+            terminal->closeConnection();
+        }
+        m_terminals.remove(id);
+        if (m_mcpServer) {
+            m_mcpServer->unregisterTerminal(id);
+        }
+        terminal->hide();
+        terminal->setParent(nullptr);
+        terminal->deleteLater();
+    }
+
+    if (panes.size() < desired) {
+        const Common::ConnectionSettings settings =
+            active->getConnectionSettings();
+        if (settings.type == Common::ConnectionType::Serial) {
+            QMessageBox::information(
+                this, tr("终端布局"),
+                tr("串口终端不支持复制分屏，请使用网络会话。"));
+            updateLayoutActions();
+            return;
+        }
+        if (settings.host.isEmpty()) {
+            QMessageBox::information(
+                this, tr("终端布局"),
+                tr("当前终端尚未连接，无法创建分屏会话。请先连接一个终端。"));
+            updateLayoutActions();
+            return;
+        }
+
+        const int tabIndex = tabIndexForTerminal(active);
+        const QString baseName =
+            tabIndex >= 0 ? m_screenTabWidget->tabText(tabIndex)
+                          : settings.sessionName;
+        while (panes.size() < desired) {
+            QString ignored;
+            TerminalProxy *pane = createTerminalWidget(
+                QStringLiteral("%1 [%2]").arg(baseName).arg(panes.size() + 1),
+                &ignored);
+            pane->setConnectionSettings(settings);
+            panes.append(pane);
+        }
+    }
+
+    page->setLayoutMode(mode, panes);
+
+    // 新创建的分屏在布局完成后各自建立独立连接
+    for (TerminalProxy *terminal : panes) {
+        if (!existing.contains(terminal)) {
+            terminal->openConnection();
+        }
+    }
+
+    page->setActiveTerminal(active);
+    const int tabIndex = tabIndexForTerminal(active);
+    if (tabIndex >= 0) {
+        m_screenTabWidget->tabBar()->setTabData(tabIndex,
+                                               terminalIdFor(active));
+    }
+    active->setFocus();
+    updateCurrentTerminal(active);
+    updateLayoutActions();
 }
 
 // ============================================================================
@@ -845,9 +1069,29 @@ void MainWindow::onTabCurrentChanged(int index)
     if (index >= 0 && index < m_screenTabWidget->count()) {
         const QString tabId =
             m_screenTabWidget->tabBar()->tabData(index).toString();
-        // 文件管理器标签页不在 m_terminals 中，此时当前终端置空
-        updateCurrentTerminal(getTerminalById(tabId));
+        if (auto *page = qobject_cast<TerminalSplitPage *>(
+                m_screenTabWidget->widget(index))) {
+            TerminalProxy *terminal = page->activeTerminal();
+            if (!terminal) {
+                terminal = getTerminalById(tabId);
+                if (terminal) {
+                    page->setActiveTerminal(terminal);
+                }
+            }
+            if (terminal) {
+                m_screenTabWidget->tabBar()->setTabData(
+                    index, terminalIdFor(terminal));
+            }
+            updateCurrentTerminal(terminal);
+            if (terminal) {
+                terminal->setFocus();
+            }
+        } else {
+            // 文件管理器标签页不在 m_terminals 中，此时当前终端置空
+            updateCurrentTerminal(nullptr);
+        }
     }
+    updateLayoutActions();
 }
 
 void MainWindow::showEvent(QShowEvent *event)
@@ -955,6 +1199,7 @@ void MainWindow::initMainWindowLayout()
     // 默认隐藏会话管理器，让终端区占据主要空间；Ctrl+B 或
     // 「视图 → 会话侧栏」可随时显示。
     setSidebarVisible(false);
+    updateLayoutActions();
 
     setCentralWidget(central);
     buildStatusBarWidgets();
@@ -1666,7 +1911,38 @@ void MainWindow::initMainWindowMenu()
     });
     m_editMenu->addAction(m_clearScreenAction);
 
-    // ---- 视图菜单：侧栏与全屏 ----
+    // ---- 视图菜单：终端分屏布局 / 侧栏 / 全屏 ----
+    auto *layoutGroup = new QActionGroup(this);
+    layoutGroup->setExclusive(true);
+
+    auto addLayoutAction = [this, layoutGroup](
+                               QAction *&action,
+                               const std::function<QString()> &text,
+                               TerminalLayoutMode mode) {
+        action = new QAction(this);
+        bindText([action, text] { action->setText(text()); });
+        action->setCheckable(true);
+        layoutGroup->addAction(action);
+        connect(action, &QAction::triggered, this,
+                [this, mode] { applyTerminalLayout(mode); });
+        m_viewMenu->addAction(action);
+    };
+
+    addLayoutAction(m_singleLayoutAction,
+                    [] { return tr("单终端模式"); },
+                    TerminalLayoutMode::Single);
+    addLayoutAction(m_twoVerticalLayoutAction,
+                    [] { return tr("2 终端模式（左右分屏）"); },
+                    TerminalLayoutMode::TwoVertical);
+    addLayoutAction(m_twoHorizontalLayoutAction,
+                    [] { return tr("2 终端模式（上下分屏）"); },
+                    TerminalLayoutMode::TwoHorizontal);
+    addLayoutAction(m_fourLayoutAction,
+                    [] { return tr("4 终端模式"); },
+                    TerminalLayoutMode::Four);
+    m_singleLayoutAction->setChecked(true);
+    m_viewMenu->addSeparator();
+
     m_toggleSidebarAction = new QAction(this);
     bindText([this] { m_toggleSidebarAction->setText(tr("会话侧栏")); });
     m_toggleSidebarAction->setCheckable(true);
@@ -1849,6 +2125,10 @@ void MainWindow::applyMenuIcons()
     if (m_copyAction) m_copyAction->setIcon(IconProvider::themedIcon("copy"));
     if (m_pasteAction) m_pasteAction->setIcon(IconProvider::themedIcon("paste"));
     if (m_clearScreenAction) m_clearScreenAction->setIcon(IconProvider::themedIcon("clear"));
+    if (m_singleLayoutAction) m_singleLayoutAction->setIcon(IconProvider::themedIcon("terminal"));
+    if (m_twoVerticalLayoutAction) m_twoVerticalLayoutAction->setIcon(IconProvider::themedIcon("split"));
+    if (m_twoHorizontalLayoutAction) m_twoHorizontalLayoutAction->setIcon(IconProvider::themedIcon("split-horizontal"));
+    if (m_fourLayoutAction) m_fourLayoutAction->setIcon(IconProvider::themedIcon("grid"));
     if (m_toggleSidebarAction) m_toggleSidebarAction->setIcon(IconProvider::themedIcon("split"));
     if (m_fullScreenAction) m_fullScreenAction->setIcon(IconProvider::themedIcon("fullscreen"));
     if (m_sftpAction) m_sftpAction->setIcon(IconProvider::themedIcon("sftp"));

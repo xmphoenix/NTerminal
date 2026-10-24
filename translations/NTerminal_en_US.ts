@@ -991,6 +991,34 @@ View the update?</translation>
         <source>双击隐藏侧栏（Ctrl+B 显示）</source>
         <translation>Double-click to hide the sidebar (Ctrl+B to show)</translation>
     </message>
+    <message>
+        <source>单终端模式</source>
+        <translation>Single terminal mode</translation>
+    </message>
+    <message>
+        <source>2 终端模式（左右分屏）</source>
+        <translation>2 terminals mode (vertical split)</translation>
+    </message>
+    <message>
+        <source>2 终端模式（上下分屏）</source>
+        <translation>2 terminals mode (horizontal split)</translation>
+    </message>
+    <message>
+        <source>4 终端模式</source>
+        <translation>4 terminals mode</translation>
+    </message>
+    <message>
+        <source>终端布局</source>
+        <translation>Terminal layout</translation>
+    </message>
+    <message>
+        <source>当前终端尚未连接，无法创建分屏会话。请先连接一个终端。</source>
+        <translation>The current terminal is not connected. Connect a terminal before creating split sessions.</translation>
+    </message>
+    <message>
+        <source>串口终端不支持复制分屏，请使用网络会话。</source>
+        <translation>Serial terminals cannot be duplicated for split view. Use a network session.</translation>
+    </message>
 </context>
 <context>
     <name>McpLogViewer</name>

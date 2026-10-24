@@ -9,7 +9,9 @@
 #include "transfer/filetransfer.h"
 
 class TerminalProxy;
+class TerminalSplitPage;
 class FileManagerDialog;
+enum class TerminalLayoutMode;
 class TerminalTabBar;
 class QSplitter;
 class QTreeWidget;
@@ -115,8 +117,17 @@ private:
                             const QString &name);
     void closeFileManagerTabById(const QString &tabId);
 
+    // 创建一个终端控件并注册到 MCP；不加入标签页（供标签页/分屏复用）
+    TerminalProxy *createTerminalWidget(const QString &displayName,
+                                        QString *terminalIdOut = nullptr);
     TerminalProxy* createNewTerminalTab(const QString &tabName = QString(),
                                         QString *terminalIdOut = nullptr);
+    TerminalSplitPage *currentTerminalPage() const;
+    int tabIndexForTerminal(TerminalProxy *terminal) const;
+    QString terminalIdFor(TerminalProxy *terminal) const;
+    void setActiveTerminal(TerminalProxy *terminal);
+    void applyTerminalLayout(TerminalLayoutMode mode);
+    void updateLayoutActions();
     // MCP 工具 open_saved_session：按已保存会话名打开标签，返回 terminal id
     QString openSessionForMcp(const QString &name, QString *error);
     void updateMcpStatus();
@@ -207,6 +218,10 @@ private:
     QAction *m_sftpAction = nullptr;
     QAction *m_ftpAction = nullptr;
     QAction *m_scpAction = nullptr;
+    QAction *m_singleLayoutAction = nullptr;
+    QAction *m_twoVerticalLayoutAction = nullptr;
+    QAction *m_twoHorizontalLayoutAction = nullptr;
+    QAction *m_fourLayoutAction = nullptr;
     QAction *m_pluginDirAction = nullptr;
 
     // MCP（AI 控制）

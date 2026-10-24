@@ -50,6 +50,7 @@ QHash<QString, QString> buildPaths()
     p["chevron-right"] = R"(<path d="m9 6 6 6-6 6"/>)";
     p["home"]          = R"(<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-6h6v6"/>)";
     p["split"]         = R"(<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/>)";
+    p["split-horizontal"] = R"(<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 12h18"/>)";
     p["play"]          = R"(<path d="M8 5.5v13l10-6.5z"/>)";
     p["stop"]          = R"(<rect x="6" y="6" width="12" height="12" rx="2"/>)";
     p["download"]      = R"(<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>)";

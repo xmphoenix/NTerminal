@@ -116,6 +116,7 @@ SOURCES += \
     src/ui/iconprovider.cpp \
     src/ui/sessionitemdelegate.cpp \
     src/ui/terminaltabbar.cpp \
+    src/ui/terminalsplitpage.cpp \
     src/ui/terminaltester.cpp \
     src/ui/testwindow.cpp \
     src/ui/logconfigdialog.cpp \
@@ -187,6 +188,7 @@ HEADERS += \
     src/ui/iconprovider.h \
     src/ui/sessionitemdelegate.h \
     src/ui/terminaltabbar.h \
+    src/ui/terminalsplitpage.h \
     src/ui/terminaltester.h \
     src/ui/testwindow.h \
     src/ui/logconfigdialog.h \
