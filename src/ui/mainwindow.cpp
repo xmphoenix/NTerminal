@@ -23,10 +23,10 @@
 #include "transfer/xmodemtransfer.h"
 #include "transfer/kermittransfer.h"
 #include "transfer/asciitransfer.h"
-#include "ui/scriptdialog.h"
-#include "ui/scriptlogviewer.h"
-#include "ui/scriptcontrolpanel.h"
 #include "ui/systemstatswidget.h"
+#include "ui/mcpsettingsdialog.h"
+#include "ui/mcplogviewer.h"
+#include "mcp/mcpserver.h"
 #include <QSplitter>
 #include <QTreeWidget>
 #include <QTabWidget>
@@ -55,6 +55,7 @@
 #include <QActionGroup>
 #include <QCoreApplication>
 #include <QEvent>
+#include <QSignalBlocker>
 #include <QDebug>
 #include <QJsonObject>
 #include <QMessageBox>
@@ -90,7 +91,6 @@ MainWindow::MainWindow(QWidget *parent)
     , m_viewMenu(nullptr)
     , m_optMenu(nullptr)
     , m_transmitMenu(nullptr)
-    , m_scriptMenu(nullptr)
     , m_toolsMenu(nullptr)
     , m_pluginMenu(nullptr)
     , m_helpMenu(nullptr)
@@ -100,15 +100,41 @@ MainWindow::MainWindow(QWidget *parent)
     , m_saveSessionAction(nullptr)
     , m_loadSessionAction(nullptr)
     , m_manageSessionsAction(nullptr)
-    , m_loadScriptAction(nullptr)
-    , m_stopScriptAction(nullptr)
-    , m_scriptLogAction(nullptr)
-    , m_scriptControlAction(nullptr)
     , m_loadSessionMenu(nullptr)
 {
+    m_mcpServer = new McpServer(this);
+
     initMainWindowMenu();
     initMainWindowLayout();
     setupSessionManager();
+
+    // MCP：工具直接操作 MainWindow 的终端标签；打开/关闭会话由 UI 层完成
+    m_mcpServer->setSessionManager(m_sessionManager);
+    m_mcpServer->setOpenSessionHandler(
+        [this](const QString &name, QString *error) {
+            return openSessionForMcp(name, error);
+        });
+    m_mcpServer->setCloseSessionHandler(
+        [this](const QString &sessionId, QString *error) {
+            if (!m_terminals.contains(sessionId)) {
+                *error = tr("未找到终端会话: %1").arg(sessionId);
+                return false;
+            }
+            closeTerminalTabById(sessionId);
+            return true;
+        });
+    connect(m_mcpServer, &McpServer::runningChanged, this,
+            [this](bool) { updateMcpStatus(); });
+
+    m_mcpServer->loadSettings();
+    if (m_mcpServer->enabledInSettings() && !m_mcpServer->start()) {
+        qWarning() << "[MCP] Failed to start:" << m_mcpServer->lastError();
+    }
+    if (m_mcpEnableAction) {
+        QSignalBlocker blocker(m_mcpEnableAction);
+        m_mcpEnableAction->setChecked(m_mcpServer->isRunning());
+    }
+    updateMcpStatus();
 
     // 应用主题切换：刷新图标着色与状态栏颜色（QSS 由 ThemeManager 统一更新）
     connect(ThemeManager::instance(), &ThemeManager::appThemeChanged,
@@ -247,10 +273,13 @@ void MainWindow::populateSessionMenu()
     populateSessionTree();
 }
 
-TerminalProxy* MainWindow::createNewTerminalTab(const QString &tabName)
+TerminalProxy* MainWindow::createNewTerminalTab(const QString &tabName, QString *terminalIdOut)
 {
     QString terminalId = QString("terminal_%1").arg(m_nextTerminalId++);
     QString displayName = tabName.isEmpty() ? tr("终端 %1").arg(m_terminals.size() + 1) : tabName;
+    if (terminalIdOut) {
+        *terminalIdOut = terminalId;
+    }
     
     TerminalProxy *terminal = new TerminalProxy();
 
@@ -282,7 +311,10 @@ TerminalProxy* MainWindow::createNewTerminalTab(const QString &tabName)
     int tabIndex = m_screenTabWidget->addTab(terminal, displayName);
     
     m_terminals.insert(terminalId, terminal);
-    
+    if (m_mcpServer) {
+        m_mcpServer->registerTerminal(terminalId, displayName, terminal);
+    }
+
     m_screenTabWidget->tabBar()->setTabData(tabIndex, terminalId);
     
     m_screenTabWidget->setCurrentIndex(tabIndex);
@@ -329,7 +361,10 @@ void MainWindow::closeTerminalTabById(const QString &terminalId)
     }
     
     m_terminals.remove(terminalId);
-    
+    if (m_mcpServer) {
+        m_mcpServer->unregisterTerminal(terminalId);
+    }
+
     if (tabIndex >= 0) {
         m_screenTabWidget->removeTab(tabIndex);
         updateEmptyState();
@@ -777,6 +812,7 @@ void MainWindow::retranslateUi()
         apply();
     }
     updateStatusBar();
+    updateMcpStatus();
     // 会话树分组名、空树提示由 populateSessionTree() 生成，重建以套用新语言
     populateSessionTree();
     if (m_sessionSearch && !m_sessionSearch->text().isEmpty()) {
@@ -939,7 +975,7 @@ QWidget *MainWindow::buildTopBar()
     addSeparator();
 
     // 工具入口
-    addIconButton("script", [] { return tr("脚本"); }, [this]() { showScriptControlPanel(); });
+    addIconButton("server", [] { return tr("MCP"); }, [this]() { showMcpSettings(); });
     addIconButton("tools", [] { return tr("工具"); }, [this]() { showPortScanner(); });
 
     lay->addStretch(1);
@@ -1217,12 +1253,15 @@ void MainWindow::buildStatusBarWidgets()
     m_statusSize = new QLabel;
     m_statusLatency = new QLabel;
     m_statusLatency->setObjectName("statusLatency");
+    m_statusMcp = new QLabel;
+    m_statusMcp->setObjectName("statusMcp");
     m_statusStats = new SystemStatsWidget(this);
 
     bar->addWidget(m_statusConnection);
     bar->addWidget(m_statusProtocol);
     bar->addWidget(m_statusEncoding);
     bar->addWidget(m_statusSize);
+    bar->addPermanentWidget(m_statusMcp);
     bar->addPermanentWidget(m_statusStats);
     bar->addPermanentWidget(m_statusLatency);
 
@@ -1240,8 +1279,8 @@ void MainWindow::initMainWindowMenu()
     m_viewMenu = m_menuBar->addMenu(QString());
     m_optMenu = m_menuBar->addMenu(QString());
     m_transmitMenu = m_menuBar->addMenu(QString());
-    m_scriptMenu = m_menuBar->addMenu(QString());
     m_toolsMenu = m_menuBar->addMenu(QString());
+    m_mcpMenu = m_menuBar->addMenu(QString());
     m_pluginMenu = m_menuBar->addMenu(QString());
     m_helpMenu = m_menuBar->addMenu(QString());
 
@@ -1251,8 +1290,8 @@ void MainWindow::initMainWindowMenu()
         m_viewMenu->setTitle(tr("视图(&V)"));
         m_optMenu->setTitle(tr("设置(&S)"));
         m_transmitMenu->setTitle(tr("传输(&T)"));
-        m_scriptMenu->setTitle(tr("脚本(&P)"));
         m_toolsMenu->setTitle(tr("工具(&O)"));
+        m_mcpMenu->setTitle(tr("MCP(&M)"));
         m_pluginMenu->setTitle(tr("插件(&L)"));
         m_helpMenu->setTitle(tr("帮助(&H)"));
     });
@@ -1355,29 +1394,65 @@ void MainWindow::initMainWindowMenu()
     connect(m_asciiTableAction, &QAction::triggered, this, &MainWindow::showAsciiTable);
     m_toolsMenu->addAction(m_asciiTableAction);
 
-    // 脚本菜单
-    m_loadScriptAction = new QAction(this);
-    bindText([this] { m_loadScriptAction->setText(tr("加载脚本...")); });
-    connect(m_loadScriptAction, &QAction::triggered, this, &MainWindow::loadScript);
-    m_scriptMenu->addAction(m_loadScriptAction);
+    // MCP 菜单：控制 AI 通过 MCP 访问终端
+    m_mcpEnableAction = new QAction(this);
+    m_mcpEnableAction->setCheckable(true);
+    bindText([this] { m_mcpEnableAction->setText(tr("启用 MCP 服务")); });
+    connect(m_mcpEnableAction, &QAction::toggled, this, [this](bool enabled) {
+        if (!m_mcpServer) {
+            return;
+        }
+        if (enabled) {
+            if (!m_mcpServer->start()) {
+                QMessageBox::warning(this, tr("MCP"),
+                                     tr("无法启动 MCP 服务：%1")
+                                         .arg(m_mcpServer->lastError()));
+                m_mcpEnableAction->setChecked(false);
+                return;
+            }
+        } else {
+            m_mcpServer->stop();
+        }
+        m_mcpServer->setEnabled(enabled);
+        updateMcpStatus();
+    });
+    m_mcpMenu->addAction(m_mcpEnableAction);
 
-    m_stopScriptAction = new QAction(this);
-    bindText([this] { m_stopScriptAction->setText(tr("停止脚本")); });
-    m_stopScriptAction->setEnabled(false);
-    connect(m_stopScriptAction, &QAction::triggered, this, &MainWindow::stopScript);
-    m_scriptMenu->addAction(m_stopScriptAction);
+    m_mcpMenu->addSeparator();
 
-    m_scriptMenu->addSeparator();
+    m_mcpCopyDesktopAction = new QAction(this);
+    bindText([this] { m_mcpCopyDesktopAction->setText(tr("复制 Claude Desktop 配置")); });
+    connect(m_mcpCopyDesktopAction, &QAction::triggered, this, [this] {
+        if (!m_mcpServer) {
+            return;
+        }
+        QGuiApplication::clipboard()->setText(m_mcpServer->claudeDesktopConfig());
+        statusBar()->showMessage(tr("已复制 Claude Desktop MCP 配置"), 3000);
+    });
+    m_mcpMenu->addAction(m_mcpCopyDesktopAction);
 
-    m_scriptLogAction = new QAction(this);
-    bindText([this] { m_scriptLogAction->setText(tr("查看脚本日志")); });
-    connect(m_scriptLogAction, &QAction::triggered, this, &MainWindow::showScriptLog);
-    m_scriptMenu->addAction(m_scriptLogAction);
+    m_mcpCopyClaudeCodeAction = new QAction(this);
+    bindText([this] { m_mcpCopyClaudeCodeAction->setText(tr("复制 Claude Code 命令")); });
+    connect(m_mcpCopyClaudeCodeAction, &QAction::triggered, this, [this] {
+        if (!m_mcpServer) {
+            return;
+        }
+        QGuiApplication::clipboard()->setText(m_mcpServer->claudeCodeCommand());
+        statusBar()->showMessage(tr("已复制 Claude Code MCP 命令"), 3000);
+    });
+    m_mcpMenu->addAction(m_mcpCopyClaudeCodeAction);
 
-    m_scriptControlAction = new QAction(this);
-    bindText([this] { m_scriptControlAction->setText(tr("脚本控制面板")); });
-    connect(m_scriptControlAction, &QAction::triggered, this, &MainWindow::showScriptControlPanel);
-    m_scriptMenu->addAction(m_scriptControlAction);
+    m_mcpMenu->addSeparator();
+
+    m_mcpSettingsAction = new QAction(this);
+    bindText([this] { m_mcpSettingsAction->setText(tr("MCP 设置...")); });
+    connect(m_mcpSettingsAction, &QAction::triggered, this, &MainWindow::showMcpSettings);
+    m_mcpMenu->addAction(m_mcpSettingsAction);
+
+    m_mcpLogAction = new QAction(this);
+    bindText([this] { m_mcpLogAction->setText(tr("查看 AI 操作日志")); });
+    connect(m_mcpLogAction, &QAction::triggered, this, &MainWindow::showMcpLog);
+    m_mcpMenu->addAction(m_mcpLogAction);
 
     // 帮助菜单
     m_aboutAction = new QAction(this);
@@ -1585,10 +1660,11 @@ void MainWindow::applyMenuIcons()
     if (m_themeAction) m_themeAction->setIcon(IconProvider::themedIcon("theme"));
     if (m_logSettingsAction) m_logSettingsAction->setIcon(IconProvider::themedIcon("log"));
     if (m_exitAction) m_exitAction->setIcon(IconProvider::themedIcon("close"));
-    if (m_loadScriptAction) m_loadScriptAction->setIcon(IconProvider::themedIcon("script"));
-    if (m_stopScriptAction) m_stopScriptAction->setIcon(IconProvider::themedIcon("stop"));
-    if (m_scriptLogAction) m_scriptLogAction->setIcon(IconProvider::themedIcon("log"));
-    if (m_scriptControlAction) m_scriptControlAction->setIcon(IconProvider::themedIcon("settings"));
+    if (m_mcpEnableAction) m_mcpEnableAction->setIcon(IconProvider::themedIcon("server"));
+    if (m_mcpCopyDesktopAction) m_mcpCopyDesktopAction->setIcon(IconProvider::themedIcon("copy"));
+    if (m_mcpCopyClaudeCodeAction) m_mcpCopyClaudeCodeAction->setIcon(IconProvider::themedIcon("copy"));
+    if (m_mcpSettingsAction) m_mcpSettingsAction->setIcon(IconProvider::themedIcon("settings"));
+    if (m_mcpLogAction) m_mcpLogAction->setIcon(IconProvider::themedIcon("log"));
     // 文件菜单
     if (m_loadSessionMenu) m_loadSessionMenu->menuAction()->setIcon(IconProvider::themedIcon("folder"));
     if (m_saveSessionAction) m_saveSessionAction->setIcon(IconProvider::themedIcon("save"));
@@ -1771,6 +1847,11 @@ void MainWindow::startFileTransfer(FileTransfer::Kind kind, bool send)
                                  tr("当前终端未连接，无法传输文件。"));
         return;
     }
+    if (terminal->hasIncomingFilter()) {
+        QMessageBox::information(this, tr("文件传输"),
+                                 tr("当前会话已有传输正在进行。"));
+        return;
+    }
 
     const bool batch = kind == FileTransfer::Kind::Zmodem
                        || kind == FileTransfer::Kind::Ymodem;
@@ -1871,81 +1952,105 @@ void MainWindow::showAsciiTable()
     dialog->show();
 }
 
-void MainWindow::loadScript()
+// ---------------------------------------------------------------------------
+// MCP（AI 控制）
+// ---------------------------------------------------------------------------
+
+QString MainWindow::openSessionForMcp(const QString &name, QString *error)
 {
-    TerminalProxy *terminal = getCurrentTerminal();
-    if (!terminal) {
-        QMessageBox::warning(this, tr("警告"), tr("请先打开一个终端连接"));
-        return;
-    }
-
-    ScriptDialog dialog(this);
-    // TODO: 设置最近使用的脚本列表
-    // dialog.setRecentScripts(recentScripts);
-
-    if (dialog.exec() == QDialog::Accepted) {
-        QString scriptPath = dialog.selectedScriptPath();
-        if (!scriptPath.isEmpty()) {
-            if (terminal->loadScript(scriptPath)) {
-                m_stopScriptAction->setEnabled(true);
-                qDebug() << "Script loaded:" << scriptPath;
-            } else {
-                QMessageBox::critical(this, tr("错误"),
-                    tr("无法加载脚本: %1").arg(scriptPath));
-            }
+    if (!m_sessionManager) {
+        if (error) {
+            *error = tr("会话管理器不可用");
         }
+        return QString();
     }
+
+    const auto sessions = m_sessionManager->getSessions();
+    for (const SessionManager::Session &session : sessions) {
+        if (session.name != name) {
+            continue;
+        }
+
+        QString terminalId;
+        TerminalProxy *terminal =
+            createNewTerminalTab(session.name, &terminalId);
+        if (!terminal) {
+            if (error) {
+                *error = tr("无法创建终端标签");
+            }
+            return QString();
+        }
+        terminal->setConnectionSettings(session.settings);
+        applyTerminalTheme(terminal);
+        if (!terminal->openConnection()) {
+            qWarning() << "[MCP] Failed to open saved session:" << name;
+        }
+        updateStatusBar();
+        return terminalId;
+    }
+
+    if (error) {
+        *error = tr("未找到已保存会话: %1").arg(name);
+    }
+    return QString();
 }
 
-void MainWindow::stopScript()
+void MainWindow::updateMcpStatus()
 {
-    TerminalProxy *terminal = getCurrentTerminal();
-    if (!terminal) {
+    if (!m_statusMcp) {
         return;
     }
 
-    terminal->stopScript();
-    m_stopScriptAction->setEnabled(false);
-    qDebug() << "Script stopped";
+    if (!m_mcpServer || !m_mcpServer->isRunning()) {
+        m_statusMcp->setText(tr("MCP · 关闭"));
+        m_statusMcp->setToolTip(tr("AI 无法访问终端"));
+        m_statusMcp->setProperty("state", "off");
+    } else {
+        QString policy;
+        switch (m_mcpServer->policy()) {
+        case McpServer::ControlPolicy::ReadOnly:
+            policy = tr("只读");
+            break;
+        case McpServer::ControlPolicy::Allow:
+            policy = tr("控制");
+            break;
+        case McpServer::ControlPolicy::Confirm:
+        default:
+            policy = tr("确认");
+            break;
+        }
+        m_statusMcp->setText(tr("MCP · %1").arg(policy));
+        m_statusMcp->setToolTip(
+            tr("AI 可通过 MCP 访问终端。端点文件：%1")
+                .arg(m_mcpServer->endpointPath()));
+        m_statusMcp->setProperty("state", "on");
+    }
+
+    m_statusMcp->style()->unpolish(m_statusMcp);
+    m_statusMcp->style()->polish(m_statusMcp);
 }
 
-void MainWindow::showScriptLog()
+void MainWindow::showMcpSettings()
 {
-    ScriptLogViewer *viewer = new ScriptLogViewer(this);
-    viewer->setAttribute(Qt::WA_DeleteOnClose);
-    viewer->show();
-}
-
-void MainWindow::showScriptControlPanel()
-{
-    TerminalProxy *terminal = getCurrentTerminal();
-    if (!terminal) {
-        QMessageBox::warning(this, tr("警告"), tr("请先打开一个终端连接"));
+    if (!m_mcpServer) {
         return;
     }
 
-    ScriptControlPanel *panel = new ScriptControlPanel(this);
-    panel->setAttribute(Qt::WA_DeleteOnClose);
-
-    // 设置当前脚本状态
-    panel->setScriptRunning(terminal->isScriptRunning());
-    panel->setScriptName(terminal->currentScriptName());
-    if (terminal->isScriptRunning()) {
-        panel->setScriptStartTime(terminal->scriptStartTime());
+    McpSettingsDialog dialog(m_mcpServer, this);
+    if (dialog.exec() == QDialog::Accepted) {
+        if (m_mcpEnableAction) {
+            QSignalBlocker blocker(m_mcpEnableAction);
+            m_mcpEnableAction->setChecked(m_mcpServer->isRunning());
+        }
+        updateMcpStatus();
     }
+}
 
-    // 连接信号
-    connect(panel, &ScriptControlPanel::loadScriptRequested,
-            this, &MainWindow::loadScript);
-    connect(panel, &ScriptControlPanel::stopScriptRequested,
-            this, &MainWindow::stopScript);
-    connect(panel, &ScriptControlPanel::viewLogRequested,
-            this, &MainWindow::showScriptLog);
-
-    panel->show();
-    // 悬浮在主窗口中部，避免遮挡侧栏与终端内容
-    panel->adjustSize();
-    panel->move(frameGeometry().center() - panel->rect().center());
-    panel->raise();
-    panel->activateWindow();
+void MainWindow::showMcpLog()
+{
+    if (!m_mcpServer) {
+        return;
+    }
+    McpLogViewer dialog(m_mcpServer, this);
+    dialog.exec();
 }

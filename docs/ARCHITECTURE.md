@@ -13,14 +13,13 @@ NTerminal/
 │   ├── ipc/               # 进程间通信（命名管道帧协议）
 │   ├── session/           # 会话工作进程侧（协议处理器）
 │   ├── terminal/          # 终端核心（解析器/屏幕模型/代理）
-│   ├── script/            # Python 脚本引擎宿主
+│   ├── mcp/               # MCP 服务（工具/资源/权限/审计）+ stdio 桥
 │   ├── services/          # 应用服务（会话持久化）
 │   ├── theme/             # 外观管理（主题/字体单例）
 │   └── ui/                # Qt 界面（主窗口与全部对话框）
 ├── tests/                 # 单元测试（Qt Test，每模块一目录）
 ├── docs/                  # 项目文档
 ├── resources/             # qrc 资源（字体/图标/翻译）
-├── scripts/               # 内置 Python 脚本
 └── build_libssh.ps1       # Windows 下 libssh 源码构建链
 ```
 
@@ -31,7 +30,8 @@ main(argc, argv)
   └─ App::LaunchOptions::parse()            [src/app/launchoptions]
        ├─ -s/--session <id> → 会话进程：QCoreApplication + SessionProcess
        ├─ -t/--test         → 测试窗口：QApplication + TestWindow
-       └─ 默认              → GUI 主程序：MainWindow
+       ├─ --mcp-stdio       → MCP 桥：QCoreApplication + McpBridge（转发到 GUI 的本地管道）
+       └─ 默认              → GUI 主程序：MainWindow + McpServer
 ```
 
 ## 3. 模块职责与依赖规则
@@ -42,17 +42,17 @@ main(argc, argv)
 ui ──────────────┐
 theme            │
 services ────────┼──► terminal ──► ipc ──► common
-script ──────────┤        │
-session ─────────┘        └─（script：脚本引擎宿主）
+mcp ─────────────┤        │
+session ─────────┘        └─（mcp：MCP 工具层，直接操作 TerminalProxy）
 ```
 
 | 模块 | 职责 | 允许依赖 | 关键接口 |
 |---|---|---|---|
 | `common` | IPC 消息契约（`Ipc::MessageType`/`encodeMessage`）、连接设置（`Common::ConnectionSettings`，唯一权威定义 + 稳定 JSON 契约） | 仅 QtCore | header-only |
 | `ipc` | 帧编解码与粘包缓冲（`IpcProtocol`）、主进程侧客户端（`IpcClient`）、会话进程侧服务端（`IpcServer`） | common | `processData`/`sendMessage`/`messageReceived` |
-| `terminal` | VT/ANSI 状态机（`TerminalParser`，纯逻辑 50+ 信号）；屏幕模型与渲染（`TerminalProxy`）；主题数据结构（`TerminalTheme`） | common, ipc, script | `processData` / `processTerminalData` / 只读状态查询（`screenText`/`cellAt`/`cursorRow`...） |
+| `terminal` | VT/ANSI 状态机（`TerminalParser`，纯逻辑 50+ 信号）；屏幕模型与渲染（`TerminalProxy`）；主题数据结构（`TerminalTheme`） | common, ipc | `processData` / `processTerminalData` / 只读状态查询（`screenText`/`historyText`/`cellAt`/`cursorRow`...） |
 | `session` | 会话进程总控（`SessionProcess`）、会话日志（`SessionLogger`）、连接处理器抽象（`ConnectionHandler`）与工厂（`ConnectionHandlerFactory`）、7 种协议实现 | common, ipc | `open/close/sendData` + 4 信号 |
-| `script` | Python 脚本宿主（QProcess + JSON 行协议） | 仅 QtCore | `loadScript`/`sendLine`/`sendCommand` 信号 |
+| `mcp` | MCP 服务：本地命名管道上的 JSON-RPC（双协议时代）、工具/资源、AI 权限与审计；`McpBridge` 负责 stdio ↔ 管道 | common, terminal, services, QtNetwork/Widgets（仅确认弹窗） | `start/stop`、`registerTerminal`、工具调用 |
 | `services` | 会话持久化（`SessionManager` → `~/.nterminal/sessions.json`） | common（**不依赖 UI**） | `loadSessions`/`saveSessions`/增删改查 |
 | `theme` | `ThemeManager`/`FontManager` 单例：主题生产、QSettings 持久化 | terminal（仅 TerminalTheme 结构） | `currentTerminalTheme()` + 变更信号 |
 | `ui` | 主窗口、连接对话框、工具对话框、终端测试器 | 全部下层 | — |
@@ -65,7 +65,9 @@ session ─────────┘        └─（script：脚本引擎宿�
 3. `terminal` 不得访问全局单例（`TerminalProxy` 主题/字体均为注入式：`setTheme`/`setFont`）。
 4. `session` 内部协议实现（含 libssh）不得反向泄漏到接口头文件
    （工厂 `ConnectionHandlerFactory` 独立编译单元承载全部具体协议 include）。
-5. 跨模块 include 一律带模块前缀（`#include "terminal/terminalproxy.h"`），
+5. `mcp` 的协议/工具层不得 include `ui`；打开/关闭会话通过
+   `setOpenSessionHandler`/`setCloseSessionHandler` 回调注入。
+6. 跨模块 include 一律带模块前缀（`#include "terminal/terminalproxy.h"`），
    模块内部用同目录相对名。
 
 ## 4. 关键数据流
@@ -78,6 +80,11 @@ session ─────────┘        └─（script：脚本引擎宿�
                                  → TerminalProxy 屏幕缓冲（Cell 矩阵）→ 绘制
 
 键盘 → TerminalProxy::keyPressEvent → sendData → IPC → Handler → [远端]
+
+AI → MCP 客户端 → NTerminal.exe --mcp-stdio → 本地命名管道 → McpServer
+   → 工具（list_sessions/read_screen/send_text/run_command...）
+   → TerminalProxy / SessionManager → 终端标签与远端连接
+   → 审计日志 ~/.nterminal/mcp-audit.log
 ```
 
 - 连接建立：`MainWindow::openConnectionFromDialog` → `TerminalProxy::openConnection`

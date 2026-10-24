@@ -446,8 +446,8 @@ if the target service is SSH, change the port to 22.</translation>
         <translation>Duplicate session</translation>
     </message>
     <message>
-        <source>脚本</source>
-        <translation>Script</translation>
+        <source>MCP</source>
+        <translation>MCP</translation>
     </message>
     <message>
         <source>工具</source>
@@ -510,12 +510,12 @@ if the target service is SSH, change the port to 22.</translation>
         <translation>&amp;Transfer</translation>
     </message>
     <message>
-        <source>脚本(&amp;P)</source>
-        <translation>&amp;Script</translation>
-    </message>
-    <message>
         <source>工具(&amp;O)</source>
         <translation>T&amp;ools</translation>
+    </message>
+    <message>
+        <source>MCP(&amp;M)</source>
+        <translation>&amp;MCP</translation>
     </message>
     <message>
         <source>插件(&amp;L)</source>
@@ -574,20 +574,36 @@ if the target service is SSH, change the port to 22.</translation>
         <translation>ASCII Table</translation>
     </message>
     <message>
-        <source>加载脚本...</source>
-        <translation>Load Script...</translation>
+        <source>启用 MCP 服务</source>
+        <translation>Enable MCP service</translation>
     </message>
     <message>
-        <source>停止脚本</source>
-        <translation>Stop Script</translation>
+        <source>复制 Claude Desktop 配置</source>
+        <translation>Copy Claude Desktop config</translation>
     </message>
     <message>
-        <source>查看脚本日志</source>
-        <translation>View Script Log</translation>
+        <source>复制 Claude Code 命令</source>
+        <translation>Copy Claude Code command</translation>
     </message>
     <message>
-        <source>脚本控制面板</source>
-        <translation>Script Control Panel</translation>
+        <source>MCP 设置...</source>
+        <translation>MCP Settings...</translation>
+    </message>
+    <message>
+        <source>查看 AI 操作日志</source>
+        <translation>View AI audit log</translation>
+    </message>
+    <message>
+        <source>无法启动 MCP 服务：%1</source>
+        <translation>Failed to start MCP service: %1</translation>
+    </message>
+    <message>
+        <source>已复制 Claude Desktop MCP 配置</source>
+        <translation>Claude Desktop MCP config copied</translation>
+    </message>
+    <message>
+        <source>已复制 Claude Code MCP 命令</source>
+        <translation>Claude Code MCP command copied</translation>
     </message>
     <message>
         <source>关于 NTerminal</source>
@@ -610,8 +626,44 @@ if the target service is SSH, change the port to 22.</translation>
         <translation>Error</translation>
     </message>
     <message>
-        <source>无法加载脚本: %1</source>
-        <translation>Failed to load script: %1</translation>
+        <source>MCP · 关闭</source>
+        <translation>MCP · off</translation>
+    </message>
+    <message>
+        <source>MCP · 只读</source>
+        <translation>MCP · read-only</translation>
+    </message>
+    <message>
+        <source>MCP · 确认</source>
+        <translation>MCP · confirm</translation>
+    </message>
+    <message>
+        <source>MCP · 控制</source>
+        <translation>MCP · control</translation>
+    </message>
+    <message>
+        <source>AI 无法访问终端</source>
+        <translation>AI cannot access terminals</translation>
+    </message>
+    <message>
+        <source>AI 可通过 MCP 访问终端。端点文件：%1</source>
+        <translation>AI can access terminals through MCP. Endpoint file: %1</translation>
+    </message>
+    <message>
+        <source>未找到终端会话: %1</source>
+        <translation>Terminal session not found: %1</translation>
+    </message>
+    <message>
+        <source>会话管理器不可用</source>
+        <translation>Session manager is unavailable</translation>
+    </message>
+    <message>
+        <source>无法创建终端标签</source>
+        <translation>Failed to create terminal tab</translation>
+    </message>
+    <message>
+        <source>未找到已保存会话: %1</source>
+        <translation>Saved session not found: %1</translation>
     </message>
 </context>
 <context>
@@ -727,187 +779,6 @@ if the target service is SSH, change the port to 22.</translation>
     <message>
         <source>未知</source>
         <translation>Unknown</translation>
-    </message>
-</context>
-<context>
-    <name>ScriptControlPanel</name>
-    <message>
-        <source>脚本状态</source>
-        <translation>Script Status</translation>
-    </message>
-    <message>
-        <source>● 未运行</source>
-        <translation>● Not running</translation>
-    </message>
-    <message>
-        <source>无脚本</source>
-        <translation>No script</translation>
-    </message>
-    <message>
-        <source>运行时间: --:--:--</source>
-        <translation>Running time: --:--:--</translation>
-    </message>
-    <message>
-        <source>加载脚本</source>
-        <translation>Load Script</translation>
-    </message>
-    <message>
-        <source>停止</source>
-        <translation>Stop</translation>
-    </message>
-    <message>
-        <source>查看日志</source>
-        <translation>View Log</translation>
-    </message>
-    <message>
-        <source>● 运行中</source>
-        <translation>● Running</translation>
-    </message>
-    <message>
-        <source>脚本: %1</source>
-        <translation>Script: %1</translation>
-    </message>
-    <message>
-        <source>● %1</source>
-        <translation>● %1</translation>
-    </message>
-    <message>
-        <source>运行时间: %1</source>
-        <translation>Running time: %1</translation>
-    </message>
-</context>
-<context>
-    <name>ScriptDialog</name>
-    <message>
-        <source>选择 Python 脚本</source>
-        <translation>Select Python Script</translation>
-    </message>
-    <message>
-        <source>最近使用</source>
-        <translation>Recently used</translation>
-    </message>
-    <message>
-        <source>内置脚本</source>
-        <translation>Built-in scripts</translation>
-    </message>
-    <message>
-        <source>浏览文件...</source>
-        <translation>Browse Files...</translation>
-    </message>
-    <message>
-        <source>脚本路径:</source>
-        <translation>Script path:</translation>
-    </message>
-    <message>
-        <source>确定</source>
-        <translation>OK</translation>
-    </message>
-    <message>
-        <source>取消</source>
-        <translation>Cancel</translation>
-    </message>
-    <message>
-        <source>简单示例脚本</source>
-        <translation>Simple example script</translation>
-    </message>
-    <message>
-        <source>演示基本的行处理和模式匹配功能</source>
-        <translation>Demonstrates basic line processing and pattern matching</translation>
-    </message>
-    <message>
-        <source>自动登录脚本</source>
-        <translation>Auto-login script</translation>
-    </message>
-    <message>
-        <source>自动检测登录提示并输入用户名和密码</source>
-        <translation>Detects the login prompt and enters username and password</translation>
-    </message>
-    <message>
-        <source>日志监控脚本</source>
-        <translation>Log monitoring script</translation>
-    </message>
-    <message>
-        <source>监控终端输出中的错误和警告信息</source>
-        <translation>Monitors terminal output for errors and warnings</translation>
-    </message>
-    <message>
-        <source>自动化测试脚本</source>
-        <translation>Automation test script</translation>
-    </message>
-    <message>
-        <source>运行一系列测试命令并验证输出</source>
-        <translation>Runs a series of test commands and verifies the output</translation>
-    </message>
-    <message>
-        <source>脚本文件不存在: %1</source>
-        <translation>Script file does not exist: %1</translation>
-    </message>
-    <message>
-        <source>(无最近使用的脚本)</source>
-        <translation>(No recently used scripts)</translation>
-    </message>
-    <message>
-        <source>Python 脚本 (*.py);;所有文件 (*)</source>
-        <translation>Python Scripts (*.py);;All Files (*)</translation>
-    </message>
-    <message>
-        <source>⚠ 文件不存在</source>
-        <translation>⚠ File not found</translation>
-    </message>
-</context>
-<context>
-    <name>ScriptLogViewer</name>
-    <message>
-        <source>脚本日志</source>
-        <translation>Script Log</translation>
-    </message>
-    <message>
-        <source>清空日志</source>
-        <translation>Clear Log</translation>
-    </message>
-    <message>
-        <source>导出日志</source>
-        <translation>Export Log</translation>
-    </message>
-    <message>
-        <source>关闭</source>
-        <translation>Close</translation>
-    </message>
-    <message>
-        <source>脚本日志 - %1</source>
-        <translation>Script Log - %1</translation>
-    </message>
-    <message>
-        <source>文本文件 (*.txt);;所有文件 (*)</source>
-        <translation>Text Files (*.txt);;All Files (*)</translation>
-    </message>
-    <message>
-        <source>导出失败</source>
-        <translation>Export Failed</translation>
-    </message>
-    <message>
-        <source>无法写入文件: %1</source>
-        <translation>Cannot write file: %1</translation>
-    </message>
-    <message>
-        <source>=== NTerminal 脚本日志 ===</source>
-        <translation>=== NTerminal Script Log ===</translation>
-    </message>
-    <message>
-        <source>脚本: </source>
-        <translation>Script: </translation>
-    </message>
-    <message>
-        <source>导出时间: </source>
-        <translation>Export time: </translation>
-    </message>
-    <message>
-        <source>导出成功</source>
-        <translation>Export Successful</translation>
-    </message>
-    <message>
-        <source>日志已导出到: %1</source>
-        <translation>Log exported to: %1</translation>
     </message>
 </context>
 <context>
@@ -1224,6 +1095,149 @@ if the target service is SSH, change the port to 22.</translation>
     <message>
         <source>亮色</source>
         <translation>Bright</translation>
+    </message>
+</context>
+<context>
+    <name>McpServer</name>
+    <message>
+        <source>无法监听本地管道：%1</source>
+        <translation>Cannot listen on local pipe: %1</translation>
+    </message>
+    <message>
+        <source>无法写入 MCP 端点文件：%1</source>
+        <translation>Cannot write MCP endpoint file: %1</translation>
+    </message>
+    <message>
+        <source>AI 控制请求</source>
+        <translation>AI control request</translation>
+    </message>
+    <message>
+        <source>AI 客户端“%1”请求在 %2 上执行：
+
+%3
+
+%4</source>
+        <translation>AI client "%1" requests to run %3 on %2:
+
+%4</translation>
+    </message>
+    <message>
+        <source>允许</source>
+        <translation>Allow</translation>
+    </message>
+    <message>
+        <source>拒绝</source>
+        <translation>Deny</translation>
+    </message>
+</context>
+<context>
+    <name>McpSettingsDialog</name>
+    <message>
+        <source>MCP 设置</source>
+        <translation>MCP Settings</translation>
+    </message>
+    <message>
+        <source>MCP / AI 控制</source>
+        <translation>MCP / AI control</translation>
+    </message>
+    <message>
+        <source>AI 客户端（Claude Desktop、Claude Code 等）通过 MCP 协议读取终端内容、发送命令。所有调用都会写入审计日志。</source>
+        <translation>AI clients (Claude Desktop, Claude Code, etc.) can read terminal output and send commands through MCP. Every call is written to the audit log.</translation>
+    </message>
+    <message>
+        <source>服务</source>
+        <translation>Service</translation>
+    </message>
+    <message>
+        <source>启用 MCP 服务</source>
+        <translation>Enable MCP service</translation>
+    </message>
+    <message>
+        <source>端点文件：%1</source>
+        <translation>Endpoint file: %1</translation>
+    </message>
+    <message>
+        <source>在「MCP」菜单中可复制 Claude Desktop 配置或 Claude Code 命令；配置完成后由 AI 客户端启动 NTerminal.exe --mcp-stdio。</source>
+        <translation>Copy the Claude Desktop config or Claude Code command from the MCP menu. The AI client then launches NTerminal.exe --mcp-stdio.</translation>
+    </message>
+    <message>
+        <source>复制 Claude Desktop 配置</source>
+        <translation>Copy Claude Desktop config</translation>
+    </message>
+    <message>
+        <source>复制 Claude Code 命令</source>
+        <translation>Copy Claude Code command</translation>
+    </message>
+    <message>
+        <source>AI 权限</source>
+        <translation>AI permissions</translation>
+    </message>
+    <message>
+        <source>只读：AI 只能查看会话和终端内容</source>
+        <translation>Read-only: AI can only view sessions and terminal output</translation>
+    </message>
+    <message>
+        <source>每次确认：写入或关闭会话前弹窗询问</source>
+        <translation>Confirm: ask before writing or closing a session</translation>
+    </message>
+    <message>
+        <source>允许控制：写入不再询问（适合受信任的自动化）</source>
+        <translation>Allow control: do not ask for writes (for trusted automation)</translation>
+    </message>
+    <message>
+        <source>提供的工具</source>
+        <translation>Available tools</translation>
+    </message>
+    <message>
+        <source>会话管理、读屏/发送/按键/等待输出/执行命令、文件传输（ZMODEM/YMODEM/XMODEM/Kermit/ASCII）、内置网络服务（TFTP/FTP/HTTP/Telnet/NFS）、远端资源统计。完整参数由 MCP 客户端自动获取。</source>
+        <translation>Session management; read/send/keys/wait/run; file transfer (ZMODEM/YMODEM/XMODEM/Kermit/ASCII); built-in network services (TFTP/FTP/HTTP/Telnet/NFS); remote system stats. MCP clients fetch the full schemas automatically.</translation>
+    </message>
+    <message>
+        <source>确定</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>取消</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Claude Desktop 配置已复制到剪贴板。</source>
+        <translation>Claude Desktop config copied to the clipboard.</translation>
+    </message>
+    <message>
+        <source>Claude Code 命令已复制到剪贴板。</source>
+        <translation>Claude Code command copied to the clipboard.</translation>
+    </message>
+</context>
+<context>
+    <name>McpLogViewer</name>
+    <message>
+        <source>AI 操作日志</source>
+        <translation>AI audit log</translation>
+    </message>
+    <message>
+        <source>记录每次 MCP 工具调用（JSON Lines）：%1</source>
+        <translation>Records every MCP tool call (JSON Lines): %1</translation>
+    </message>
+    <message>
+        <source>暂无 AI 操作记录</source>
+        <translation>No AI activity yet</translation>
+    </message>
+    <message>
+        <source>刷新</source>
+        <translation>Refresh</translation>
+    </message>
+    <message>
+        <source>清空日志</source>
+        <translation>Clear log</translation>
+    </message>
+    <message>
+        <source>关闭</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>确定清空全部 AI 操作日志吗？</source>
+        <translation>Clear the entire AI audit log?</translation>
     </message>
 </context>
 </TS>

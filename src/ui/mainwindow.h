@@ -26,6 +26,7 @@ class QResizeEvent;
 class QEvent;
 class SessionManager;
 class SystemStatsWidget;
+class McpServer;
 
 class MainWindow : public QMainWindow
 {
@@ -54,12 +55,8 @@ private slots:
     void showPortScanner();
     void showNetworkServices();
     void showAsciiTable();
-
-    // 脚本相关槽函数
-    void loadScript();
-    void stopScript();
-    void showScriptLog();
-    void showScriptControlPanel();
+    void showMcpSettings();
+    void showMcpLog();
 
     // ---- GUI 重设计新增 ----
     void onSessionTreeActivated(QTreeWidgetItem *item, int column);
@@ -107,7 +104,11 @@ private:
     // 按已保存会话打开新标签页
     void openSession(const Common::ConnectionSettings &settings, const QString &name);
     
-    TerminalProxy* createNewTerminalTab(const QString &tabName = QString());
+    TerminalProxy* createNewTerminalTab(const QString &tabName = QString(),
+                                        QString *terminalIdOut = nullptr);
+    // MCP 工具 open_saved_session：按已保存会话名打开标签，返回 terminal id
+    QString openSessionForMcp(const QString &name, QString *error);
+    void updateMcpStatus();
     void closeTerminalTab(int index);
     void closeTerminalTabById(const QString &terminalId);
     TerminalProxy* getCurrentTerminal() const;
@@ -155,7 +156,7 @@ private:
     QMenu *m_optMenu = nullptr;
     QMenu *m_transmitMenu = nullptr;
     QMenu *m_protocolMenu = nullptr;
-    QMenu *m_scriptMenu = nullptr;
+    QMenu *m_mcpMenu = nullptr;
     QMenu *m_toolsMenu = nullptr;
     QMenu *m_pluginMenu = nullptr;
     QMenu *m_helpMenu = nullptr;
@@ -192,10 +193,13 @@ private:
     QAction *m_ftpAction = nullptr;
     QAction *m_pluginDirAction = nullptr;
 
-    // 脚本相关 Action
-    QAction *m_loadScriptAction = nullptr;
-    QAction *m_stopScriptAction = nullptr;
-    QAction *m_scriptLogAction = nullptr;
-    QAction *m_scriptControlAction = nullptr;
+    // MCP（AI 控制）
+    McpServer *m_mcpServer = nullptr;
+    QAction *m_mcpEnableAction = nullptr;
+    QAction *m_mcpCopyDesktopAction = nullptr;
+    QAction *m_mcpCopyClaudeCodeAction = nullptr;
+    QAction *m_mcpSettingsAction = nullptr;
+    QAction *m_mcpLogAction = nullptr;
+    QLabel *m_statusMcp = nullptr;
 };
 #endif // MAINWINDOW_H

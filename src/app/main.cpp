@@ -6,6 +6,7 @@
 #include "app/launchoptions.h"
 #include "common/appinfo.h"
 #include "common/languagemanager.h"
+#include "mcp/mcpbridge.h"
 
 #include <QApplication>
 #include <QCoreApplication>
@@ -76,6 +77,16 @@ static int runSessionProcess(const QString &sessionId, int argc, char *argv[])
     return result;
 }
 
+static int runMcpStdio(int argc, char *argv[])
+{
+    QCoreApplication app(argc, argv);
+    QCoreApplication::setApplicationName("NTerminal-MCP");
+    QCoreApplication::setApplicationVersion(AppInfo::version());
+
+    McpBridge bridge;
+    return bridge.run();
+}
+
 static int runTestWindow(int argc, char *argv[])
 {
     QApplication app(argc, argv);
@@ -124,6 +135,8 @@ int main(int argc, char *argv[])
             return runSessionProcess(options.sessionId, argc, argv);
         case App::LaunchMode::Test:
             return runTestWindow(argc, argv);
+        case App::LaunchMode::McpStdio:
+            return runMcpStdio(argc, argv);
         case App::LaunchMode::Gui:
         default:
             return runGui(argc, argv);

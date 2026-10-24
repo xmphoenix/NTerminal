@@ -15,6 +15,8 @@ LaunchOptions LaunchOptions::parse(const QStringList &args)
             break;   // 会话模式参数优先，行为与历史版本一致
         } else if (arg == QLatin1String("-t") || arg == QLatin1String("--test")) {
             options.mode = LaunchMode::Test;
+        } else if (arg == QLatin1String("--mcp-stdio")) {
+            options.mode = LaunchMode::McpStdio;
         }
     }
 

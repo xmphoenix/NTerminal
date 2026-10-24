@@ -216,9 +216,6 @@ QSplitter::handle:horizontal:hover { background-color: @accentSoft@; }
                padding: 8px 14px; font-size: 22px; font-weight: 600; }
 #calcValue { background-color: @surfaceAlt@; border: 1px solid @border@; border-radius: @radius@;
              padding: 4px 9px; font-size: 12px; color: @text@; }
-#scriptStatus { font-weight: 700; font-size: 12px; color: @textDim@; }
-#scriptStatus[state="running"] { color: @success@; }
-#scriptName { color: @text@; font-size: 11px; }
 #testSummary { background-color: @accentSoft@; color: @text@; border-radius: @radius@;
                padding: 6px 10px; font-size: 12px; font-weight: 600; }
 #testStandard { background-color: @surfaceAlt@; color: @textDim@; border: 1px solid @border@;
@@ -254,6 +251,8 @@ QStatusBar QLabel { color: @textDim@; padding: 0 8px; font-size: 11px; }
 /* 已连接 = 绿色，未连接 = 弱化灰（属性由 updateStatusBar 设置并重算样式） */
 #statusConnection[state="on"] { color: @success@; }
 #statusConnection[state="off"] { color: @textFaint@; }
+#statusMcp[state="on"] { color: @accentText@; }
+#statusMcp[state="off"] { color: @textFaint@; }
 #statusLatency { padding-right: 12px; }
 
 /* 远端资源条：图标 + 数值，指标之间用细竖线分隔 */

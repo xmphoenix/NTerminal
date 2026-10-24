@@ -72,9 +72,9 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ 菜单栏 28：文件 编辑 视图 会话 工具 脚本 帮助        NTerminal 2.0 │
+│ 菜单栏 28：文件 编辑 视图 会话 工具 MCP 帮助        NTerminal 2.0 │
 ├──────────────────────────────────────────────────────────────┤
-│ 工具栏 44：[+新建会话] [SSH▾|user@host:port|连接] │ ⛔ ↻ ⧉ │ 传输 脚本 工具 │… 主题 设置 │
+│ 工具栏 44：[+新建会话] [SSH▾|user@host:port|连接] │ ⛔ ↻ ⧉ │ 传输 MCP 工具 │… 主题 设置 │
 ├───────────────┬──────────────────────────────────────────────┤
 │ 侧栏 248       │ 标签栏 34：[● web-01 SSH ×][○ db-master ×][+]  │
 │ 搜索框         ├──────────────────────────────────────────────┤
@@ -126,8 +126,8 @@
    由 ThemeManager 加载时替换为当前主题色），qrc 打包；
    删除 `mainwindow.cpp` 中 3 处 `#0078D7` 硬编码
 3. **图标体系**：新建 `resources/icons/*.svg`（约 24 个，Lucide 风格 16px）：
-   new-session / disconnect / reconnect / duplicate / transfer / script / tools /
-   theme / settings / search / folder / folder-open / server / terminal /
+   new-session / disconnect / reconnect / duplicate / transfer / server / tools /
+   theme / settings / search / folder / folder-open / terminal /
    serial / telnet / chevron / close / send / key / eye / scroll-bottom / split / print
 4. **统一字体**：界面字体族与内置 JetBrains Mono 接入 FontManager
 

@@ -15,8 +15,6 @@
 #include "terminal/terminalparser.h"
 #include "terminal/terminaltheme.h"
 
-class PythonScriptEngine;
-
 // ============================================================================
 // 终端代理（terminal 核心层）
 //
@@ -89,6 +87,7 @@ public:
     int setIncomingFilter(IncomingFilter filter);
     void clearIncomingFilter(int token);
     void clearIncomingFilter();
+    bool hasIncomingFilter() const { return bool(m_incomingFilter); }
 
     // 测试/回放接口：将数据直接注入解析管线（等价于远端数据到达，
     // 不经过 IPC 与真实连接）。供 TerminalTester 与自动化测试驱动终端状态。
@@ -119,13 +118,8 @@ public:
     // 返回当前屏幕全部文本（各行去尾部空格，以 '\n' 连接）
     QString screenText() const;
 
-    // Python 脚本支持
-    bool loadScript(const QString &scriptPath);
-    void stopScript();
-    bool isScriptRunning() const;
-    QString currentScript() const;
-    QString currentScriptName() const;
-    QDateTime scriptStartTime() const;
+    // 历史回滚文本（最近 maxLines 行，按时间顺序）；供 MCP 读取终端内容
+    QString historyText(int maxLines) const;
 
 signals:
     void connectionOpened();
@@ -135,12 +129,6 @@ signals:
     void dataSent(const QByteArray &data);
     // 远端 CPU/内存/网络等资源快照（SSH 会话每 3 秒一次）
     void systemStatsUpdated(const QJsonObject &stats);
-
-    // Python 脚本信号
-    void scriptStateChanged();
-    void scriptStarted();
-    void scriptStopped(int exitCode);
-    void scriptError(const QString &error);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -320,11 +308,6 @@ private:
     bool m_mouseFocusTracking;        // ?1004 - 焦点事件报告
 
     void sendMouseEvent(int button, int x, int y, bool pressed);
-
-    // Python 脚本引擎
-    PythonScriptEngine *m_scriptEngine;
-    QString m_currentScriptPath;
-    QDateTime m_scriptStartTime;
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(TerminalProxy::Attributes)

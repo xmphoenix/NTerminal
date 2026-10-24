@@ -7,7 +7,7 @@
 #   ipc/       主进程与会话进程的本地管道通信
 #   terminal/  终端核心（VT100/ANSI 解析器、终端代理、主题数据）
 #   session/   会话进程侧的协议连接处理器（工厂 + 7 种协议）
-#   script/    Python 脚本引擎（QProcess 驱动外部解释器）
+#   mcp/       MCP 服务（工具/资源/权限/审计）与 stdio 桥接器
 #   services/  GUI 侧会话管理服务
 #   theme/     主题/字体管理（单例，生产 TerminalTheme）
 #   ui/        对话框与主窗口
@@ -86,7 +86,6 @@ SOURCES += \
     src/session/sftphandler.cpp \
     src/session/ftphandler.cpp \
     src/session/tftphandler.cpp \
-    src/script/pythonscriptengine.cpp \
     src/services/sessionmanager.cpp \
     src/transfer/filetransfer.cpp \
     src/transfer/xmodemtransfer.cpp \
@@ -101,6 +100,8 @@ SOURCES += \
     src/services/httpserver.cpp \
     src/services/telnetserver.cpp \
     src/services/nfsserver.cpp \
+    src/mcp/mcpserver.cpp \
+    src/mcp/mcpbridge.cpp \
     src/theme/thememanager.cpp \
     src/theme/fontmanager.cpp \
     src/ui/mainwindow.cpp \
@@ -118,9 +119,8 @@ SOURCES += \
     src/ui/portscannerdialog.cpp \
     src/ui/networkservicesdialog.cpp \
     src/ui/transferdialog.cpp \
-    src/ui/scriptdialog.cpp \
-    src/ui/scriptlogviewer.cpp \
-    src/ui/scriptcontrolpanel.cpp \
+    src/ui/mcpsettingsdialog.cpp \
+    src/ui/mcplogviewer.cpp \
     src/ui/systemstatswidget.cpp
 
 # ---- 头文件（Q_OBJECT 类必须列出以生成 moc） ----
@@ -147,7 +147,6 @@ HEADERS += \
     src/session/sftphandler.h \
     src/session/ftphandler.h \
     src/session/tftphandler.h \
-    src/script/pythonscriptengine.h \
     src/services/sessionmanager.h \
     src/transfer/filetransfer.h \
     src/transfer/xmodemcodec.h \
@@ -163,6 +162,8 @@ HEADERS += \
     src/services/httpserver.h \
     src/services/telnetserver.h \
     src/services/nfsserver.h \
+    src/mcp/mcpserver.h \
+    src/mcp/mcpbridge.h \
     src/theme/thememanager.h \
     src/theme/fontmanager.h \
     src/ui/mainwindow.h \
@@ -180,9 +181,8 @@ HEADERS += \
     src/ui/portscannerdialog.h \
     src/ui/networkservicesdialog.h \
     src/ui/transferdialog.h \
-    src/ui/scriptdialog.h \
-    src/ui/scriptlogviewer.h \
-    src/ui/scriptcontrolpanel.h \
+    src/ui/mcpsettingsdialog.h \
+    src/ui/mcplogviewer.h \
     src/ui/systemstatswidget.h
 
 RESOURCES += \

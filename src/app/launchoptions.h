@@ -10,6 +10,7 @@
 // 同一可执行文件按命令行参数分流为三种进程：
 //   -s/--session <id>  会话工作进程（QCoreApplication + SessionProcess）
 //   -t/--test          终端兼容性测试窗口
+//   --mcp-stdio        MCP stdio 桥接器（供 Claude Desktop/Code 启动）
 //   （默认）           GUI 主程序
 //
 // 解析逻辑为纯函数，无 Qt GUI 依赖，可单元测试
@@ -21,7 +22,8 @@ namespace App {
 enum class LaunchMode {
     Gui,      // 默认：GUI 主程序
     Session,  // -s/--session <id>：会话工作进程
-    Test      // -t/--test：测试窗口
+    Test,     // -t/--test：测试窗口
+    McpStdio  // --mcp-stdio：MCP stdio 桥接器
 };
 
 struct LaunchOptions {
