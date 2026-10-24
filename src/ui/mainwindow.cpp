@@ -26,7 +26,10 @@
 #include "ui/systemstatswidget.h"
 #include "ui/mcpsettingsdialog.h"
 #include "ui/mcplogviewer.h"
+#include "ui/updatedialog.h"
+#include "ui/updatesettingsdialog.h"
 #include "mcp/mcpserver.h"
+#include "update/updatemanager.h"
 #include <QSplitter>
 #include <QTreeWidget>
 #include <QTabWidget>
@@ -46,6 +49,7 @@
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QKeyEvent>
+#include <QApplication>
 #include <QGuiApplication>
 #include <QScreen>
 #include <QWindow>
@@ -135,6 +139,9 @@ MainWindow::MainWindow(QWidget *parent)
         m_mcpEnableAction->setChecked(m_mcpServer->isRunning());
     }
     updateMcpStatus();
+
+    // 启动 5 秒后静默检查更新（仅在配置了更新源且开启自动检查时）
+    QTimer::singleShot(5000, this, &MainWindow::autoCheckForUpdates);
 
     // 应用主题切换：刷新图标着色与状态栏颜色（QSS 由 ThemeManager 统一更新）
     connect(ThemeManager::instance(), &ThemeManager::appThemeChanged,
@@ -1337,6 +1344,12 @@ void MainWindow::initMainWindowMenu()
     connect(m_logSettingsAction, &QAction::triggered, this, &MainWindow::showLogSettings);
     m_optMenu->addAction(m_logSettingsAction);
 
+    m_updateSettingsAction = new QAction(this);
+    bindText([this] { m_updateSettingsAction->setText(tr("更新设置...")); });
+    connect(m_updateSettingsAction, &QAction::triggered, this,
+            &MainWindow::showUpdateSettings);
+    m_optMenu->addAction(m_updateSettingsAction);
+
     // 语言切换：中文（缺省）/ English，立即生效并写入配置
     m_languageMenu = m_optMenu->addMenu(QString());
     bindText([this] { m_languageMenu->setTitle(tr("语言")); });
@@ -1455,6 +1468,14 @@ void MainWindow::initMainWindowMenu()
     m_mcpMenu->addAction(m_mcpLogAction);
 
     // 帮助菜单
+    m_checkUpdatesAction = new QAction(this);
+    bindText([this] { m_checkUpdatesAction->setText(tr("检查更新...")); });
+    connect(m_checkUpdatesAction, &QAction::triggered, this,
+            &MainWindow::checkForUpdates);
+    m_helpMenu->addAction(m_checkUpdatesAction);
+
+    m_helpMenu->addSeparator();
+
     m_aboutAction = new QAction(this);
     bindText([this] { m_aboutAction->setText(tr("关于 NTerminal")); });
     connect(m_aboutAction, &QAction::triggered, this, [this] {
@@ -1659,6 +1680,8 @@ void MainWindow::applyMenuIcons()
     if (m_sessionAction) m_sessionAction->setIcon(IconProvider::themedIcon("new-session"));
     if (m_themeAction) m_themeAction->setIcon(IconProvider::themedIcon("theme"));
     if (m_logSettingsAction) m_logSettingsAction->setIcon(IconProvider::themedIcon("log"));
+    if (m_updateSettingsAction) m_updateSettingsAction->setIcon(IconProvider::themedIcon("settings"));
+    if (m_checkUpdatesAction) m_checkUpdatesAction->setIcon(IconProvider::themedIcon("download"));
     if (m_exitAction) m_exitAction->setIcon(IconProvider::themedIcon("close"));
     if (m_mcpEnableAction) m_mcpEnableAction->setIcon(IconProvider::themedIcon("server"));
     if (m_mcpCopyDesktopAction) m_mcpCopyDesktopAction->setIcon(IconProvider::themedIcon("copy"));
@@ -2053,4 +2076,62 @@ void MainWindow::showMcpLog()
     }
     McpLogViewer dialog(m_mcpServer, this);
     dialog.exec();
+}
+
+// ---------------------------------------------------------------------------
+// 自动更新
+// ---------------------------------------------------------------------------
+
+void MainWindow::checkForUpdates()
+{
+    if (UpdateManager::feedUrl().isEmpty()) {
+        showUpdateSettings();
+        if (UpdateManager::feedUrl().isEmpty()) {
+            return;
+        }
+    }
+
+    UpdateDialog dialog(this);
+    dialog.exec();
+}
+
+void MainWindow::showUpdateSettings()
+{
+    UpdateSettingsDialog dialog(this);
+    dialog.exec();
+}
+
+void MainWindow::autoCheckForUpdates()
+{
+    if (!UpdateManager::autoCheckEnabled() || UpdateManager::feedUrl().isEmpty()) {
+        return;
+    }
+    // 有模态对话框时（例如用户正在设置），本次自动检查跳过
+    if (QApplication::activeModalWidget()) {
+        return;
+    }
+
+    auto *manager = new UpdateManager(this);
+    connect(manager, &UpdateManager::updateAvailable, this,
+            [this, manager](const UpdateInfo &info) {
+                manager->deleteLater();
+                if (QApplication::activeModalWidget()) {
+                    return;
+                }
+
+                const QString notes = info.notes.trimmed();
+                const auto answer = QMessageBox::question(
+                    this, tr("软件更新"),
+                    tr("发现新版本 %1（当前 %2）。\n\n%3\n\n是否查看更新？")
+                        .arg(info.version, UpdateManager::currentVersion(),
+                             notes.left(800)),
+                    QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+                if (answer == QMessageBox::Yes) {
+                    UpdateDialog dialog(this, info);
+                    dialog.exec();
+                }
+            });
+    connect(manager, &UpdateManager::noUpdate, manager, &QObject::deleteLater);
+    connect(manager, &UpdateManager::error, manager, &QObject::deleteLater);
+    manager->checkForUpdates();
 }

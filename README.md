@@ -1,6 +1,6 @@
 # NTerminal
 
-跨平台多协议终端工具（Qt 6 / C++17）。支持 Serial、Telnet、SSH、Rlogin、SFTP、FTP、TFTP 七种连接协议，内置 MCP（Model Context Protocol）服务，可让 Claude Desktop / Claude Code 等 AI 客户端直接读取终端、发送命令、管理文件传输与内置网络服务；同时提供会话持久化、VT100~VT320/xterm 兼容性测试器与开发者工具箱。
+跨平台多协议终端工具（Qt 6 / C++17）。支持 Serial、Telnet、SSH、Rlogin、SFTP、FTP、TFTP 七种连接协议，内置 MCP（Model Context Protocol）服务，可让 Claude Desktop / Claude Code 等 AI 客户端直接读取终端、发送命令、管理文件传输与内置网络服务；同时提供自动更新、会话持久化、VT100~VT320/xterm 兼容性测试器与开发者工具箱。
 
 ## 构建与测试
 
@@ -20,6 +20,12 @@ claude mcp add --transport stdio nterminal -- "C:\Path\NTerminal.exe" --mcp-stdi
 ```
 
 Claude Desktop：在「MCP → 复制 Claude Desktop 配置」后粘贴到 `claude_desktop_config.json`。桥接器会连接正在运行的 NTerminal，请先启动 GUI 并保持 MCP 服务启用。详细说明见 [docs/MCP.md](docs/MCP.md)。
+
+## 自动更新
+
+「帮助 → 检查更新...」读取远程 `update.json`，比较版本、下载 zip、校验 SHA-256，退出后由独立更新脚本替换程序文件并自动重启；用户配置不会被覆盖。「设置 → 更新设置...」可填写更新源地址与启动时自动检查。
+
+打包与发布流程见 [docs/AUTO_UPDATE.md](docs/AUTO_UPDATE.md)，打包脚本为 [tools/package_update.ps1](tools/package_update.ps1)。
 
 ## 界面语言
 

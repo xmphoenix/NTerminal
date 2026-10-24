@@ -7,6 +7,7 @@
 #include "common/appinfo.h"
 #include "common/languagemanager.h"
 #include "mcp/mcpbridge.h"
+#include "update/updatemanager.h"
 
 #include <QApplication>
 #include <QCoreApplication>
@@ -108,6 +109,12 @@ static int runGui(int argc, char *argv[])
     // 注册表路径，主题/字体的保存会静默失效。统一到与其它模块相同的组织名。
     QCoreApplication::setOrganizationName("NTerminal");
     QCoreApplication::setApplicationVersion(AppInfo::version());
+
+    // 上次下载的更新包：启动更新脚本后立即退出，由脚本等待本进程结束、
+    // 替换程序文件并重新启动（不经过安装程序）。
+    if (UpdateManager::applyPendingUpdate()) {
+        return 0;
+    }
 
     ThemeManager::instance()->initialize();
     FontManager::instance()->initialize();

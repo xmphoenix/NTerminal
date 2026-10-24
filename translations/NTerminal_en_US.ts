@@ -630,16 +630,20 @@ if the target service is SSH, change the port to 22.</translation>
         <translation>MCP · off</translation>
     </message>
     <message>
-        <source>MCP · 只读</source>
-        <translation>MCP · read-only</translation>
+        <source>只读</source>
+        <translation>Read-only</translation>
     </message>
     <message>
-        <source>MCP · 确认</source>
-        <translation>MCP · confirm</translation>
+        <source>确认</source>
+        <translation>Confirm</translation>
     </message>
     <message>
-        <source>MCP · 控制</source>
-        <translation>MCP · control</translation>
+        <source>控制</source>
+        <translation>Control</translation>
+    </message>
+    <message>
+        <source>MCP · %1</source>
+        <translation>MCP · %1</translation>
     </message>
     <message>
         <source>AI 无法访问终端</source>
@@ -664,6 +668,34 @@ if the target service is SSH, change the port to 22.</translation>
     <message>
         <source>未找到已保存会话: %1</source>
         <translation>Saved session not found: %1</translation>
+    </message>
+    <message>
+        <source>检查更新...</source>
+        <translation>Check for Updates...</translation>
+    </message>
+    <message>
+        <source>更新设置...</source>
+        <translation>Update Settings...</translation>
+    </message>
+    <message>
+        <source>软件更新</source>
+        <translation>Software Update</translation>
+    </message>
+    <message>
+        <source>当前会话已有传输正在进行。</source>
+        <translation>A transfer is already in progress for this session.</translation>
+    </message>
+    <message>
+        <source>发现新版本 %1（当前 %2）。
+
+%3
+
+是否查看更新？</source>
+        <translation>A new version %1 is available (current %2).
+
+%3
+
+View the update?</translation>
     </message>
 </context>
 <context>
@@ -1238,6 +1270,275 @@ if the target service is SSH, change the port to 22.</translation>
     <message>
         <source>确定清空全部 AI 操作日志吗？</source>
         <translation>Clear the entire AI audit log?</translation>
+    </message>
+</context>
+<context>
+    <name>UpdateManager</name>
+    <message>
+        <source>安装目录不可写：%1。请把 NTerminal 放到用户可写目录，或以管理员权限运行。</source>
+        <translation>The installation directory is not writable: %1. Move NTerminal to a user-writable folder or run as administrator.</translation>
+    </message>
+    <message>
+        <source>更新清单不是有效的 JSON：%1</source>
+        <translation>The update manifest is not valid JSON: %1</translation>
+    </message>
+    <message>
+        <source>更新清单缺少 version 字段。</source>
+        <translation>The update manifest is missing the version field.</translation>
+    </message>
+    <message>
+        <source>更新清单中没有当前平台 %1 的下载信息。</source>
+        <translation>The update manifest has no download entry for the current platform %1.</translation>
+    </message>
+    <message>
+        <source>更新清单缺少下载地址 url。</source>
+        <translation>The update manifest is missing the url field.</translation>
+    </message>
+    <message>
+        <source>更新清单的 sha256 必须是 64 位十六进制字符串。</source>
+        <translation>The update manifest sha256 must be a 64-character hexadecimal string.</translation>
+    </message>
+    <message>
+        <source>下载地址必须是 HTTPS（本地测试可用 http://127.0.0.1 或 file://）：%1</source>
+        <translation>The download URL must use HTTPS (http://127.0.0.1 and file:// are allowed for local testing): %1</translation>
+    </message>
+    <message>
+        <source>未配置更新源。请在“设置 → 更新设置”中填写 update.json 地址。</source>
+        <translation>No update feed configured. Set the update.json URL in Settings → Update Settings.</translation>
+    </message>
+    <message>
+        <source>更新源必须是 HTTPS 地址（本地测试可用 http://127.0.0.1 或 file://）。</source>
+        <translation>The update feed must use HTTPS (http://127.0.0.1 and file:// are allowed for local testing).</translation>
+    </message>
+    <message>
+        <source>检查更新失败：%1</source>
+        <translation>Failed to check for updates: %1</translation>
+    </message>
+    <message>
+        <source>检查更新失败：服务器返回 HTTP %1。</source>
+        <translation>Failed to check for updates: the server returned HTTP %1.</translation>
+    </message>
+    <message>
+        <source>更新清单过大，已拒绝。</source>
+        <translation>The update manifest is too large and was rejected.</translation>
+    </message>
+    <message>
+        <source>更新信息无效。</source>
+        <translation>The update information is invalid.</translation>
+    </message>
+    <message>
+        <source>下载地址必须是 HTTPS。</source>
+        <translation>The download URL must use HTTPS.</translation>
+    </message>
+    <message>
+        <source>无法创建临时下载文件：%1</source>
+        <translation>Cannot create the temporary download file: %1</translation>
+    </message>
+    <message>
+        <source>下载更新失败：%1</source>
+        <translation>Failed to download the update: %1</translation>
+    </message>
+    <message>
+        <source>下载的更新包为空。</source>
+        <translation>The downloaded update package is empty.</translation>
+    </message>
+    <message>
+        <source>更新包大小不一致：期望 %1 字节，实际 %2 字节。</source>
+        <translation>Update package size mismatch: expected %1 bytes, got %2 bytes.</translation>
+    </message>
+    <message>
+        <source>无法读取更新包：%1</source>
+        <translation>Cannot read the update package: %1</translation>
+    </message>
+    <message>
+        <source>读取更新包失败：%1</source>
+        <translation>Failed to read the update package: %1</translation>
+    </message>
+    <message>
+        <source>更新包校验失败（SHA-256 不匹配），已拒绝安装。</source>
+        <translation>Update package verification failed (SHA-256 mismatch); installation was refused.</translation>
+    </message>
+    <message>
+        <source>期望：%1</source>
+        <translation>Expected: %1</translation>
+    </message>
+    <message>
+        <source>实际：%1</source>
+        <translation>Actual: %1</translation>
+    </message>
+    <message>
+        <source>找不到 powershell.exe，无法启动更新程序。</source>
+        <translation>powershell.exe was not found; cannot start the updater.</translation>
+    </message>
+    <message>
+        <source>无法创建更新脚本：%1</source>
+        <translation>Cannot create the update script: %1</translation>
+    </message>
+    <message>
+        <source>无法启动更新程序。</source>
+        <translation>Cannot start the updater.</translation>
+    </message>
+    <message>
+        <source>找不到 unzip，无法解压更新包。请先安装 unzip。</source>
+        <translation>unzip was not found; install unzip to extract the update package.</translation>
+    </message>
+    <message>
+        <source>更新包不存在：%1</source>
+        <translation>The update package does not exist: %1</translation>
+    </message>
+    <message>
+        <source>无法写入待安装更新信息：%1</source>
+        <translation>Cannot write the pending update information: %1</translation>
+    </message>
+</context>
+<context>
+    <name>UpdateDialog</name>
+    <message>
+        <source>软件更新</source>
+        <translation>Software Update</translation>
+    </message>
+    <message>
+        <source>正在检查更新…</source>
+        <translation>Checking for updates...</translation>
+    </message>
+    <message>
+        <source>取消</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>关闭</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>下载并安装</source>
+        <translation>Download and Install</translation>
+    </message>
+    <message>
+        <source>稍后</source>
+        <translation>Later</translation>
+    </message>
+    <message>
+        <source>发现新版本 %1（当前 %2）。
+%3下载并校验后，可选择立即重启安装，或下次启动时安装。</source>
+        <translation>A new version %1 is available (current %2).
+%3After downloading and verification, you can restart now or install on next launch.</translation>
+    </message>
+    <message>
+        <source>发布时间：%1
+</source>
+        <translation>Published: %1
+</translation>
+    </message>
+    <message>
+        <source>正在下载更新…</source>
+        <translation>Downloading update...</translation>
+    </message>
+    <message>
+        <source>当前已是最新版本（%1）。</source>
+        <translation>NTerminal is up to date (%1).</translation>
+    </message>
+    <message>
+        <source>正在下载更新… %1 / %2</source>
+        <translation>Downloading update... %1 / %2</translation>
+    </message>
+    <message>
+        <source>正在下载更新… %1</source>
+        <translation>Downloading update... %1</translation>
+    </message>
+    <message>
+        <source>下载完成，SHA-256 校验通过。</source>
+        <translation>Download complete; SHA-256 verified.</translation>
+    </message>
+    <message>
+        <source>安装更新</source>
+        <translation>Install Update</translation>
+    </message>
+    <message>
+        <source>更新已下载并校验完成。
+
+是否立即重启并安装？</source>
+        <translation>The update has been downloaded and verified.
+
+Restart now and install?</translation>
+    </message>
+    <message>
+        <source>立即重启</source>
+        <translation>Restart Now</translation>
+    </message>
+    <message>
+        <source>下次启动</source>
+        <translation>Next Launch</translation>
+    </message>
+    <message>
+        <source>安装更新失败</source>
+        <translation>Update Installation Failed</translation>
+    </message>
+    <message>
+        <source>安装准备失败，请重试。</source>
+        <translation>Failed to prepare the installation. Please try again.</translation>
+    </message>
+    <message>
+        <source>重试</source>
+        <translation>Retry</translation>
+    </message>
+    <message>
+        <source>NTerminal 即将退出，更新程序会在退出后替换文件并重新启动。</source>
+        <translation>NTerminal will exit; the updater will replace the files and restart it.</translation>
+    </message>
+    <message>
+        <source>更新已准备好，下次启动 NTerminal 时会自动安装并重启。</source>
+        <translation>The update is ready and will be installed automatically the next time NTerminal starts.</translation>
+    </message>
+    <message>
+        <source>操作失败：%1</source>
+        <translation>Operation failed: %1</translation>
+    </message>
+    <message>
+        <source>操作已取消。</source>
+        <translation>Operation cancelled.</translation>
+    </message>
+</context>
+<context>
+    <name>UpdateSettingsDialog</name>
+    <message>
+        <source>更新设置</source>
+        <translation>Update Settings</translation>
+    </message>
+    <message>
+        <source>NTerminal 通过 HTTPS 读取一个 update.json 清单，比较版本后下载 zip 更新包。更新包只替换程序文件，用户配置保存在 ~/.nterminal，不会丢失。</source>
+        <translation>NTerminal reads an update.json manifest over HTTPS, compares versions and downloads a zip package. Only program files are replaced; user data in ~/.nterminal is preserved.</translation>
+    </message>
+    <message>
+        <source>更新源地址:</source>
+        <translation>Update feed URL:</translation>
+    </message>
+    <message>
+        <source>当前版本:</source>
+        <translation>Current version:</translation>
+    </message>
+    <message>
+        <source>启动时自动检查更新</source>
+        <translation>Check for updates on startup</translation>
+    </message>
+    <message>
+        <source>清单格式：{"version":"2.1.0","notes":"更新说明","platforms":{"windows-x86_64":{"url":"https://.../NTerminal-2.1.0.zip","sha256":"&lt;64位十六进制&gt;","size":123456}}}</source>
+        <translation>Manifest format: {"version":"2.1.0","notes":"release notes","platforms":{"windows-x86_64":{"url":"https://.../NTerminal-2.1.0.zip","sha256":"&lt;64-char hex&gt;","size":123456}}}</translation>
+    </message>
+    <message>
+        <source>查看更新日志</source>
+        <translation>View update log</translation>
+    </message>
+    <message>
+        <source>确定</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>取消</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>更新源必须是 HTTPS 地址；本地测试可使用 http://127.0.0.1 或 file:// 地址。</source>
+        <translation>The update feed must use HTTPS; http://127.0.0.1 and file:// are allowed for local testing.</translation>
     </message>
 </context>
 </TS>

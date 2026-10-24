@@ -57,6 +57,9 @@ private slots:
     void showAsciiTable();
     void showMcpSettings();
     void showMcpLog();
+    void checkForUpdates();
+    void showUpdateSettings();
+    void autoCheckForUpdates();
 
     // ---- GUI 重设计新增 ----
     void onSessionTreeActivated(QTreeWidgetItem *item, int column);
@@ -183,6 +186,8 @@ private:
     QAction *m_networkServicesAction = nullptr;
     QAction *m_printAction = nullptr;
     QAction *m_aboutAction = nullptr;
+    QAction *m_checkUpdatesAction = nullptr;
+    QAction *m_updateSettingsAction = nullptr;
     // 编辑 / 视图 / 传输 / 插件菜单动作
     QAction *m_copyAction = nullptr;
     QAction *m_pasteAction = nullptr;
