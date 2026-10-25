@@ -58,6 +58,7 @@ private slots:
     void duplicateSession();
     void showCalculator();
     void showPortScanner();
+    void showLanScan();
     void showNetworkServices();
     void showAsciiTable();
     void showMcpSettings();
@@ -209,6 +210,7 @@ private:
     QAction *m_terminalTestAction = nullptr;
     QAction *m_calculatorAction = nullptr;
     QAction *m_portScannerAction = nullptr;
+    QAction *m_lanScanAction = nullptr;
     QAction *m_asciiTableAction = nullptr;
     QAction *m_networkServicesAction = nullptr;
     QAction *m_printAction = nullptr;

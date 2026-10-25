@@ -127,6 +127,7 @@ SOURCES += \
     src/ui/calculatordialog.cpp \
     src/ui/asciitabledialog.cpp \
     src/ui/portscannerdialog.cpp \
+    src/ui/lanscandialog.cpp \
     src/ui/networkservicesdialog.cpp \
     src/ui/transferdialog.cpp \
     src/ui/mcpsettingsdialog.cpp \
@@ -201,6 +202,7 @@ HEADERS += \
     src/ui/calculatordialog.h \
     src/ui/asciitabledialog.h \
     src/ui/portscannerdialog.h \
+    src/ui/lanscandialog.h \
     src/ui/networkservicesdialog.h \
     src/ui/transferdialog.h \
     src/ui/mcpsettingsdialog.h \

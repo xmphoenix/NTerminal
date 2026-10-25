@@ -860,6 +860,10 @@ Continue?</translation>
         <translation>Port Scanner</translation>
     </message>
     <message>
+        <source>局域网设备扫描</source>
+        <translation>LAN Device Scan</translation>
+    </message>
+    <message>
         <source>网络服务</source>
         <translation>Network Services</translation>
     </message>
@@ -1923,6 +1927,117 @@ Restart now and install?</translation>
     <message>
         <source>NTerminal 已经在运行，只能启动一个实例。</source>
         <translation>NTerminal is already running. Only one instance can be started.</translation>
+    </message>
+</context>
+<context>
+    <name>LanScanDialog</name>
+    <message>
+        <source>局域网设备扫描</source>
+        <translation>LAN Device Scan</translation>
+    </message>
+    <message>
+        <source>扫描当前局域网内存活的网络设备，显示 IP 地址、设备名称和 MAC 地址。基于 Ping 与 ARP，设备名称通过 SSDP/UPnP、NetBIOS 和反向 DNS 解析，部分设备可能无法显示名称。仅用于你拥有权限的网络。</source>
+        <translation>Scan the current LAN for live network devices and show their IP address, device name and MAC address. Uses Ping and ARP; device names are resolved via SSDP/UPnP, NetBIOS and reverse DNS, and some devices may not expose a name. Only scan networks you are authorized to access.</translation>
+    </message>
+    <message>
+        <source>扫描范围</source>
+        <translation>Scan range</translation>
+    </message>
+    <message>
+        <source>网络接口:</source>
+        <translation>Network interface:</translation>
+    </message>
+    <message>
+        <source>刷新</source>
+        <translation>Refresh</translation>
+    </message>
+    <message>
+        <source>开始扫描</source>
+        <translation>Start scan</translation>
+    </message>
+    <message>
+        <source>停止</source>
+        <translation>Stop</translation>
+    </message>
+    <message>
+        <source>关闭</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>IP 地址</source>
+        <translation>IP address</translation>
+    </message>
+    <message>
+        <source>设备名称</source>
+        <translation>Device name</translation>
+    </message>
+    <message>
+        <source>MAC 地址</source>
+        <translation>MAC address</translation>
+    </message>
+    <message>
+        <source>状态</source>
+        <translation>Status</translation>
+    </message>
+    <message>
+        <source>解析中…</source>
+        <translation>Resolving…</translation>
+    </message>
+    <message>
+        <source>未知</source>
+        <translation>Unknown</translation>
+    </message>
+    <message>
+        <source>在线</source>
+        <translation>Online</translation>
+    </message>
+    <message>
+        <source>未找到可扫描的 IPv4 网络接口。</source>
+        <translation>No scannable IPv4 network interface found.</translation>
+    </message>
+    <message>
+        <source>就绪：将扫描 %1 个地址。</source>
+        <translation>Ready: %1 addresses will be scanned.</translation>
+    </message>
+    <message>
+        <source>就绪：网络较大，仅扫描本机附近的 %1 个地址。</source>
+        <translation>Ready: the network is large; scanning the %1 addresses nearest to this host.</translation>
+    </message>
+    <message>
+        <source>没有可扫描的地址。</source>
+        <translation>No scannable addresses.</translation>
+    </message>
+    <message>
+        <source>正在扫描 %1…</source>
+        <translation>Scanning %1…</translation>
+    </message>
+    <message>
+        <source>正在读取 ARP 表…</source>
+        <translation>Reading ARP table…</translation>
+    </message>
+    <message>
+        <source>扫描完成：发现 %1 台设备。</source>
+        <translation>Scan complete: %1 devices found.</translation>
+    </message>
+    <message>
+        <source>扫描完成：未发现设备。</source>
+        <translation>Scan complete: no devices found.</translation>
+    </message>
+    <message>
+        <source>扫描已停止：发现 %1 台设备。</source>
+        <translation>Scan stopped: %1 devices found.</translation>
+    </message>
+    <message>
+        <source>扫描已停止。</source>
+        <translation>Scan stopped.</translation>
+    </message>
+    <message>
+        <source>（ARP 表不可用，结果可能包含误报）</source>
+        <translation>(ARP table unavailable; results may include false positives)</translation>
+    </message>
+    <message>
+        <source>（无法启动 ping，请检查系统 PATH）</source>
+        <translation>(ping could not be started; check the system PATH)</translation>
     </message>
 </context>
 </TS>

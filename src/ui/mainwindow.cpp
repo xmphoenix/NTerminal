@@ -16,6 +16,7 @@
 #include "ui/calculatordialog.h"
 #include "ui/asciitabledialog.h"
 #include "ui/portscannerdialog.h"
+#include "ui/lanscandialog.h"
 #include "ui/networkservicesdialog.h"
 #include "ui/transferdialog.h"
 #include "transfer/zmodemtransfer.h"
@@ -1885,6 +1886,11 @@ void MainWindow::initMainWindowMenu()
     connect(m_portScannerAction, &QAction::triggered, this, &MainWindow::showPortScanner);
     m_toolsMenu->addAction(m_portScannerAction);
 
+    m_lanScanAction = new QAction(this);
+    bindText([this] { m_lanScanAction->setText(tr("局域网设备扫描")); });
+    connect(m_lanScanAction, &QAction::triggered, this, &MainWindow::showLanScan);
+    m_toolsMenu->addAction(m_lanScanAction);
+
     QAction *networkServicesAction = new QAction(this);
     bindText([networkServicesAction] { networkServicesAction->setText(tr("网络服务")); });
     connect(networkServicesAction, &QAction::triggered, this, &MainWindow::showNetworkServices);
@@ -2237,6 +2243,7 @@ void MainWindow::applyMenuIcons()
     if (m_terminalTestAction) m_terminalTestAction->setIcon(IconProvider::themedIcon("terminal"));
     if (m_calculatorAction) m_calculatorAction->setIcon(IconProvider::themedIcon("calculator"));
     if (m_portScannerAction) m_portScannerAction->setIcon(IconProvider::themedIcon("search"));
+    if (m_lanScanAction) m_lanScanAction->setIcon(IconProvider::themedIcon("users"));
     if (m_asciiTableAction) m_asciiTableAction->setIcon(IconProvider::themedIcon("log"));
     if (m_networkServicesAction) m_networkServicesAction->setIcon(IconProvider::themedIcon("server"));
     if (m_aboutAction) m_aboutAction->setIcon(IconProvider::themedIcon("terminal"));
@@ -2383,6 +2390,13 @@ void MainWindow::showCalculator()
 void MainWindow::showPortScanner()
 {
     PortScannerDialog *dialog = new PortScannerDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
+void MainWindow::showLanScan()
+{
+    LanScanDialog *dialog = new LanScanDialog(this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
 }
