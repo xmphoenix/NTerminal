@@ -1,43 +1,10 @@
 #include "ui/sessionitemdelegate.h"
 #include "ui/iconprovider.h"
+#include "ui/protocolstyle.h"
 #include "theme/thememanager.h"
 #include "common/connectionsettings.h"
 
 #include <QPainter>
-
-namespace {
-
-struct ProtocolStyle {
-    const char *icon;     // IconProvider 名称
-    QColor color;         // 图标/徽标色
-    const char *badge;    // 徽标文字
-};
-
-ProtocolStyle protocolStyle(Common::ConnectionType type)
-{
-    switch (type) {
-    case Common::ConnectionType::Serial:
-        return { "serial", QColor(0xD2, 0x99, 0x22), "SERIAL" };
-    case Common::ConnectionType::Telnet:
-        return { "telnet", QColor(0xC9, 0xA0, 0xFF), "TELNET" };
-    case Common::ConnectionType::Rlogin:
-        return { "terminal", QColor(0xC9, 0xA0, 0xFF), "RLOGIN" };
-    case Common::ConnectionType::SFTP:
-        return { "sftp", QColor(0x4C, 0x8D, 0xFF), "SFTP" };
-    case Common::ConnectionType::SCP:
-        return { "sftp", QColor(0x4C, 0x8D, 0xFF), "SCP" };
-    case Common::ConnectionType::FTP:
-    case Common::ConnectionType::TFTP:
-        return { "transfer", QColor(0x8B, 0x91, 0x9A), "FTP" };
-    case Common::ConnectionType::RDP:
-        return { "rdp", QColor(0x2E, 0xA0, 0x6A), "RDP" };
-    case Common::ConnectionType::SSH:
-    default:
-        return { "server", QColor(0x4C, 0x8D, 0xFF), "SSH" };
-    }
-}
-
-} // namespace
 
 SessionItemDelegate::SessionItemDelegate(QObject *parent)
     : QStyledItemDelegate(parent)
@@ -117,7 +84,7 @@ void SessionItemDelegate::paintSession(QPainter *painter,
     const bool active = index.data(SessionActiveRole).toBool();
     const Common::ConnectionType type =
         static_cast<Common::ConnectionType>(index.data(SessionTypeRole).toInt());
-    const ProtocolStyle style = protocolStyle(type);
+    const ProtocolVisual style = protocolVisual(type);
     const qreal dpr = option.widget ? option.widget->devicePixelRatioF() : 1.0;
 
     painter->save();
@@ -163,7 +130,7 @@ void SessionItemDelegate::paintSession(QPainter *painter,
     badgeFont.setWeight(QFont::DemiBold);
     badgeFont.setLetterSpacing(QFont::AbsoluteSpacing, 0.3);
     const QFontMetrics badgeMetrics(badgeFont);
-    const QString badge = QString::fromLatin1(style.badge);
+    const QString badge = style.badge;
     const int badgeW = badgeMetrics.horizontalAdvance(badge) + 12;
     const QRect badgeRect(r.right() - badgeW - 8, r.center().y() - 9, badgeW, 18);
     QColor badgeBg = style.color;

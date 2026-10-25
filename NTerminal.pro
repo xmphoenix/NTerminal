@@ -34,6 +34,9 @@ DEFINES  += APP_VERSION=\\\"$$VERSION\\\"
 # 显示在 Windows 文件属性“详细信息”中的说明（保持 ASCII，避免资源脚本编码问题）
 QMAKE_TARGET_DESCRIPTION = NTerminal - multi-protocol terminal tool
 
+# 可执行文件图标（资源管理器/任务栏/快捷方式）；运行时窗口图标见 main.cpp
+win32: RC_ICONS = resources/icons/app.ico
+
 # ---- libssh（仅 SSH/SFTP 处理器依赖） ----
 unix {
     LIBS += -lssh
@@ -191,6 +194,7 @@ HEADERS += \
     src/ui/aboutdialog.h \
     src/ui/connectiondialog.h \
     src/ui/iconprovider.h \
+    src/ui/protocolstyle.h \
     src/ui/sessionitemdelegate.h \
     src/ui/terminaltabbar.h \
     src/ui/terminalsplitpage.h \

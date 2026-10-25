@@ -12,6 +12,7 @@
 
 #include <QApplication>
 #include <QCoreApplication>
+#include <QIcon>
 #include <QStringList>
 #include <QDebug>
 #include <QFile>
@@ -111,6 +112,10 @@ static int runGui(int argc, char *argv[])
     // 注册表路径，主题/字体的保存会静默失效。统一到与其它模块相同的组织名。
     QCoreApplication::setOrganizationName("NTerminal");
     QCoreApplication::setApplicationVersion(AppInfo::version());
+
+    // 窗口/任务栏图标（可执行文件图标由 RC_ICONS 嵌入，这里保证运行时
+    // 标题栏与任务栏也使用同一枚图标，而不是 Qt 的默认占位图）
+    QApplication::setWindowIcon(QIcon(QStringLiteral(":/icons/app.png")));
 
     ThemeManager::instance()->initialize();
     FontManager::instance()->initialize();

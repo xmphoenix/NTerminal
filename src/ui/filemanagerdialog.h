@@ -40,6 +40,8 @@ public:
     // 标签页标题（例如 "SFTP 文件管理器 - 主机"）
     QString tabTitle() const;
     bool isConnected() const;
+    // 标签条按协议着色用（SFTP / FTP / SCP）
+    Common::ConnectionType connectionType() const { return m_settings.type; }
     // 请求关闭：正在传输时先确认并取消，完成后发出 closeRequested
     void requestClose();
     // 主窗口销毁前主动停止后台会话

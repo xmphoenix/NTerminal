@@ -180,6 +180,7 @@ TerminalProxy::~TerminalProxy()
 void TerminalProxy::setConnectionSettings(const Common::ConnectionSettings &settings)
 {
     m_settings = settings;
+    m_hasSessionSettings = true;
 }
 
 bool TerminalProxy::openConnection()

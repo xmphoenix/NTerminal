@@ -69,6 +69,9 @@ public:
     void closeConnection();
     bool isConnected() const;
     Common::ConnectionSettings getConnectionSettings() const;
+    // 是否已绑定会话配置：本地终端（未指定协议）没有会话设置，
+    // 标签条据此区分"协议识别色"与"本地终端中性色"。
+    bool hasSessionSettings() const { return m_hasSessionSettings; }
 
     void setTheme(const TerminalTheme &theme);
     TerminalTheme currentTheme() const { return m_currentTheme; }
@@ -244,6 +247,7 @@ private:
     TerminalParser *m_parser;
     
     Common::ConnectionSettings m_settings;
+    bool m_hasSessionSettings = false;
     bool m_isConnected;
     QJsonObject m_systemStats;
     

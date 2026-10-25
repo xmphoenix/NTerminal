@@ -8,6 +8,9 @@
         <!-- 应用样式表模板（ThemeManager 运行时渲染占位符） -->
         <file>styles/app.qss</file>
 
+        <!-- 应用图标（窗口/任务栏；可执行文件图标由 .pro 的 RC_ICONS 嵌入） -->
+        <file>icons/app.png</file>
+
         <!-- QSS 引用的图标资源（其余图标内嵌于 IconProvider） -->
         <file>icons/chevron-down.svg</file>
         <file>icons/chevron-up.svg</file>

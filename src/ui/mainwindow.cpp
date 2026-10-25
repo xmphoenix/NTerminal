@@ -3,6 +3,7 @@
 #include "ui/aboutdialog.h"
 #include "ui/connectiondialog.h"
 #include "ui/iconprovider.h"
+#include "ui/protocolstyle.h"
 #include "ui/sessionitemdelegate.h"
 #include "ui/terminaltabbar.h"
 #include "services/sessionmanager.h"
@@ -1572,15 +1573,41 @@ QWidget *MainWindow::buildTerminalArea()
     m_terminalTabBar = new TerminalTabBar(m_screenTabWidget);
     // 标签左侧要留给连接状态图标：QSS 按此对象名设置扁平标签样式与左内边距
     m_terminalTabBar->setObjectName(QStringLiteral("terminalTabBar"));
-    m_terminalTabBar->setStateProvider([this](const QString &tabId) {
+    // 标签视觉：协议识别色 + 图标 + 连接状态（与侧栏会话树使用同一套色板）
+    m_terminalTabBar->setVisualProvider([this](const QString &tabId) {
+        TerminalTabBar::TabVisual visual;
+        const AppTheme theme = ThemeManager::instance()->currentAppTheme();
+
+        const auto protocolVisualFor = [&theme](Common::ConnectionType type,
+                                                bool connected) {
+            TerminalTabBar::TabVisual v;
+            const ProtocolVisual style = protocolVisual(type);
+            v.icon = style.icon;
+            v.accent = protocolAccentColor(type, theme.dark);
+            v.connected = connected;
+            return v;
+        };
+
         if (RdpWidget *rdp = m_rdpSessions.value(tabId, nullptr)) {
-            return rdp->isConnected();
+            return protocolVisualFor(Common::ConnectionType::RDP, rdp->isConnected());
         }
         if (FileManagerDialog *manager = m_fileManagers.value(tabId, nullptr)) {
-            return manager->isConnected();
+            return protocolVisualFor(manager->connectionType(), manager->isConnected());
         }
-        TerminalProxy *terminal = m_terminals.value(tabId, nullptr);
-        return terminal && terminal->isConnected();
+        if (TerminalProxy *terminal = m_terminals.value(tabId, nullptr)) {
+            if (terminal->hasSessionSettings()) {
+                return protocolVisualFor(terminal->getConnectionSettings().type,
+                                        terminal->isConnected());
+            }
+            // 未绑定会话的本地终端：中性强调色 + 终端图标
+            visual.icon = QStringLiteral("terminal");
+            visual.accent = theme.accent;
+            visual.connected = terminal->isConnected();
+            return visual;
+        }
+
+        visual.accent = theme.accent;
+        return visual;
     });
     tabWidget->installTabBar(m_terminalTabBar);
 
