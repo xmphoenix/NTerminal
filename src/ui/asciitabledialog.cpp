@@ -3,6 +3,7 @@
 #include "theme/thememanager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QFont>
 #include <QLabel>
 #include <QHeaderView>
 #include <QPushButton>
@@ -15,7 +16,7 @@ AsciiTableDialog::AsciiTableDialog(QWidget *parent)
     setupUi();
     populateTable();
     setWindowTitle(tr("ASCII 码表"));
-    resize(700, 600);
+    resize(660, 560);
 }
 
 AsciiTableDialog::~AsciiTableDialog()
@@ -25,29 +26,41 @@ AsciiTableDialog::~AsciiTableDialog()
 void AsciiTableDialog::setupUi()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(20, 16, 20, 16);
-    mainLayout->setSpacing(10);
+    mainLayout->setContentsMargins(16, 14, 16, 14);
+    mainLayout->setSpacing(8);
 
-    // 头部：标题 + 说明
+    // 头部：标题 + 颜色图例，用色彩区分列与字符类型
+    QHBoxLayout *header = new QHBoxLayout();
+    header->setSpacing(12);
     QLabel *titleLabel = new QLabel(tr("ASCII 码表"), this);
     titleLabel->setProperty("class", "sectionTitle");
-    QLabel *hintLabel = new QLabel(tr("查询 0–255 的十进制 / 十六进制 / 字符对照，点击行即可复制"), this);
-    hintLabel->setProperty("class", "hint");
-    hintLabel->setWordWrap(true);
-    mainLayout->addWidget(titleLabel);
-    mainLayout->addWidget(hintLabel);
+    header->addWidget(titleLabel);
+    header->addStretch(1);
 
-    // 搜索框
-    QHBoxLayout *searchLayout = new QHBoxLayout();
-    searchLayout->setSpacing(8);
-    searchLayout->addWidget(new QLabel(tr("搜索:"), this));
+    const AppTheme theme = ThemeManager::instance()->currentAppTheme();
+    auto legendChip = [](const QColor &color, const QString &text) {
+        return QStringLiteral("<span style=\"color:%1\">&#9679;&nbsp;%2</span>")
+            .arg(color.name(), text.toHtmlEscaped());
+    };
+    QLabel *legendLabel = new QLabel(
+        legendChip(theme.accentText, tr("十进制")) + QStringLiteral("&nbsp;&nbsp;")
+        + legendChip(theme.warning, tr("十六进制")) + QStringLiteral("&nbsp;&nbsp;")
+        + legendChip(theme.success, tr("可打印")) + QStringLiteral("&nbsp;&nbsp;")
+        + legendChip(theme.danger, tr("控制")),
+        this);
+    legendLabel->setTextFormat(Qt::RichText);
+    legendLabel->setProperty("class", "hint");
+    legendLabel->setToolTip(tr("查询 0–255 的十进制 / 十六进制 / 字符对照，点击行即可复制"));
+    header->addWidget(legendLabel);
+    mainLayout->addLayout(header);
+
+    // 搜索框：占位符已说明用途，不再单列“搜索:”标签
     m_searchEdit = new QLineEdit(this);
     m_searchEdit->setPlaceholderText(tr("输入十进制或十六进制值..."));
     m_searchEdit->addAction(IconProvider::themedIcon("search"), QLineEdit::LeadingPosition);
     connect(m_searchEdit, &QLineEdit::textChanged,
             this, &AsciiTableDialog::onSearchTextChanged);
-    searchLayout->addWidget(m_searchEdit, 1);
-    mainLayout->addLayout(searchLayout);
+    mainLayout->addWidget(m_searchEdit);
 
     // ASCII表格
     m_table = new QTableWidget(this);
@@ -58,6 +71,7 @@ void AsciiTableDialog::setupUi()
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     // 行号与"十进制"列重复，隐藏纵向表头；关闭网格线，改用留白分隔（更接近移动端列表）
     m_table->verticalHeader()->setVisible(false);
+    m_table->verticalHeader()->setDefaultSectionSize(26);
     m_table->setShowGrid(false);
     m_table->horizontalHeader()->setHighlightSections(false);
     m_table->horizontalHeader()->setStretchLastSection(true);
@@ -69,35 +83,53 @@ void AsciiTableDialog::setupUi()
 
     mainLayout->addWidget(m_table, 1);
 
-    // 底部：说明 + 关闭
+    // 底部：状态行（复制后给出反馈）+ 关闭
     QHBoxLayout *footerLayout = new QHBoxLayout();
     footerLayout->setSpacing(8);
-    QLabel *infoLabel = new QLabel(
+    m_statusLabel = new QLabel(
         tr("单击某一行可将该字符复制到剪贴板。控制字符（0-31、127）以名称显示。"),
         this);
-    infoLabel->setWordWrap(true);
-    infoLabel->setProperty("class", "hint");
+    m_statusLabel->setWordWrap(false);
+    m_statusLabel->setProperty("class", "hint");
     QPushButton *closeButton = new QPushButton(tr("关闭"), this);
     closeButton->setProperty("class", "primary");
     closeButton->setDefault(true);
     connect(closeButton, &QPushButton::clicked, this, &QDialog::reject);
-    footerLayout->addWidget(infoLabel, 1);
+    footerLayout->addWidget(m_statusLabel, 1);
     footerLayout->addWidget(closeButton, 0, Qt::AlignVCenter);
     mainLayout->addLayout(footerLayout);
 }
 
 void AsciiTableDialog::populateTable()
 {
+    // 数值和字符列使用等宽字体，便于纵向比对
+    QFont monoFont = m_table->font();
+    monoFont.setFamilies({"Cascadia Code", "Consolas", "Cascadia Mono"});
+    QFont strongFont = monoFont;
+    strongFont.setWeight(QFont::DemiBold);
+
+    // 按列 / 字符类型着色，扫读时能一眼分清十进制、十六进制与字符类别
+    const AppTheme theme = ThemeManager::instance()->currentAppTheme();
+    const QColor decColor = theme.accentText;
+    const QColor hexColor = theme.warning;
+    const QColor printableColor = theme.success;
+    const QColor controlColor = theme.danger;
+    const QColor dimColor = theme.textDim;
+
     for (int i = 0; i < 256; ++i) {
         // DEC列
         QTableWidgetItem *decItem = new QTableWidgetItem(QString::number(i));
         decItem->setTextAlignment(Qt::AlignCenter);
+        decItem->setFont(strongFont);
+        decItem->setForeground(decColor);
         m_table->setItem(i, 0, decItem);
 
         // HEX列
         QTableWidgetItem *hexItem = new QTableWidgetItem(
             QString("0x%1").arg(i, 2, 16, QChar('0')).toUpper());
         hexItem->setTextAlignment(Qt::AlignCenter);
+        hexItem->setFont(strongFont);
+        hexItem->setForeground(hexColor);
         m_table->setItem(i, 1, hexItem);
 
         // Char列
@@ -114,6 +146,15 @@ void AsciiTableDialog::populateTable()
         }
         QTableWidgetItem *charItem = new QTableWidgetItem(charStr);
         charItem->setTextAlignment(Qt::AlignCenter);
+        charItem->setFont(strongFont);
+        if (i < 32 || i == 127) {
+            charItem->setForeground(controlColor);
+        } else if (i < 127) {
+            charItem->setForeground(printableColor);
+        } else {
+            // 扩展 ASCII 用常规文字色，避免和可打印字符抢注意力
+            charItem->setForeground(theme.windowText);
+        }
         m_table->setItem(i, 2, charItem);
 
         // Description列
@@ -126,6 +167,7 @@ void AsciiTableDialog::populateTable()
             desc = tr("扩展 ASCII");
         }
         QTableWidgetItem *descItem = new QTableWidgetItem(desc);
+        descItem->setForeground(dimColor);
         m_table->setItem(i, 3, descItem);
     }
 
@@ -236,10 +278,12 @@ void AsciiTableDialog::onCellClicked(int row, int column)
         QClipboard *clipboard = QApplication::clipboard();
         clipboard->setText(charStr);
 
-        // 显示提示
-        m_table->setToolTip(tr("已复制: %1 (十进制: %2, 十六进制: 0x%3)")
-                            .arg(charStr)
-                            .arg(row)
-                            .arg(row, 2, 16, QChar('0')).toUpper());
+        // 状态行直接反馈复制结果，比仅靠工具提示更容易看到
+        const QString message = tr("已复制: %1 (十进制: %2, 十六进制: 0x%3)")
+                                    .arg(charStr)
+                                    .arg(row)
+                                    .arg(row, 2, 16, QChar('0')).toUpper();
+        m_statusLabel->setText(message);
+        m_statusLabel->setToolTip(message);
     }
 }

@@ -159,7 +159,7 @@ NetworkServicesDialog::NetworkServicesDialog(QWidget *parent)
     setWindowTitle(tr("网络服务"));
     buildUi();
     // 布局构建完再定尺寸：日志区最小高度小一些，保证 720p 屏幕上完整显示
-    resize(900, 620);
+    resize(820, 600);
     refreshAll();
     selectService(0);
 }
@@ -167,9 +167,12 @@ NetworkServicesDialog::NetworkServicesDialog(QWidget *parent)
 void NetworkServicesDialog::buildUi()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(20, 16, 20, 12);
-    mainLayout->setSpacing(12);
+    mainLayout->setContentsMargins(16, 14, 16, 12);
+    mainLayout->setSpacing(10);
 
+    // 标题与说明同排，把纵向空间留给服务设置和日志
+    QHBoxLayout *header = new QHBoxLayout;
+    header->setSpacing(12);
     QLabel *title = new QLabel(tr("网络服务"), this);
     title->setProperty("class", "sectionTitle");
     QLabel *hint = new QLabel(
@@ -179,11 +182,12 @@ void NetworkServicesDialog::buildUi()
     hint->setProperty("class", "hint");
     // 不换行：wordWrap 的 QLabel 最小高度会按窄宽度计算，反而把对话框撑高
     hint->setWordWrap(false);
-    mainLayout->addWidget(title);
-    mainLayout->addWidget(hint);
+    header->addWidget(title);
+    header->addWidget(hint, 1);
+    mainLayout->addLayout(header);
 
     QHBoxLayout *body = new QHBoxLayout;
-    body->setSpacing(16);
+    body->setSpacing(12);
 
     m_stack = new QStackedWidget(this);
     QWidget *sidebar = buildSidebar();
@@ -205,10 +209,10 @@ void NetworkServicesDialog::buildUi()
 QWidget *NetworkServicesDialog::buildSidebar()
 {
     QWidget *sidebar = new QWidget(this);
-    sidebar->setFixedWidth(300);
+    sidebar->setFixedWidth(236);
     QVBoxLayout *layout = new QVBoxLayout(sidebar);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(4);
+    layout->setSpacing(3);
 
     QLabel *heading = new QLabel(tr("本机服务"), sidebar);
     heading->setProperty("class", "subheading");
@@ -225,8 +229,8 @@ QWidget *NetworkServicesDialog::buildSidebar()
     layout->addStretch();
 
     QLabel *note = new QLabel(
-        tr("提示：服务启动时如弹出 Windows 防火墙提示，请选择允许，"
-           "否则只有本机能访问；配置在服务启动时生效。"),
+        tr("提示：启动时如弹出防火墙提示，请选择允许，否则只有本机能访问；"
+           "配置在服务启动时生效。"),
         sidebar);
     note->setProperty("class", "hint");
     note->setWordWrap(true);
@@ -244,8 +248,8 @@ QFrame *NetworkServicesDialog::buildRow(ServerService *service)
     frame->setCursor(Qt::PointingHandCursor);
 
     QHBoxLayout *layout = new QHBoxLayout(frame);
-    layout->setContentsMargins(10, 7, 8, 7);
-    layout->setSpacing(9);
+    layout->setContentsMargins(9, 5, 6, 5);
+    layout->setSpacing(8);
 
     QLabel *icon = new QLabel(frame);
     icon->setPixmap(IconProvider::pixmap(iconForService(service->id()), theme.accentText,
@@ -267,7 +271,7 @@ QFrame *NetworkServicesDialog::buildRow(ServerService *service)
 
     QPushButton *toggle = new QPushButton(tr("启动"), frame);
     toggle->setProperty("class", "tonal");
-    toggle->setFixedWidth(56);
+    toggle->setFixedWidth(52);
     layout->addWidget(toggle, 0, Qt::AlignVCenter);
 
     QToolButton *settings = new QToolButton(frame);
@@ -307,8 +311,15 @@ QWidget *NetworkServicesDialog::buildPage(ServerService *service)
     page->setObjectName(QStringLiteral("servicePage"));
     QVBoxLayout *layout = new QVBoxLayout(page);
     layout->setContentsMargins(0, 0, 0, 0);
-    // 上下分区间距："服务设置"卡片、"服务器输出"卡片之间留出明显的纵向间隔
-    layout->setSpacing(20);
+    layout->setSpacing(10);
+
+    // 启停按钮放在页头右侧：主操作始终在第一屏可见
+    QPushButton *startButton = new QPushButton(IconProvider::themedIcon(QStringLiteral("play")),
+                                               tr("启动服务"), page);
+    startButton->setProperty("class", "primary");
+    QPushButton *stopButton = new QPushButton(tr("停止服务"), page);
+    stopButton->setProperty("class", "ghost");
+    stopButton->setEnabled(false);
 
     QHBoxLayout *header = new QHBoxLayout;
     header->setSpacing(8);
@@ -320,6 +331,8 @@ QWidget *NetworkServicesDialog::buildPage(ServerService *service)
     header->addWidget(title);
     header->addWidget(chip);
     header->addStretch();
+    header->addWidget(startButton);
+    header->addWidget(stopButton);
     layout->addLayout(header);
 
     QLabel *description = new QLabel(service->description(), page);
@@ -331,8 +344,7 @@ QWidget *NetworkServicesDialog::buildPage(ServerService *service)
     QGridLayout *grid = new QGridLayout(settings);
     grid->setContentsMargins(0, 0, 0, 0);
     grid->setHorizontalSpacing(10);
-    // 设置项之间也留出纵向间隔
-    grid->setVerticalSpacing(10);
+    grid->setVerticalSpacing(8);
     grid->setColumnStretch(1, 1);
 
     Page entry;
@@ -473,25 +485,14 @@ QWidget *NetworkServicesDialog::buildPage(ServerService *service)
         grid->addWidget(commandEdit, rowIndex++, 1);
     }
 
-    QHBoxLayout *actions = new QHBoxLayout;
-    actions->setSpacing(8);
-    QPushButton *startButton = new QPushButton(IconProvider::themedIcon(QStringLiteral("play")),
-                                               tr("启动服务"), settings);
-    startButton->setProperty("class", "primary");
-    QPushButton *stopButton = new QPushButton(IconProvider::themedIcon(QStringLiteral("stop")),
-                                              tr("停止服务"), settings);
-    stopButton->setProperty("class", "ghost");
-    actions->addWidget(startButton);
-    actions->addWidget(stopButton);
-    actions->addStretch();
-    grid->addLayout(actions, rowIndex, 1);
-
     layout->addWidget(settings);
 
-    QGroupBox *output = new QGroupBox(tr("服务器输出"), page);
-    QVBoxLayout *outputLayout = new QVBoxLayout(output);
-    outputLayout->setContentsMargins(0, 0, 0, 0);
-    QPlainTextEdit *log = new QPlainTextEdit(output);
+    // 输出区不套分组卡片：标题行 + 等宽日志，省掉一圈边框
+    QLabel *outputHeading = new QLabel(tr("服务器输出"), page);
+    outputHeading->setProperty("class", "subheading");
+    layout->addWidget(outputHeading);
+
+    QPlainTextEdit *log = new QPlainTextEdit(page);
     log->setObjectName(QStringLiteral("serviceLog"));
     log->setReadOnly(true);
     log->setMinimumHeight(64);
@@ -499,8 +500,7 @@ QWidget *NetworkServicesDialog::buildPage(ServerService *service)
     log->setPlaceholderText(tr("服务启动后在这里显示运行日志"));
     // 服务实例长期存活：重新打开对话框时回显之前的日志
     log->setPlainText(service->recentLog().join(QLatin1Char('\n')));
-    outputLayout->addWidget(log);
-    layout->addWidget(output, 1);
+    layout->addWidget(log, 1);
 
     entry.startButton = startButton;
     entry.stopButton = stopButton;

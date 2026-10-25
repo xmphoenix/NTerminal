@@ -5,6 +5,8 @@
 #include <QTableWidget>
 #include <QLineEdit>
 
+class QLabel;
+
 class AsciiTableDialog : public QDialog
 {
     Q_OBJECT
@@ -24,6 +26,7 @@ private:
 
     QTableWidget *m_table;
     QLineEdit *m_searchEdit;
+    QLabel *m_statusLabel;
 };
 
 #endif // ASCIITABLEDIALOG_H

@@ -132,71 +132,80 @@ LanScanDialog::LanScanDialog(QWidget *parent)
 void LanScanDialog::setupUi()
 {
     setWindowTitle(tr("局域网设备扫描"));
-    resize(780, 560);
+    resize(760, 540);
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(20, 16, 20, 16);
-    mainLayout->setSpacing(10);
+    mainLayout->setContentsMargins(16, 14, 16, 14);
+    mainLayout->setSpacing(8);
 
+    // 头部：标题与一句话说明同排；完整说明放进提示气泡
+    QHBoxLayout *header = new QHBoxLayout();
+    header->setSpacing(12);
     QLabel *titleLabel = new QLabel(tr("局域网设备扫描"), this);
     titleLabel->setProperty("class", "sectionTitle");
-    QLabel *hintLabel = new QLabel(
+    titleLabel->setToolTip(
         tr("扫描当前局域网内存活的网络设备，显示 IP 地址、设备名称和 MAC 地址。"
            "基于 Ping 与 ARP，设备名称通过 SSDP/UPnP、NetBIOS 和反向 DNS 解析，"
-           "部分设备可能无法显示名称。仅用于你拥有权限的网络。"),
+           "部分设备可能无法显示名称。仅用于你拥有权限的网络。"));
+    QLabel *hintLabel = new QLabel(
+        tr("基于 Ping 与 ARP 发现局域网设备，解析设备名称与 MAC 地址。仅用于你拥有权限的网络。"),
         this);
     hintLabel->setProperty("class", "hint");
-    hintLabel->setWordWrap(true);
-    mainLayout->addWidget(titleLabel);
-    mainLayout->addWidget(hintLabel);
+    hintLabel->setWordWrap(false);
+    header->addWidget(titleLabel);
+    header->addWidget(hintLabel, 1);
+    mainLayout->addLayout(header);
 
+    // 扫描范围与操作合成一条控制带，进度和状态紧随其下
     QGroupBox *rangeGroup = new QGroupBox(tr("扫描范围"), this);
     QGridLayout *rangeLayout = new QGridLayout(rangeGroup);
     rangeLayout->setContentsMargins(0, 0, 0, 0);
-    rangeLayout->setHorizontalSpacing(10);
+    rangeLayout->setHorizontalSpacing(8);
     rangeLayout->setVerticalSpacing(8);
     rangeLayout->setColumnStretch(1, 1);
 
-    rangeLayout->addWidget(new QLabel(tr("网络接口:"), this), 0, 0);
-    m_interfaceCombo = new QComboBox(this);
+    rangeLayout->addWidget(new QLabel(tr("网络接口:"), rangeGroup), 0, 0);
+    m_interfaceCombo = new QComboBox(rangeGroup);
     rangeLayout->addWidget(m_interfaceCombo, 0, 1);
-    m_refreshButton = new QPushButton(IconProvider::themedIcon("reset"), tr("刷新"), this);
+
+    m_refreshButton = new QPushButton(IconProvider::themedIcon("reset"), tr("刷新"), rangeGroup);
     m_refreshButton->setProperty("class", "tonal");
     connect(m_refreshButton, &QPushButton::clicked,
             this, &LanScanDialog::refreshInterfaces);
     rangeLayout->addWidget(m_refreshButton, 0, 2);
-    mainLayout->addWidget(rangeGroup);
 
-    QHBoxLayout *buttonLayout = new QHBoxLayout();
-    buttonLayout->setSpacing(8);
-    m_startButton = new QPushButton(IconProvider::themedIcon("play"), tr("开始扫描"), this);
+    m_startButton = new QPushButton(IconProvider::themedIcon("play"), tr("开始扫描"), rangeGroup);
     m_startButton->setProperty("class", "primary");
     connect(m_startButton, &QPushButton::clicked, this, &LanScanDialog::startScan);
-    buttonLayout->addWidget(m_startButton);
+    rangeLayout->addWidget(m_startButton, 0, 3);
 
-    m_stopButton = new QPushButton(IconProvider::themedIcon("stop"), tr("停止"), this);
+    m_stopButton = new QPushButton(tr("停止"), rangeGroup);
     m_stopButton->setProperty("class", "ghost");
     m_stopButton->setEnabled(false);
     connect(m_stopButton, &QPushButton::clicked, this, &LanScanDialog::stopScan);
-    buttonLayout->addWidget(m_stopButton);
+    rangeLayout->addWidget(m_stopButton, 0, 4);
 
-    buttonLayout->addStretch();
     QPushButton *closeButton = new QPushButton(tr("关闭"), this);
     closeButton->setProperty("class", "ghost");
     connect(closeButton, &QPushButton::clicked, this, &LanScanDialog::close);
-    buttonLayout->addWidget(closeButton);
-    mainLayout->addLayout(buttonLayout);
+    rangeLayout->addWidget(closeButton, 0, 5);
 
-    m_progressBar = new QProgressBar(this);
+    QHBoxLayout *progressRow = new QHBoxLayout();
+    progressRow->setSpacing(10);
+    m_progressBar = new QProgressBar(rangeGroup);
     m_progressBar->setRange(0, 1);
     m_progressBar->setValue(0);
     m_progressBar->setFormat(QStringLiteral("%v / %m"));
-    mainLayout->addWidget(m_progressBar);
+    m_progressBar->setProperty("class", "scan");
+    m_progressBar->setFixedWidth(200);
+    progressRow->addWidget(m_progressBar);
 
-    m_statusLabel = new QLabel(this);
+    m_statusLabel = new QLabel(rangeGroup);
     m_statusLabel->setProperty("class", "hint");
-    m_statusLabel->setWordWrap(true);
-    mainLayout->addWidget(m_statusLabel);
+    m_statusLabel->setWordWrap(false);
+    progressRow->addWidget(m_statusLabel, 1);
+    rangeLayout->addLayout(progressRow, 1, 0, 1, 6);
+    mainLayout->addWidget(rangeGroup);
 
     m_table = new QTableWidget(0, 4, this);
     m_table->setHorizontalHeaderLabels(

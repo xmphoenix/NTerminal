@@ -82,6 +82,18 @@
         <source>已复制: %1 (十进制: %2, 十六进制: 0x%3)</source>
         <translation>Copied: %1 (DEC: %2, HEX: 0x%3)</translation>
     </message>
+    <message>
+        <source>可打印</source>
+        <translation>Printable</translation>
+    </message>
+    <message>
+        <source>控制</source>
+        <translation>Control</translation>
+    </message>
+    <message>
+        <source>查询 0–255 的十进制 / 十六进制 / 字符对照，点击行即可复制</source>
+        <translation>Look up 0–255 in decimal, hex and character form; click a row to copy</translation>
+    </message>
 </context>
 <context>
     <name>CalculatorDialog</name>
@@ -1194,6 +1206,10 @@ View the update?</translation>
         <translation>Target</translation>
     </message>
     <message>
+        <source>扫描设置</source>
+        <translation>Scan settings</translation>
+    </message>
+    <message>
         <source>主机/IP:</source>
         <translation>Host/IP:</translation>
     </message>
@@ -1938,6 +1954,10 @@ Restart now and install?</translation>
     <message>
         <source>扫描当前局域网内存活的网络设备，显示 IP 地址、设备名称和 MAC 地址。基于 Ping 与 ARP，设备名称通过 SSDP/UPnP、NetBIOS 和反向 DNS 解析，部分设备可能无法显示名称。仅用于你拥有权限的网络。</source>
         <translation>Scan the current LAN for live network devices and show their IP address, device name and MAC address. Uses Ping and ARP; device names are resolved via SSDP/UPnP, NetBIOS and reverse DNS, and some devices may not expose a name. Only scan networks you are authorized to access.</translation>
+    </message>
+    <message>
+        <source>基于 Ping 与 ARP 发现局域网设备，解析设备名称与 MAC 地址。仅用于你拥有权限的网络。</source>
+        <translation>Discover LAN devices with Ping and ARP, resolving device names and MAC addresses. Only use on networks you are authorized to access.</translation>
     </message>
     <message>
         <source>扫描范围</source>

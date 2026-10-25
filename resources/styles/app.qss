@@ -234,9 +234,42 @@ QSplitter::handle:horizontal:hover { background-color: @accentSoft@; }
 #commandSend:hover { background-color: @accentSoftStrong@; }
 #commandSend:pressed { background-color: @accentSoftStrong@; }
 #calcDisplay { background-color: @surfaceAlt@; border: 1px solid @border@; border-radius: @radiusLg@;
-               padding: 8px 14px; font-size: 22px; font-weight: 600; }
-#calcValue { background-color: @surfaceAlt@; border: 1px solid @border@; border-radius: @radius@;
-             padding: 4px 9px; font-size: 12px; color: @text@; }
+               padding: 8px 14px; font-size: 22px; font-weight: 600;
+               font-family: "Cascadia Code", "Consolas", monospace; }
+#calcBaseBar { background-color: @surfaceAlt@; border-radius: @radius@; }
+QPushButton[class="seg"] { background: transparent; border: 1px solid transparent;
+                           border-radius: 6px; padding: 2px 6px; min-height: 16px;
+                           color: @textDim@; font-size: 11px; font-weight: 600; }
+QPushButton[class="seg"]:hover { background-color: @panelHover@; color: @text@; }
+QPushButton[class="seg"]:checked { background-color: @panelRaised@; border-color: @border@;
+                                   color: @accentText@; }
+#calcConversions { background-color: @surfaceAlt@; border: 1px solid @border@;
+                   border-radius: @radiusLg@; }
+QLabel[class="calcTag"] { color: @textDim@; font-size: 11px; }
+#calcValue { background: transparent; border: none; padding: 0; color: @text@;
+             font-family: "Cascadia Code", "Consolas", monospace; font-size: 12px; }
+QPushButton[class="calcNum"], QPushButton[class="calcHex"], QPushButton[class="calcOp"],
+QPushButton[class="calcFn"], QPushButton[class="calcEq"] {
+    border-radius: 7px; padding: 0; min-height: 34px; font-size: 13px; font-weight: 600; }
+QPushButton[class="calcNum"] { background-color: @panelRaised@; border: 1px solid @border@; }
+QPushButton[class="calcNum"]:hover { background-color: @panelHover@; }
+QPushButton[class="calcHex"] { background-color: @accentSoft@; color: @accentText@; border: 1px solid transparent; }
+QPushButton[class="calcHex"]:hover { background-color: @accentSoftStrong@; }
+QPushButton[class="calcOp"] { background: transparent; color: @accentText@; border: 1px solid @border@;
+                              font-size: 15px; }
+QPushButton[class="calcOp"]:hover { background-color: @accentSoft@; }
+QPushButton[class="calcFn"] { background: transparent; color: @textDim@; border: 1px solid transparent;
+                              font-size: 14px; }
+QPushButton[class="calcFn"]:hover { background-color: @panelHover@; color: @text@; }
+QPushButton[class="calcEq"] { background-color: @accent@; color: @onAccent@; border: 1px solid @accent@;
+                              font-size: 16px; font-weight: 700; }
+QPushButton[class="calcEq"]:hover { background-color: @accentHover@; }
+QPushButton[class="calcNum"]:disabled, QPushButton[class="calcHex"]:disabled {
+    background-color: @panel@; color: @textFaint@; border-color: @border@; }
+/* 端口扫描：带计数的进度条与等宽结果区 */
+QProgressBar[class="scan"] { height: 14px; font-size: 10px; color: @text@; }
+#scanLog { background-color: @surfaceAlt@; border: 1px solid @border@; border-radius: @radius@;
+           padding: 6px; }
 #testSummary { background-color: @accentSoft@; color: @text@; border-radius: @radius@;
                padding: 6px 10px; font-size: 12px; font-weight: 600; }
 #testStandard { background-color: @surfaceAlt@; color: @textDim@; border: 1px solid @border@;

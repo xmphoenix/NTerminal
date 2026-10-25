@@ -40,7 +40,7 @@ PortScannerDialog::PortScannerDialog(QWidget *parent)
 {
     setupUi();
     setWindowTitle(tr("端口扫描"));
-    resize(600, 500);
+    resize(580, 520);
 }
 
 PortScannerDialog::~PortScannerDialog()
@@ -51,105 +51,110 @@ PortScannerDialog::~PortScannerDialog()
 void PortScannerDialog::setupUi()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(20, 16, 20, 16);
-    mainLayout->setSpacing(10);
+    mainLayout->setContentsMargins(16, 14, 16, 14);
+    mainLayout->setSpacing(8);
 
-    // 头部：标题 + 说明
+    // 头部：标题与说明同排，省下一行高度
+    QHBoxLayout *header = new QHBoxLayout();
+    header->setSpacing(12);
     QLabel *titleLabel = new QLabel(tr("端口扫描"), this);
     titleLabel->setProperty("class", "sectionTitle");
     QLabel *hintLabel = new QLabel(tr("探测目标主机的常用端口或指定端口范围，仅用于你拥有权限的网络"), this);
     hintLabel->setProperty("class", "hint");
-    hintLabel->setWordWrap(true);
-    mainLayout->addWidget(titleLabel);
-    mainLayout->addWidget(hintLabel);
+    hintLabel->setWordWrap(false);
+    header->addWidget(titleLabel);
+    header->addWidget(hintLabel, 1);
+    mainLayout->addLayout(header);
 
-    // 目标主机设置
-    QGroupBox *targetGroup = new QGroupBox(tr("目标主机"), this);
-    QGridLayout *targetLayout = new QGridLayout(targetGroup);
+    // 扫描设置：主机与端口各占一行，避免目标输入框被按钮挤窄
+    QGroupBox *targetGroup = new QGroupBox(tr("扫描设置"), this);
+    QVBoxLayout *targetLayout = new QVBoxLayout(targetGroup);
     targetLayout->setContentsMargins(0, 0, 0, 0);
-    targetLayout->setHorizontalSpacing(10);
-    targetLayout->setVerticalSpacing(10);
-    targetLayout->setColumnStretch(1, 1);
-    targetLayout->setColumnStretch(2, 1);
-    targetLayout->setColumnStretch(3, 1);
+    targetLayout->setSpacing(8);
 
-    targetLayout->addWidget(new QLabel(tr("主机/IP:"), this), 0, 0);
-    m_hostEdit = new QLineEdit(this);
+    QHBoxLayout *hostRow = new QHBoxLayout();
+    hostRow->setSpacing(8);
+    hostRow->addWidget(new QLabel(tr("主机/IP:"), targetGroup));
+    m_hostEdit = new QLineEdit(targetGroup);
     m_hostEdit->setPlaceholderText(tr("例如：192.168.1.1 或 example.com"));
-    targetLayout->addWidget(m_hostEdit, 0, 1, 1, 3);
-
-    m_pingButton = new QPushButton(IconProvider::themedIcon("globe"), tr("Ping"), this);
+    hostRow->addWidget(m_hostEdit, 1);
+    m_pingButton = new QPushButton(IconProvider::themedIcon("globe"), tr("Ping"), targetGroup);
     m_pingButton->setProperty("class", "tonal");
     connect(m_pingButton, &QPushButton::clicked, this, &PortScannerDialog::onPingHost);
-    targetLayout->addWidget(m_pingButton, 0, 4);
+    hostRow->addWidget(m_pingButton);
+    targetLayout->addLayout(hostRow);
 
-    mainLayout->addWidget(targetGroup);
-
-    // 端口范围设置
-    QGroupBox *portGroup = new QGroupBox(tr("端口范围"), this);
-    QGridLayout *portLayout = new QGridLayout(portGroup);
-    portLayout->setContentsMargins(0, 0, 0, 0);
-    portLayout->setHorizontalSpacing(10);
-    portLayout->setVerticalSpacing(10);
-    portLayout->setColumnStretch(3, 1);
-
-    m_commonPortsCheck = new QCheckBox(tr("仅扫描常用端口"), this);
+    QHBoxLayout *portRow = new QHBoxLayout();
+    portRow->setSpacing(6);
+    m_commonPortsCheck = new QCheckBox(tr("仅扫描常用端口"), targetGroup);
     m_commonPortsCheck->setChecked(true);
     connect(m_commonPortsCheck, &QCheckBox::toggled, this, [this](bool checked) {
         m_startPortSpin->setEnabled(!checked);
         m_endPortSpin->setEnabled(!checked);
     });
-    portLayout->addWidget(m_commonPortsCheck, 0, 0, 1, 4);
+    portRow->addWidget(m_commonPortsCheck);
+    portRow->addSpacing(4);
 
-    portLayout->addWidget(new QLabel(tr("起始端口:"), this), 1, 0);
-    m_startPortSpin = new QSpinBox(this);
+    portRow->addWidget(new QLabel(tr("起始端口:"), targetGroup));
+    m_startPortSpin = new QSpinBox(targetGroup);
     m_startPortSpin->setRange(1, 65535);
     m_startPortSpin->setValue(1);
     m_startPortSpin->setEnabled(false);
-    portLayout->addWidget(m_startPortSpin, 1, 1);
+    m_startPortSpin->setFixedWidth(76);
+    portRow->addWidget(m_startPortSpin);
 
-    portLayout->addWidget(new QLabel(tr("结束端口:"), this), 1, 2);
-    m_endPortSpin = new QSpinBox(this);
+    QLabel *rangeSep = new QLabel(QStringLiteral("–"), targetGroup);
+    rangeSep->setAlignment(Qt::AlignCenter);
+    portRow->addWidget(rangeSep);
+
+    portRow->addWidget(new QLabel(tr("结束端口:"), targetGroup));
+    m_endPortSpin = new QSpinBox(targetGroup);
     m_endPortSpin->setRange(1, 65535);
     m_endPortSpin->setValue(1024);
     m_endPortSpin->setEnabled(false);
-    portLayout->addWidget(m_endPortSpin, 1, 3);
+    m_endPortSpin->setFixedWidth(76);
+    portRow->addWidget(m_endPortSpin);
 
-    mainLayout->addWidget(portGroup);
-
-    // 进度条
-    m_progressBar = new QProgressBar(this);
-    m_progressBar->setRange(0, 100);
-    m_progressBar->setValue(0);
-    mainLayout->addWidget(m_progressBar);
-
-    // 控制按钮
-    QHBoxLayout *buttonLayout = new QHBoxLayout();
-    buttonLayout->setSpacing(8);
-    m_startButton = new QPushButton(IconProvider::themedIcon("play"), tr("开始扫描"), this);
+    portRow->addStretch();
+    m_startButton = new QPushButton(IconProvider::themedIcon("play"), tr("开始扫描"), targetGroup);
     m_startButton->setProperty("class", "primary");
     connect(m_startButton, &QPushButton::clicked, this, &PortScannerDialog::onStartScan);
-    buttonLayout->addWidget(m_startButton);
+    portRow->addWidget(m_startButton);
 
-    m_stopButton = new QPushButton(IconProvider::themedIcon("stop"), tr("停止"), this);
+    m_stopButton = new QPushButton(tr("停止"), targetGroup);
     m_stopButton->setProperty("class", "ghost");
     m_stopButton->setEnabled(false);
     connect(m_stopButton, &QPushButton::clicked, this, &PortScannerDialog::onStopScan);
-    buttonLayout->addWidget(m_stopButton);
+    portRow->addWidget(m_stopButton);
+    targetLayout->addLayout(portRow);
 
-    buttonLayout->addStretch();
+    mainLayout->addWidget(targetGroup);
+
+    // 进度：扫描计数直接显示在进度条上，空闲时不显示无意义的 0 / 100
+    m_progressBar = new QProgressBar(this);
+    m_progressBar->setRange(0, 100);
+    m_progressBar->setValue(0);
+    m_progressBar->setFormat(QStringLiteral("%v / %m"));
+    m_progressBar->setProperty("class", "scan");
+    // 空闲时不显示空进度条，避免看起来像一条多余的分隔线
+    m_progressBar->setVisible(false);
+    mainLayout->addWidget(m_progressBar);
+
+    // 结果区：标题行 + 占据剩余高度的等宽日志
+    QHBoxLayout *resultHeader = new QHBoxLayout();
+    resultHeader->setSpacing(8);
+    QLabel *logLabel = new QLabel(tr("扫描结果:"), this);
+    logLabel->setProperty("class", "subheading");
+    resultHeader->addWidget(logLabel);
+    resultHeader->addStretch();
     QPushButton *closeButton = new QPushButton(tr("关闭"), this);
     closeButton->setProperty("class", "ghost");
     connect(closeButton, &QPushButton::clicked, this, &QDialog::reject);
-    buttonLayout->addWidget(closeButton);
-    mainLayout->addLayout(buttonLayout);
-
-    // 日志输出
-    QLabel *logLabel = new QLabel(tr("扫描结果:"), this);
-    logLabel->setProperty("class", "hint");
-    mainLayout->addWidget(logLabel);
+    resultHeader->addWidget(closeButton);
+    mainLayout->addLayout(resultHeader);
 
     m_logText = new QTextEdit(this);
+    m_logText->setObjectName("scanLog");
     m_logText->setReadOnly(true);
     m_logText->setPlaceholderText(tr("扫描结果将显示在这里…"));
     QFont monoFont = m_logText->font();
@@ -222,6 +227,7 @@ void PortScannerDialog::startPortScan()
 
     m_progressBar->setRange(0, m_portsToScan.size());
     m_progressBar->setValue(0);
+    m_progressBar->setVisible(true);
 
     m_logText->clear();
     appendLog(tr("=== 端口扫描开始 ==="), "blue");

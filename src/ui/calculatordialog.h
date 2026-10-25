@@ -4,8 +4,9 @@
 #include <QDialog>
 #include <QPushButton>
 #include <QLineEdit>
-#include <QComboBox>
 #include <QLabel>
+
+class QButtonGroup;
 
 class CalculatorDialog : public QDialog
 {
@@ -20,18 +21,19 @@ private slots:
     void onOperatorClicked();
     void onEqualClicked();
     void onClearClicked();
-    void onBaseChanged(int index);
+    void onBaseSelected(int base);
     void onBackspaceClicked();
 
 private:
     void setupUi();
     void updateDisplay();
+    void updateDigitButtons();
     QString convertBase(const QString &value, int fromBase, int toBase);
     long long parseValue(const QString &value, int base);
     QString formatValue(long long value, int base);
 
     QLineEdit *m_display;
-    QComboBox *m_baseCombo;
+    QButtonGroup *m_baseGroup;
     QLabel *m_hexLabel;
     QLabel *m_decLabel;
     QLabel *m_octLabel;
