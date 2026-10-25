@@ -1390,8 +1390,9 @@ void MainWindow::initMainWindowLayout()
     outer->addWidget(m_topBar);
 
     m_horizontalSplitter = new QSplitter(Qt::Horizontal, central);
-    // 分隔条留出抓取宽度，并绘制 1px 分界线（QSS 中 #QSplitter::handle）
-    m_horizontalSplitter->setHandleWidth(6);
+    // 左右分界只留一条细线：与窗口外边框同为 Nokia 品牌蓝（QSS 中 #mainSplitter::handle）
+    m_horizontalSplitter->setObjectName(QStringLiteral("mainSplitter"));
+    m_horizontalSplitter->setHandleWidth(2);
     m_horizontalSplitter->setChildrenCollapsible(false);
     m_horizontalSplitter->addWidget(buildSidebar());
     m_horizontalSplitter->addWidget(buildTerminalArea());
@@ -1629,13 +1630,19 @@ QWidget *MainWindow::buildSidebar()
     headLay->addWidget(headAdd);
     lay->addWidget(head);
 
-    // 搜索框（前置放大镜）
-    QWidget *searchWrap = new QWidget;
-    searchWrap->setObjectName("sidebarSearchWrap");
+    // 搜索框（前置放大镜）：与顶栏/命令栏同样处理——占满 28px 行高，
+    // 上下边界直接压在标题栏与搜索栏的两条分隔线上
+    QWidget *searchWrap = styledPanel("sidebarSearchWrap");
+    searchWrap->setFixedHeight(kTopBarHeight);
     QHBoxLayout *searchLay = new QHBoxLayout(searchWrap);
-    searchLay->setContentsMargins(10, 3, 10, 8);
+    // 左侧不留白，底部让出 1px：
+    // 输入框左边界贴住侧栏左边线、右边界贴住蓝色分界线，下方分隔线完整露出
+    searchLay->setContentsMargins(0, 0, 0, 1);
     m_sessionSearch = new QLineEdit;
     m_sessionSearch->setObjectName("sidebarSearch");
+    // QLineEdit 默认按 sizeHint 垂直固定；改为撑满搜索栏高度，
+    // 让输入框的上下边界与侧栏分隔线重合
+    m_sessionSearch->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     bindText([this] { m_sessionSearch->setPlaceholderText(tr("搜索会话")); });
     m_sessionSearch->setClearButtonEnabled(true);
     m_sessionSearch->addAction(IconProvider::themedIcon("search"), QLineEdit::LeadingPosition);
@@ -1657,17 +1664,23 @@ QWidget *MainWindow::buildSidebar()
     connect(m_sessionTree, &QTreeWidget::itemActivated, this, &MainWindow::onSessionTreeActivated);
     lay->addWidget(m_sessionTree, 1);
 
-    // 底部：新建连接（柔和色调，与顶栏主按钮区分层级）
+    // 底部：新建连接（柔和色调，与顶栏主按钮区分层级）。
+    // 与顶栏/命令栏一致：整条固定 28px 高，按钮铺满栏高，
+    // 上下边界压在最下方分隔线上，不再留悬浮式圆角内边距。
     QWidget *foot = styledPanel("sidebarFoot");
+    foot->setFixedHeight(kTopBarHeight);
     QVBoxLayout *footLay = new QVBoxLayout(foot);
-    footLay->setContentsMargins(10, 6, 10, 8);
+    // 左右都不留白：按钮左边界贴住侧栏左边线、右边界贴住蓝色分界线；
+    // 顶部让出 1px，使底部分隔线完整露出
+    footLay->setContentsMargins(0, 1, 0, 0);
     QPushButton *newBtn = new QPushButton;
+    newBtn->setObjectName("sidebarNewButton");
     bindText([newBtn] { newBtn->setText(tr("新建连接")); });
     newBtn->setProperty("class", "tonal");
     newBtn->setProperty("iconName", "new-session");
     newBtn->setIcon(IconProvider::themedIcon("new-session"));
     newBtn->setCursor(Qt::PointingHandCursor);
-    newBtn->setMinimumHeight(30);
+    newBtn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     connect(newBtn, &QPushButton::clicked, this, [this]() {
         openConnectionFromDialog(true);
     });

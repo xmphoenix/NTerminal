@@ -196,15 +196,20 @@ QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; lef
 #quickConnectGo { border-top-left-radius: 0; border-bottom-left-radius: 0;
                   border-top-right-radius: 9px; border-bottom-right-radius: 9px;
                   padding-left: 14px; padding-right: 14px; }
-#sidebar { background-color: @panel@; border-right: 1px solid @hairline@; }
+/* 侧栏右边线由主分隔条的蓝色细线承担，这里不再重复画一条灰色边框 */
+#sidebar { background-color: @panel@; }
 #sidebarHead { background-color: transparent; border-bottom: 1px solid @hairline@; }
 #sidebarTitle { font-weight: 700; font-size: 12px; color: @text@; }
 #sidebarCount { color: @textFaint@; font-size: 11px; }
-#sidebarFoot { background-color: transparent; border-top: 1px solid @hairline@; }
-#sidebarSearchWrap { background: transparent; }
-#sidebarSearch { background-color: @panelRaised@; border: 1px solid @border@;
-                 border-radius: @radius@; padding: 3px 9px; min-height: 18px; }
-#sidebarSearch:focus { border-color: @accent@; }
+#sidebarFoot { background-color: @panel@; border-top: 1px solid @hairline@; }
+/* 底部主按钮铺满 28px 栏高：去掉圆角与内边距，上下边界与分隔线重合 */
+#sidebarNewButton { border: none; border-radius: 0; padding: 0; }
+#sidebarSearchWrap { background-color: @panel@; border-bottom: 1px solid @hairline@; }
+/* 搜索框占满 28px 搜索栏高度：不画上下边框和圆角，边界与上下两条分隔线重合；
+   左侧留 2px 焦点条，聚焦时点亮，文字位置不因边框出现而跳动 */
+#sidebarSearch { background-color: @panelRaised@; border: none; border-left: 2px solid transparent;
+                 border-radius: 0; padding: 0 9px; min-height: 20px; }
+#sidebarSearch:focus { border-left-color: @accent@; }
 #toolbarSep { background-color: @hairline@; border: none; }
 #emptyState { background-color: @bg@; }
 #emptyStateCard { background-color: @panelRaised@; border: 1px solid @border@; border-radius: 16px; }
@@ -213,6 +218,10 @@ QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; lef
 #emptyStateText { color: @textDim@; font-size: 12px; }
 QSplitter::handle:horizontal { background-color: @bg@; width: 7px; }
 QSplitter::handle:horizontal:hover { background-color: @accentSoft@; }
+/* 左右分界：一条 2px 的 Nokia 品牌蓝细线（2023 logo 色，与窗口外边框相同），
+   会话管理器与命令栏都直接贴在它两侧 */
+#mainSplitter::handle:horizontal { background-color: #005AFF; }
+#mainSplitter::handle:horizontal:hover { background-color: @accent@; }
 #commandBar { background-color: @panel@; border-top: 1px solid @hairline@; }
 /* 输入框占满命令栏高度：不画上下边框，避免与栏首尾分隔线叠成双线；
    左侧留 2px 焦点条，聚焦时点亮，文字位置不因边框出现而跳动 */
