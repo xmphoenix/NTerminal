@@ -28,6 +28,9 @@ private slots:
     void settingsJsonRoundTrip();
     void settingsJsonMissingFields();
     void settingsJsonLegacyFormat();
+    void settingsSerialEnumMappings();
+    void settingsNumericBoundaries();
+    void settingsJsonContractShape();
 };
 
 void TestCommon::ipcEncodeLayout()
@@ -216,6 +219,160 @@ void TestCommon::settingsJsonLegacyFormat()
     Common::ConnectionSettings s3 = Common::ConnectionSettings::fromJson(legacy3);
     QCOMPARE(s3.parity, QSerialPort::NoParity);
     QCOMPARE(s3.flowControl, QSerialPort::NoFlowControl);
+}
+
+// settingsSerialEnumMappings：逐项锁定串口枚举的持久化映射，
+// 含现行短名、历史枚举名和非法值回落，防止契约静默漂移。
+void TestCommon::settingsSerialEnumMappings()
+{
+    struct DataBitsRow { QJsonValue value; QSerialPort::DataBits expected; };
+    const DataBitsRow dataBitsRows[] = {
+        { 5, QSerialPort::Data5 },
+        { 6, QSerialPort::Data6 },
+        { 7, QSerialPort::Data7 },
+        { 8, QSerialPort::Data8 },
+        { 4, QSerialPort::Data8 },      // 非法值回落
+        { 9, QSerialPort::Data8 },
+        { QString("7"), QSerialPort::Data7 },   // 历史字符串格式
+        { QString("8"), QSerialPort::Data8 },
+        { QString("abc"), QSerialPort::Data8 },
+        { QJsonValue::Undefined, QSerialPort::Data8 },
+        { QJsonValue::Null, QSerialPort::Data8 },
+    };
+    for (const DataBitsRow &row : dataBitsRows) {
+        QJsonObject in;
+        in["dataBits"] = row.value;
+        QCOMPARE(Common::ConnectionSettings::fromJson(in).dataBits, row.expected);
+    }
+
+    struct ParityRow { const char *text; QSerialPort::Parity expected; };
+    const ParityRow parityRows[] = {
+        { "None", QSerialPort::NoParity },
+        { "Even", QSerialPort::EvenParity },
+        { "Odd", QSerialPort::OddParity },
+        { "Space", QSerialPort::SpaceParity },
+        { "Mark", QSerialPort::MarkParity },
+        { "NoParity", QSerialPort::NoParity },
+        { "EvenParity", QSerialPort::EvenParity },
+        { "OddParity", QSerialPort::OddParity },
+        { "SpaceParity", QSerialPort::SpaceParity },
+        { "MarkParity", QSerialPort::MarkParity },
+        { "bogus", QSerialPort::NoParity },
+    };
+    for (const ParityRow &row : parityRows) {
+        QJsonObject in;
+        in["parity"] = row.text;
+        QCOMPARE(Common::ConnectionSettings::fromJson(in).parity, row.expected);
+
+        Common::ConnectionSettings out;
+        out.parity = row.expected;
+        // 现行输出始终使用短名
+        const QString encoded = out.toJson()["parity"].toString();
+        QVERIFY2(encoded == "None" || encoded == "Even" || encoded == "Odd"
+                     || encoded == "Space" || encoded == "Mark",
+                 qPrintable(encoded));
+    }
+
+    struct StopRow { const char *text; QSerialPort::StopBits expected; };
+    const StopRow stopRows[] = {
+        { "1", QSerialPort::OneStop },
+        { "1.5", QSerialPort::OneAndHalfStop },
+        { "2", QSerialPort::TwoStop },
+        { "bogus", QSerialPort::OneStop },
+    };
+    for (const StopRow &row : stopRows) {
+        QJsonObject in;
+        in["stopBits"] = row.text;
+        QCOMPARE(Common::ConnectionSettings::fromJson(in).stopBits, row.expected);
+    }
+
+    struct FlowRow { const char *text; QSerialPort::FlowControl expected; };
+    const FlowRow flowRows[] = {
+        { "None", QSerialPort::NoFlowControl },
+        { "Hardware", QSerialPort::HardwareControl },
+        { "Software", QSerialPort::SoftwareControl },
+        { "NoFlowControl", QSerialPort::NoFlowControl },
+        { "HardwareControl", QSerialPort::HardwareControl },
+        { "SoftwareControl", QSerialPort::SoftwareControl },
+        { "bogus", QSerialPort::NoFlowControl },
+    };
+    for (const FlowRow &row : flowRows) {
+        QJsonObject in;
+        in["flowControl"] = row.text;
+        QCOMPARE(Common::ConnectionSettings::fromJson(in).flowControl, row.expected);
+    }
+}
+
+// settingsNumericBoundaries：sessions.json 可被用户手工编辑，
+// 非法端口必须回落而不是被截断成任意端口，非法波特率必须回落为默认值。
+void TestCommon::settingsNumericBoundaries()
+{
+    struct PortRow { QJsonValue value; quint16 expected; };
+    const PortRow portRows[] = {
+        { 22, 22 },
+        { 23, 23 },
+        { 1, 1 },
+        { 65535, 65535 },
+        { 0, 23 },
+        { -1, 23 },
+        { 65536, 23 },
+        { 70000, 23 },
+        { QJsonValue::Undefined, 23 },
+        { QJsonValue::Null, 23 },
+    };
+    for (const PortRow &row : portRows) {
+        QJsonObject in;
+        in["port"] = row.value;
+        QCOMPARE(Common::ConnectionSettings::fromJson(in).port, row.expected);
+    }
+
+    struct BaudRow { QJsonValue value; qint32 expected; };
+    const BaudRow baudRows[] = {
+        { 9600, 9600 },
+        { 115200, 115200 },
+        { 921600, 921600 },
+        { 0, 115200 },
+        { -9600, 115200 },
+        { QJsonValue::Undefined, 115200 },
+    };
+    for (const BaudRow &row : baudRows) {
+        QJsonObject in;
+        in["baudRate"] = row.value;
+        QCOMPARE(Common::ConnectionSettings::fromJson(in).baudRate, row.expected);
+    }
+}
+
+// settingsJsonContractShape：字段集合是跨进程/持久化契约，增删字段需同步测试。
+void TestCommon::settingsJsonContractShape()
+{
+    Common::ConnectionSettings s;
+    const QJsonObject json = s.toJson();
+    const QStringList expectedKeys = {
+        "sessionName", "type", "portName", "baudRate", "dataBits",
+        "parity", "stopBits", "flowControl", "host", "port",
+        "username", "password", "useSshKey", "sshKeyPath",
+        "rdpDomain", "rdpUseNla",
+    };
+    QCOMPARE(json.keys().size(), expectedKeys.size());
+    for (const QString &key : expectedKeys) {
+        QVERIFY2(json.contains(key), qPrintable(key));
+    }
+
+    // 未知字段被忽略，不影响已知字段解析
+    QJsonObject withUnknown;
+    withUnknown["host"] = "example.test";
+    withUnknown["futureField"] = 42;
+    withUnknown["nested"] = QJsonObject{{"x", 1}};
+    QCOMPARE(Common::ConnectionSettings::fromJson(withUnknown).host,
+             QString("example.test"));
+
+    // 非布尔类型不会被误当作 true
+    QJsonObject badBools;
+    badBools["useSshKey"] = "yes";
+    badBools["rdpUseNla"] = 1;
+    const Common::ConnectionSettings b = Common::ConnectionSettings::fromJson(badBools);
+    QCOMPARE(b.useSshKey, false);
+    QCOMPARE(b.rdpUseNla, false);
 }
 
 QTEST_MAIN(TestCommon)

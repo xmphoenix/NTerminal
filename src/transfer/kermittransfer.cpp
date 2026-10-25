@@ -240,8 +240,18 @@ bool KermitTransfer::handleSendPacket(const Packet &packet)
             return true;
         }
         if (m_state == State::SendWaitFileAck) {
-            sendNextData();
-            return true;
+            // 只接受对文件头（F）的确认：接收方在协商阶段的 ACK 序号为 0，
+            // 不能把它当成文件头已确认而提前发送数据
+            if (packet.type == 'Y' && packet.sequence == m_sequence) {
+                sendNextData();
+                return true;
+            }
+            if (packet.type == 'N' && packet.sequence == m_sequence) {
+                write(m_lastPacket);
+                armTimer(kAckTimeoutMs);
+                return true;
+            }
+            return false;
         }
         if (m_state == State::SendWaitDataAck) {
             if (packet.type == 'Y' && packet.sequence == m_sequence) {

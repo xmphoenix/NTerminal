@@ -835,16 +835,22 @@ void ThemeManager::loadSettings()
     QString appThemeId = settings.value("AppTheme", "fresh-light").toString();
     m_terminalThemeAuto = settings.value("TerminalThemeAuto", true).toBool();
 
-    if (m_appThemes.contains(appThemeId)) {
-        m_currentAppThemeId = appThemeId;
-        applyAppTheme(m_appThemes[appThemeId]);
+    // 配置可能来自旧版本或被手工编辑：主题 id 失效时回落到默认主题，
+    // 否则启动后会既没有调色板也没有 QSS。
+    if (!m_appThemes.contains(appThemeId)) {
+        appThemeId = QStringLiteral("fresh-light");
     }
+    m_currentAppThemeId = appThemeId;
+    applyAppTheme(m_appThemes[appThemeId]);
 
     if (m_terminalThemeAuto) {
         // 跟随模式：终端明暗与外壳保持一致（首次启动即深色/浅色配套）
         m_currentTerminalThemeId = pairedTerminalThemeId(m_appThemes.value(m_currentAppThemeId));
     } else if (m_terminalThemes.contains(terminalThemeId)) {
         m_currentTerminalThemeId = terminalThemeId;
+    } else {
+        // 显式选择过终端配色但该配色已不存在：回落到配套主题
+        m_currentTerminalThemeId = pairedTerminalThemeId(m_appThemes.value(m_currentAppThemeId));
     }
 
     settings.endGroup();

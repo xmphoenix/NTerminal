@@ -75,11 +75,12 @@ bool RloginHandler::open()
         debugLog("WSAStartup failed");
         return false;
     }
+    m_wsaInitialized = true;
 
     SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock == INVALID_SOCKET) {
         debugLog(QString("socket() failed: %1").arg(WSAGetLastError()));
-        WSACleanup();
+        cleanupWinsock();
         return false;
     }
 
@@ -120,7 +121,7 @@ bool RloginHandler::open()
             debugLog(QString("DNS resolution failed: %1").arg(hostInfo.errorString()));
             emit errorOccurred(QString("DNS resolution failed: %1").arg(hostInfo.errorString()));
             closesocket(sock);
-            WSACleanup();
+            cleanupWinsock();
             return false;
         }
         QList<QHostAddress> addresses = hostInfo.addresses();
@@ -134,7 +135,7 @@ bool RloginHandler::open()
             debugLog("No IPv4 address found");
             emit errorOccurred("No IPv4 address found for hostname");
             closesocket(sock);
-            WSACleanup();
+            cleanupWinsock();
             return false;
         }
         debugLog(QString("Resolved %1 to %2").arg(hostStr).arg(ipAddress.toString()));
@@ -148,7 +149,7 @@ bool RloginHandler::open()
     if (connectResult == SOCKET_ERROR) {
         debugLog(QString("connect() failed: %1").arg(WSAGetLastError()));
         closesocket(sock);
-        WSACleanup();
+        cleanupWinsock();
         return false;
     }
 
@@ -167,7 +168,7 @@ bool RloginHandler::open()
         delete m_socket;
         m_socket = nullptr;
         closesocket(sock);
-        WSACleanup();
+        cleanupWinsock();
         return false;
     }
 
@@ -198,6 +199,16 @@ bool RloginHandler::open()
     return true;
 }
 
+void RloginHandler::cleanupWinsock()
+{
+#ifdef Q_OS_WIN
+    if (m_wsaInitialized) {
+        WSACleanup();
+        m_wsaInitialized = false;
+    }
+#endif
+}
+
 void RloginHandler::close()
 {
     debugLog("close() called");
@@ -209,7 +220,7 @@ void RloginHandler::close()
     }
 
 #ifdef Q_OS_WIN
-    WSACleanup();
+    cleanupWinsock();
 #endif
 
     m_handshakeSent = false;

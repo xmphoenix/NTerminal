@@ -76,6 +76,7 @@ SOURCES += \
     src/app/launchoptions.cpp \
     src/app/singleinstance.cpp \
     src/common/languagemanager.cpp \
+    src/common/sshruntime.cpp \
     src/terminal/terminalproxy.cpp \
     src/terminal/terminalparser.cpp \
     src/terminal/terminaltheme.cpp \
@@ -148,6 +149,7 @@ HEADERS += \
     src/common/connectionsettings.h \
     src/common/messagetypes.h \
     src/common/languagemanager.h \
+    src/common/sshruntime.h \
     src/terminal/terminalproxy.h \
     src/terminal/terminalparser.h \
     src/terminal/terminaltheme.h \

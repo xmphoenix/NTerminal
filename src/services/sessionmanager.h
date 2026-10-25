@@ -35,6 +35,8 @@ public:
     };
 
     explicit SessionManager(QObject *parent = nullptr);
+    // 指定配置文件的构造重载：供测试与便携模式使用，避免触碰用户真实会话文件
+    explicit SessionManager(const QString &configFilePath, QObject *parent = nullptr);
     ~SessionManager();
 
     bool loadSessions();

@@ -3,6 +3,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QFile>
+#include <QFileInfo>
 #include <QDateTime>
 #include <QDir>
 #include <QDebug>
@@ -15,6 +16,16 @@ SessionManager::SessionManager(QObject *parent)
     QString configDir = QDir::homePath() + "/.nterminal";
     QDir().mkpath(configDir);
     m_configFilePath = configDir + "/sessions.json";
+}
+
+SessionManager::SessionManager(const QString &configFilePath, QObject *parent)
+    : QObject(parent)
+    , m_configFilePath(configFilePath)
+{
+    const QFileInfo info(configFilePath);
+    if (!info.absoluteDir().exists()) {
+        QDir().mkpath(info.absolutePath());
+    }
 }
 
 SessionManager::~SessionManager()

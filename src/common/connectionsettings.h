@@ -98,14 +98,17 @@ struct ConnectionSettings {
         settings.type = stringToConnectionType(obj["type"].toString());
         
         settings.portName = obj["portName"].toString();
-        settings.baudRate = obj["baudRate"].toInt(115200);
+        // 损坏/手工编辑过的配置不应产生负数波特率或截断的端口号
+        const int baudRate = obj["baudRate"].toInt(115200);
+        settings.baudRate = baudRate > 0 ? baudRate : 115200;
         settings.dataBits = intToDataBits(readIntOrString(obj["dataBits"], 8));
         settings.parity = stringToParity(obj["parity"].toString());
         settings.stopBits = stringToStopBits(obj["stopBits"].toString());
         settings.flowControl = stringToFlowControl(obj["flowControl"].toString());
-        
+
         settings.host = obj["host"].toString();
-        settings.port = obj["port"].toInt(23);
+        const int port = obj["port"].toInt(23);
+        settings.port = (port >= 1 && port <= 65535) ? quint16(port) : quint16(23);
         settings.username = obj["username"].toString();
         settings.password = obj["password"].toString();
         settings.useSshKey = obj["useSshKey"].toBool(false);

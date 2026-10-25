@@ -2,6 +2,11 @@
 
 QColor TerminalTheme::ansi256Color(int index) const
 {
+    // 越界索引返回无效颜色，避免调用方传入 -1 或 >255 时数组越界
+    if (index < 0 || index > 255) {
+        return QColor();
+    }
+
     if (index < 16) {
         return ansiColors[index];
     }

@@ -262,6 +262,12 @@ UpdateInfo UpdateManager::parseManifest(const QByteArray &data,
                                         QString *error)
 {
     UpdateInfo info;
+    QString ignoredError;
+    if (!error) {
+        error = &ignoredError;
+    }
+    error->clear();
+
     QJsonParseError parseError;
     const QJsonDocument document = QJsonDocument::fromJson(data, &parseError);
     if (parseError.error != QJsonParseError::NoError || !document.isObject()) {

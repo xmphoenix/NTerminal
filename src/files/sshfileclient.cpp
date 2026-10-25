@@ -1,4 +1,5 @@
 #include "files/sshfileclient.h"
+#include "common/sshruntime.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -70,6 +71,11 @@ QString SshFileClient::lastError() const
 
 bool SshFileClient::connect(QString *home, QString *error)
 {
+    if (!SshRuntime::ensureInitialized()) {
+        *error = QStringLiteral("SSH 库初始化失败");
+        return false;
+    }
+
     m_session = ssh_new();
     if (!m_session) {
         *error = QStringLiteral("无法创建 SSH 会话");
@@ -341,18 +347,19 @@ bool SshFileClient::uploadSftp(const QString &localPath,
     }
     const qint64 total = local.size();
 
+    // 先询问是否继续，再打开远端文件：取消必须发生在 O_TRUNC 之前，
+    // 否则覆盖上传刚开始就取消会把远端原文件截成空文件。
+    if (!progress(0, total)) {
+        local.close();
+        *error = QStringLiteral("已取消");
+        return false;
+    }
+
     sftp_file remote = sftp_open(m_sftp, remotePath.toUtf8().constData(),
                                  O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (!remote) {
         local.close();
         *error = QStringLiteral("无法创建远端文件 %1：%2").arg(remotePath, lastError());
-        return false;
-    }
-
-    if (!progress(0, total)) {
-        sftp_close(remote);
-        local.close();
-        *error = QStringLiteral("已取消");
         return false;
     }
 

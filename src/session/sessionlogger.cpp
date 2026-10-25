@@ -5,20 +5,28 @@
 #include <QStringList>
 
 SessionLogger::SessionLogger(const QString &sessionId, QObject *parent)
+    : SessionLogger(sessionId, LogOptions(), parent)
+{
+    loadSettings();
+}
+
+SessionLogger::SessionLogger(const QString &sessionId, const LogOptions &options,
+                             QObject *parent)
     : QObject(parent)
     , m_sessionId(sessionId)
+    , m_logDir(QDir::homePath() + "/.nterminal/logs")
     , m_isLogging(false)
-    , m_logFileNamePattern("%c_%n_%Y-%m-%d_%t.log")
-    , m_overwriteExisting(false)
-    , m_encoding("utf-8")
-    , m_enableTimestamp(true)
-    , m_timestampFormat("[%Y-%m-%d %h:%M:%s]")
+    , m_logFileNamePattern(options.fileNamePattern.isEmpty()
+                               ? QStringLiteral("%c_%n_%Y-%m-%d_%t.log")
+                               : options.fileNamePattern)
+    , m_overwriteExisting(options.overwriteExisting)
+    , m_encoding(options.encoding.isEmpty() ? QStringLiteral("utf-8")
+                                            : options.encoding)
+    , m_enableTimestamp(options.enableTimestamp)
+    , m_timestampFormat(options.timestampFormat)
     , m_ansiState(Ground)
     , m_inAlternateScreen(false)
 {
-    loadSettings();
-
-    m_logDir = QDir::homePath() + "/.nterminal/logs";
     QDir().mkpath(m_logDir);
 }
 
@@ -33,7 +41,8 @@ bool SessionLogger::startLogging(const QString &sessionName, const QString &logD
     QMutexLocker locker(&m_mutex);
 
     if (m_isLogging) {
-        stopLogging();
+        // 直接调用加锁版本，避免非递归互斥锁重复加锁导致死锁
+        stopLoggingLocked();
     }
 
     m_sessionName = sessionName;
@@ -51,37 +60,53 @@ bool SessionLogger::startLogging(const QString &sessionName, const QString &logD
     }
 
     m_isLogging = true;
-    logMessage("INFO", QString("Session started: %1").arg(sessionName));
+    logMessageLocked("INFO", QString("Session started: %1").arg(sessionName));
     return true;
 }
 
 void SessionLogger::stopLogging()
 {
     QMutexLocker locker(&m_mutex);
+    stopLoggingLocked();
+}
 
+void SessionLogger::stopLoggingLocked()
+{
     if (!m_isLogging) {
         return;
     }
 
     // 刷新行缓冲区中的剩余内容
-    if (!m_lineBuffer.isEmpty()) {
-        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
-        QString line = m_lineBuffer.trimmed();
-        if (!line.isEmpty()) {
-            m_logStream << "[" << timestamp << "] " << line << "\n";
-            m_logStream.flush();
-        }
-        m_lineBuffer.clear();
-    }
+    flushLineLocked();
 
-    logMessage("INFO", "Session ended");
+    logMessageLocked("INFO", "Session ended");
     closeLogFile();
     m_isLogging = false;
 }
 
 bool SessionLogger::isLogging() const
 {
+    QMutexLocker locker(&m_mutex);
     return m_isLogging;
+}
+
+void SessionLogger::flushLineLocked()
+{
+    if (m_lineBuffer.isEmpty()) {
+        return;
+    }
+
+    const QString line = QString::fromUtf8(m_lineBuffer).trimmed();
+    m_lineBuffer.clear();
+
+    if (line.isEmpty() || !m_isLogging || !m_logFile.isOpen()) {
+        return;
+    }
+
+    const QString timestamp =
+        QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+    m_logStream << "[" << timestamp << "] " << line << "\n";
+    m_logStream.flush();
 }
 
 QString SessionLogger::currentLogFile() const
@@ -93,11 +118,14 @@ QString SessionLogger::currentLogFile() const
 void SessionLogger::logData(const QByteArray &data, bool isReceived)
 {
     // 只记录接收到的数据，不记录发送的数据
-    if (!isReceived || !m_isLogging || data.isEmpty()) {
+    if (!isReceived || data.isEmpty()) {
         return;
     }
 
     QMutexLocker locker(&m_mutex);
+    if (!m_isLogging) {
+        return;
+    }
 
     // 逐字符处理数据，使用行缓冲
     for (unsigned char ch : data) {
@@ -108,44 +136,30 @@ void SessionLogger::logData(const QByteArray &data, bool isReceived)
                 m_csiParams.clear();
             } else if (!m_inAlternateScreen) {
                 // 只在非备用屏幕模式下记录内容
-                if (ch == '\n') {
-                    // 遇到换行符，输出当前行（如果缓冲区不为空）
-                    if (!m_lineBuffer.isEmpty()) {
-                        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
-                        QString line = m_lineBuffer.trimmed();
-                        if (!line.isEmpty()) {
-                            m_logStream << "[" << timestamp << "] " << line << "\n";
-                            m_logStream.flush();
-                        }
-                        m_lineBuffer.clear();
-                    }
-                } else if (ch == '\r') {
-                    // \r 回车到行首
-                    // 如果缓冲区不为空，输出当前行（top等程序用\r来更新显示）
-                    if (!m_lineBuffer.isEmpty()) {
-                        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
-                        QString line = m_lineBuffer.trimmed();
-                        if (!line.isEmpty()) {
-                            m_logStream << "[" << timestamp << "] " << line << "\n";
-                        }
-                        m_logStream.flush();
-                        m_lineBuffer.clear();
-                    }
+                if (ch == '\n' || ch == '\r') {
+                    // \n 换行 / \r 回车到行首：都输出当前完整行
+                    // （top 等程序用 \r 原地刷新，因此同样需要落盘）
+                    flushLineLocked();
                 } else if (ch == '\t') {
                     m_lineBuffer.append('\t');
                 } else if (ch == 0x07) {  // BEL
                     // 忽略响铃
                 } else if (ch == 0x08) {  // Backspace
-                    // 处理退格键
+                    // 删除最后一个 UTF-8 字符（可能由多个字节组成）
+                    while (!m_lineBuffer.isEmpty()
+                           && (static_cast<unsigned char>(m_lineBuffer.back())
+                               & 0xC0) == 0x80) {
+                        m_lineBuffer.chop(1);
+                    }
                     if (!m_lineBuffer.isEmpty()) {
                         m_lineBuffer.chop(1);
                     }
                 } else if (ch >= 32 && ch <= 126) {
-                    // 可打印字符
-                    m_lineBuffer.append(QChar(ch));
+                    // 可打印 ASCII
+                    m_lineBuffer.append(char(ch));
                 } else if (ch >= 128) {
-                    // UTF-8 多字节字符
-                    m_lineBuffer.append(QChar(ch));
+                    // UTF-8 多字节字符：保留原始字节，整行落盘时统一解码
+                    m_lineBuffer.append(char(ch));
                 }
             }
             // 其他控制字符忽略
@@ -179,15 +193,7 @@ void SessionLogger::logData(const QByteArray &data, bool isReceived)
                         m_inAlternateScreen = (ch == 'h');  // h=进入, l=退出
                         if (m_inAlternateScreen) {
                             // 进入备用屏幕前，先输出当前行缓冲区
-                            if (!m_lineBuffer.isEmpty()) {
-                                QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
-                                QString line = m_lineBuffer.trimmed();
-                                if (!line.isEmpty()) {
-                                    m_logStream << "[" << timestamp << "] " << line << "\n";
-                                    m_logStream.flush();
-                                }
-                                m_lineBuffer.clear();
-                            }
+                            flushLineLocked();
                         }
                     }
                 }
@@ -232,6 +238,12 @@ void SessionLogger::logConnectionEvent(const QString &event, const QString &deta
 }
 
 void SessionLogger::logMessage(const QString &level, const QString &message)
+{
+    QMutexLocker locker(&m_mutex);
+    logMessageLocked(level, message);
+}
+
+void SessionLogger::logMessageLocked(const QString &level, const QString &message)
 {
     if (!m_isLogging || !m_logFile.isOpen()) {
         return;

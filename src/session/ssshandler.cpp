@@ -1,4 +1,5 @@
 #include "ssshandler.h"
+#include "common/sshruntime.h"
 #include <QDebug>
 #include <QJsonObject>
 #include <QRegularExpression>
@@ -65,15 +66,25 @@ SshHandler::~SshHandler()
 
 bool SshHandler::open()
 {
+    if (!SshRuntime::ensureInitialized()) {
+        emit errorOccurred("Failed to initialize libssh");
+        return false;
+    }
+
     m_session = ssh_new();
     if (!m_session) {
         emit errorOccurred("Failed to create SSH session");
         return false;
     }
-    
-    ssh_options_set(m_session, SSH_OPTIONS_HOST, m_settings.host.toUtf8().constData());
-    ssh_options_set(m_session, SSH_OPTIONS_PORT, &m_settings.port);
-    ssh_options_set(m_session, SSH_OPTIONS_USER, m_settings.username.toUtf8().constData());
+
+    // SSH_OPTIONS_PORT 期望 unsigned int*；quint16* 会让 libssh 读到错误的
+    // 端口值（越界读取 4 字节），这里先转换再传入。
+    unsigned int port = m_settings.port;
+    const QByteArray host = m_settings.host.toUtf8();
+    const QByteArray user = m_settings.username.toUtf8();
+    ssh_options_set(m_session, SSH_OPTIONS_HOST, host.constData());
+    ssh_options_set(m_session, SSH_OPTIONS_PORT, &port);
+    ssh_options_set(m_session, SSH_OPTIONS_USER, user.constData());
     
     int timeout = 30;
     ssh_options_set(m_session, SSH_OPTIONS_TIMEOUT, &timeout);

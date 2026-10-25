@@ -185,12 +185,14 @@ private:
     {
         QByteArray packet = makePacket(6);
         if (m_request.options.contains(QStringLiteral("blksize"))) {
-            packet.append("blksize\0");
+            packet.append("blksize", 7);
+            packet.append('\0');
             packet.append(QByteArray::number(m_blockSize));
             packet.append('\0');
         }
         if (m_request.options.contains(QStringLiteral("tsize")) && !m_isWrite) {
-            packet.append("tsize\0");
+            packet.append("tsize", 5);
+            packet.append('\0');
             packet.append(QByteArray::number(m_fileSize));
             packet.append('\0');
         }

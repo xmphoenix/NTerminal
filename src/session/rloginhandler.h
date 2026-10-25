@@ -29,6 +29,7 @@ private:
     void sendRloginHandshake();
     void sendWindowSize();
     void processDataWithEscapeSequences();
+    void cleanupWinsock();
 
     QTcpSocket *m_socket;
     Common::ConnectionSettings m_settings;
@@ -37,6 +38,9 @@ private:
     int m_columns;
     int m_rows;
     QByteArray m_pendingData;  // Buffer for incomplete escape sequences
+    // 只有 open() 成功调用 WSAStartup 后才能配对 WSACleanup；
+    // 否则析构一个从未连接过的 handler 会减掉别的组件（Qt/libssh）的引用计数。
+    bool m_wsaInitialized = false;
 };
 
 #endif // RLOGINHANDLER_H

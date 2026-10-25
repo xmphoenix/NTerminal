@@ -1,4 +1,5 @@
 #include "sftphandler.h"
+#include "common/sshruntime.h"
 #include <QDebug>
 #include <QDir>
 #include <QDirIterator>
@@ -42,15 +43,23 @@ bool SftpHandler::open()
         return true;
     }
 
+    if (!SshRuntime::ensureInitialized()) {
+        emit errorOccurred("Failed to initialize libssh");
+        return false;
+    }
+
     m_session = ssh_new();
     if (!m_session) {
         emit errorOccurred("Failed to create SSH session");
         return false;
     }
 
-    ssh_options_set(m_session, SSH_OPTIONS_HOST, m_settings.host.toUtf8().constData());
-    ssh_options_set(m_session, SSH_OPTIONS_PORT, &m_settings.port);
-    ssh_options_set(m_session, SSH_OPTIONS_USER, m_settings.username.toUtf8().constData());
+    unsigned int port = m_settings.port;
+    const QByteArray host = m_settings.host.toUtf8();
+    const QByteArray user = m_settings.username.toUtf8();
+    ssh_options_set(m_session, SSH_OPTIONS_HOST, host.constData());
+    ssh_options_set(m_session, SSH_OPTIONS_PORT, &port);
+    ssh_options_set(m_session, SSH_OPTIONS_USER, user.constData());
 
     int rc = ssh_connect(m_session);
     if (rc != SSH_OK) {
