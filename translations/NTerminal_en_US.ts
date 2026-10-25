@@ -1004,6 +1004,10 @@ View the update?</translation>
         <translation>Session sidebar</translation>
     </message>
     <message>
+        <source>命令输入栏</source>
+        <translation>Command input bar</translation>
+    </message>
+    <message>
         <source>双击隐藏侧栏（Ctrl+B 显示）</source>
         <translation>Double-click to hide the sidebar (Ctrl+B to show)</translation>
     </message>

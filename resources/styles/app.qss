@@ -214,10 +214,16 @@ QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; lef
 QSplitter::handle:horizontal { background-color: @bg@; width: 7px; }
 QSplitter::handle:horizontal:hover { background-color: @accentSoft@; }
 #commandBar { background-color: @panel@; border-top: 1px solid @hairline@; }
-#commandLine { background-color: @panelRaised@; border: 1px solid @border@; border-radius: 10px;
-               padding: 4px 10px; min-height: 20px; }
-#commandLine:focus { border-color: @accent@; }
-#commandPrompt { color: @accentText@; font-size: 13px; font-weight: 700; padding-left: 2px; }
+/* 输入框占满命令栏高度：不画上下边框，避免与栏首尾分隔线叠成双线；
+   左侧留 2px 焦点条，聚焦时点亮，文字位置不因边框出现而跳动 */
+#commandLine { background-color: @panelRaised@; border: none; border-left: 2px solid transparent;
+               border-radius: 0; padding: 0 10px; min-height: 20px; }
+#commandLine:focus { border-left-color: @accent@; }
+/* 输入栏两端：左侧 ">" 提示符与右侧发送按钮都用强调色标识 */
+#commandPrompt { color: @accent@; font-size: 13px; font-weight: 700; padding-left: 2px; }
+#commandSend { background-color: @accentSoft@; border: none; border-radius: 6px; padding: 0; }
+#commandSend:hover { background-color: @accentSoftStrong@; }
+#commandSend:pressed { background-color: @accentSoftStrong@; }
 #calcDisplay { background-color: @surfaceAlt@; border: 1px solid @border@; border-radius: @radiusLg@;
                padding: 8px 14px; font-size: 22px; font-weight: 600; }
 #calcValue { background-color: @surfaceAlt@; border: 1px solid @border@; border-radius: @radius@;

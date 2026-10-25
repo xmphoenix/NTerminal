@@ -161,6 +161,7 @@ private:
     QTabWidget *m_screenTabWidget = nullptr;
     QStackedWidget *m_mainStack = nullptr;
     QWidget *m_emptyState = nullptr;
+    QWidget *m_commandBar = nullptr;
     QLineEdit *m_commandLineEdit = nullptr;
 
     QMap<QString, TerminalProxy*> m_terminals;
@@ -222,6 +223,7 @@ private:
     QAction *m_pasteAction = nullptr;
     QAction *m_clearScreenAction = nullptr;
     QAction *m_toggleSidebarAction = nullptr;
+    QAction *m_toggleCommandBarAction = nullptr;
     QAction *m_fullScreenAction = nullptr;
     QAction *m_sftpAction = nullptr;
     QAction *m_ftpAction = nullptr;

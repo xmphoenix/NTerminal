@@ -77,6 +77,8 @@
 namespace {
 // 菜单栏与工具栏共用高度，保证两行视觉上连成一条紧凑的工具链
 constexpr int kTopBarHeight = 28;
+// 命令输入栏高度：与工具栏一致，输入框上下贴边、边界与栏首尾两条分隔线重合
+constexpr int kCommandBarHeight = kTopBarHeight;
 } // namespace
 
 MainWindow::MainWindow(QWidget *parent)
@@ -91,6 +93,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_quickConnectEdit(nullptr)
     , m_terminalTabBar(nullptr)
     , m_screenTabWidget(nullptr)
+    , m_commandBar(nullptr)
     , m_commandLineEdit(nullptr)
     , m_currentTerminal(nullptr)
     , m_nextTerminalId(1)
@@ -1625,10 +1628,13 @@ QWidget *MainWindow::buildTerminalArea()
     m_mainStack->setCurrentIndex(0);
     lay->addWidget(m_mainStack, 1);
 
-    // 命令输入栏（悬浮圆角输入框 + 发送按钮）
+    // 命令输入栏：输入框占满栏高，上下边界直接压在栏首尾的分隔线上
     QWidget *cmdBar = styledPanel("commandBar");
+    m_commandBar = cmdBar;
+    cmdBar->setFixedHeight(kCommandBarHeight);
     QHBoxLayout *cmdLay = new QHBoxLayout(cmdBar);
-    cmdLay->setContentsMargins(10, 6, 10, 8);
+    // 顶部让出 1px：命令栏自身的上分隔线不能被输入框盖住，输入框上边界紧贴其下沿
+    cmdLay->setContentsMargins(10, 1, 10, 0);
     cmdLay->setSpacing(6);
 
     QLabel *prompt = new QLabel(QStringLiteral(">"));
@@ -1637,6 +1643,9 @@ QWidget *MainWindow::buildTerminalArea()
 
     m_commandLineEdit = new QLineEdit;
     m_commandLineEdit->setObjectName("commandLine");
+    // QLineEdit 垂直方向默认按 sizeHint 固定，这里改为撑满命令栏高度，
+    // 让输入框的上下边界与命令栏首尾两条分隔线重合
+    m_commandLineEdit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     bindText([this] { m_commandLineEdit->setPlaceholderText(tr("输入命令，Enter 发送")); });
     connect(m_commandLineEdit, &QLineEdit::returnPressed, this, [this]() {
         const QString command = m_commandLineEdit->text().trimmed();
@@ -1654,16 +1663,19 @@ QWidget *MainWindow::buildTerminalArea()
     cmdLay->addWidget(m_commandLineEdit, 1);
 
     QToolButton *sendBtn = new QToolButton;
+    sendBtn->setObjectName("commandSend");
     sendBtn->setProperty("iconName", "send");
-    sendBtn->setIcon(IconProvider::themedIcon("send"));
+    // 输入栏右端的颜色标识：强调色图标 + 柔和底色，与左侧 ">" 提示符成对
+    sendBtn->setProperty("iconAccent", true);
+    sendBtn->setIcon(IconProvider::icon("send", ThemeManager::instance()->currentAppTheme().accent));
     bindText([sendBtn] { sendBtn->setToolTip(tr("发送")); });
     sendBtn->setAutoRaise(true);
     sendBtn->setCursor(Qt::PointingHandCursor);
-    sendBtn->setMinimumSize(34, 34);
+    sendBtn->setFixedSize(24, 24);
     connect(sendBtn, &QToolButton::clicked, this, [this]() {
         emit m_commandLineEdit->returnPressed();
     });
-    cmdLay->addWidget(sendBtn);
+    cmdLay->addWidget(sendBtn, 0, Qt::AlignVCenter);
 
     lay->addWidget(cmdBar);
 
@@ -2083,6 +2095,20 @@ void MainWindow::initMainWindowMenu()
             &MainWindow::setSidebarVisible);
     m_viewMenu->addAction(m_toggleSidebarAction);
 
+    m_toggleCommandBarAction = new QAction(this);
+    bindText([this] { m_toggleCommandBarAction->setText(tr("命令输入栏")); });
+    m_toggleCommandBarAction->setCheckable(true);
+    // 命令输入栏缺省显示；隐藏后终端区自动补足高度
+    m_toggleCommandBarAction->setChecked(true);
+    m_toggleCommandBarAction->setShortcut(
+        QKeySequence(QStringLiteral("Ctrl+Shift+B")));
+    connect(m_toggleCommandBarAction, &QAction::toggled, this, [this](bool visible) {
+        if (m_commandBar) {
+            m_commandBar->setVisible(visible);
+        }
+    });
+    m_viewMenu->addAction(m_toggleCommandBarAction);
+
     m_fullScreenAction = new QAction(this);
     bindText([this] { m_fullScreenAction->setText(tr("全屏")); });
     m_fullScreenAction->setShortcut(QKeySequence(Qt::Key_F11));
@@ -2203,9 +2229,14 @@ void MainWindow::refreshIcons()
 
     for (QToolButton *button : findChildren<QToolButton *>()) {
         const QString name = button->property("iconName").toString();
-        if (!name.isEmpty()) {
-            button->setIcon(IconProvider::themedIcon(name));
+        if (name.isEmpty()) {
+            continue;
         }
+        // 命令栏发送按钮等少数按钮用强调色图标，作为所在栏的颜色标识
+        button->setIcon(button->property("iconAccent").toBool()
+                            ? IconProvider::icon(name,
+                                  ThemeManager::instance()->currentAppTheme().accent)
+                            : IconProvider::themedIcon(name));
     }
     for (QPushButton *button : findChildren<QPushButton *>()) {
         const QString name = button->property("iconName").toString();
@@ -2260,6 +2291,7 @@ void MainWindow::applyMenuIcons()
     if (m_twoHorizontalLayoutAction) m_twoHorizontalLayoutAction->setIcon(IconProvider::themedIcon("split-horizontal"));
     if (m_fourLayoutAction) m_fourLayoutAction->setIcon(IconProvider::themedIcon("grid"));
     if (m_toggleSidebarAction) m_toggleSidebarAction->setIcon(IconProvider::themedIcon("split"));
+    if (m_toggleCommandBarAction) m_toggleCommandBarAction->setIcon(IconProvider::themedIcon("send"));
     if (m_fullScreenAction) m_fullScreenAction->setIcon(IconProvider::themedIcon("fullscreen"));
     if (m_sftpAction) m_sftpAction->setIcon(IconProvider::themedIcon("sftp"));
     if (m_ftpAction) m_ftpAction->setIcon(IconProvider::themedIcon("transfer"));
