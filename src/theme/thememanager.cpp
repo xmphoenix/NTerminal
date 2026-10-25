@@ -13,18 +13,26 @@
 
 namespace {
 
-// 深色主题时把 Windows 原生标题栏切成深色（Win10 1809+ 属性 20，旧版 19）。
-// 动态加载 dwmapi，避免为这一项功能在工程里增加链接依赖。
+// 动态加载 dwmapi：标题栏/边框着色只在 Windows 上生效，避免为这一项功能
+// 在工程里增加链接依赖。
 #ifdef Q_OS_WIN
-void setImmersiveDarkTitleBar(HWND hwnd, bool dark)
+using DwmSetWindowAttributeFn = HRESULT(WINAPI *)(HWND, DWORD, LPCVOID, DWORD);
+
+DwmSetWindowAttributeFn dwmSetWindowAttribute()
 {
-    using DwmSetWindowAttributeFn = HRESULT(WINAPI *)(HWND, DWORD, LPCVOID, DWORD);
     static const DwmSetWindowAttributeFn setAttribute = [] {
         HMODULE dwm = LoadLibraryW(L"dwmapi.dll");
         return dwm ? reinterpret_cast<DwmSetWindowAttributeFn>(
                          GetProcAddress(dwm, "DwmSetWindowAttribute"))
                    : nullptr;
     }();
+    return setAttribute;
+}
+
+// 深色主题时把 Windows 原生标题栏切成深色（Win10 1809+ 属性 20，旧版 19）。
+void setImmersiveDarkTitleBar(HWND hwnd, bool dark)
+{
+    const DwmSetWindowAttributeFn setAttribute = dwmSetWindowAttribute();
     if (!setAttribute || !hwnd) {
         return;
     }
@@ -952,6 +960,26 @@ void ThemeManager::applyWindowChrome(QWidget *window)
                              currentAppTheme().dark);
 #else
     Q_UNUSED(window);
+#endif
+}
+
+void ThemeManager::setWindowBorderColor(QWidget *window, const QColor &color)
+{
+#ifdef Q_OS_WIN
+    if (!window || !window->isWindow() || !color.isValid()) {
+        return;
+    }
+    const DwmSetWindowAttributeFn setAttribute = dwmSetWindowAttribute();
+    if (!setAttribute) {
+        return;
+    }
+    // DWMWA_BORDER_COLOR = 34（Windows 11 起支持）。旧系统调用失败时保持默认边框，
+    // 不影响窗口功能，因此忽略返回值。
+    const COLORREF border = RGB(color.red(), color.green(), color.blue());
+    setAttribute(reinterpret_cast<HWND>(window->winId()), 34, &border, sizeof(border));
+#else
+    Q_UNUSED(window);
+    Q_UNUSED(color);
 #endif
 }
 

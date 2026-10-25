@@ -93,6 +93,9 @@ public:
     // 图标基础色（由当前应用主题的次文字色决定）
     QColor iconColor() const;
 
+    // 设置窗口外边框颜色（Windows 11 起支持；其它平台/旧系统上为空操作）
+    static void setWindowBorderColor(QWidget *window, const QColor &color);
+
 protected:
     // 窗口显示时同步 Windows 标题栏明暗（深色主题下标题栏也跟随）
     bool eventFilter(QObject *watched, QEvent *event) override;

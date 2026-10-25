@@ -59,12 +59,16 @@
 #include <QScreen>
 #include <QWindow>
 #include <QShowEvent>
+#include <QHideEvent>
 #include <QResizeEvent>
 #include <QStyle>
 #include <QActionGroup>
 #include <QCoreApplication>
 #include <QEvent>
 #include <QSignalBlocker>
+#include <QPainter>
+#include <QPainterPath>
+#include <QVariantAnimation>
 #include <QDebug>
 #include <QJsonObject>
 #include <QMessageBox>
@@ -79,6 +83,111 @@ namespace {
 constexpr int kTopBarHeight = 28;
 // 命令输入栏高度：与工具栏一致，输入框上下贴边、边界与栏首尾两条分隔线重合
 constexpr int kCommandBarHeight = kTopBarHeight;
+
+// 顶栏图标的语义着色：按功能取主题色板中的语义色，深浅主题下都保持可读。
+// tone 为空时返回无效色，表示沿用默认的主题单色图标。
+QColor iconToneColor(const QString &tone)
+{
+    if (tone.isEmpty()) {
+        return QColor();
+    }
+    const AppTheme theme = ThemeManager::instance()->currentAppTheme();
+    if (tone == QStringLiteral("accent")) {
+        return theme.accent;
+    }
+    if (tone == QStringLiteral("danger")) {
+        return theme.danger;
+    }
+    if (tone == QStringLiteral("success")) {
+        return theme.success;
+    }
+    if (tone == QStringLiteral("warning")) {
+        return theme.warning;
+    }
+    // 紫色没有独立 token：沿用协议识别色里的紫（Telnet），浅色主题下加深一档
+    if (tone == QStringLiteral("violet")) {
+        return theme.dark ? QColor(0xC9, 0xA0, 0xFF) : QColor(0x8A, 0x5C, 0xD6);
+    }
+    return QColor();
+}
+
+// 空状态图标：自绘终端提示符（">" + 光标），光标按终端节奏循环明暗。
+// 圆角底色仍由 QSS 的 #emptyStateIcon 绘制，这里只画图标本身；
+// 颜色在每次绘制时从当前主题读取，深/浅主题切换后自动跟随。
+class EmptyStateTerminalIcon : public QWidget
+{
+public:
+    explicit EmptyStateTerminalIcon(QWidget *parent = nullptr)
+        : QWidget(parent)
+    {
+        setFixedSize(56, 56);
+        setAttribute(Qt::WA_StyledBackground, true);
+
+        // 1.2s 一个循环：亮 0.54s → 暗 0.42s，两端留过渡，避免生硬跳变
+        m_animation = new QVariantAnimation(this);
+        m_animation->setDuration(1200);
+        m_animation->setLoopCount(-1);
+        m_animation->setKeyValueAt(0.00, 1.0);
+        m_animation->setKeyValueAt(0.45, 1.0);
+        m_animation->setKeyValueAt(0.55, 0.12);
+        m_animation->setKeyValueAt(0.90, 0.12);
+        m_animation->setKeyValueAt(1.00, 1.0);
+        connect(m_animation, &QVariantAnimation::valueChanged, this,
+                [this](const QVariant &value) {
+                    m_cursorOpacity = value.toReal();
+                    update();
+                });
+    }
+
+protected:
+    // 空状态不在前台时不空转动画
+    void showEvent(QShowEvent *event) override
+    {
+        QWidget::showEvent(event);
+        m_animation->start();
+    }
+
+    void hideEvent(QHideEvent *event) override
+    {
+        m_animation->stop();
+        QWidget::hideEvent(event);
+    }
+
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter painter(this);
+        // 底色由 WA_StyledBackground 按 QSS 的 #emptyStateIcon 自动绘制，
+        // 这里不能再手动画一遍，否则 @accentSoft@ 会叠加两次而偏深。
+        painter.setRenderHint(QPainter::Antialiasing, true);
+        const AppTheme theme = ThemeManager::instance()->currentAppTheme();
+        // 图标按 Lucide 24 网格绘制；尺寸与“关于”对话框的 56px 底座/28px 图标一致
+        const qreal scale = 28.0 / 24.0;
+        const QPointF offset((width() - 28.0) / 2.0, (height() - 28.0) / 2.0);
+
+        QPen pen(theme.accentText, 1.7 * scale, Qt::SolidLine,
+                 Qt::RoundCap, Qt::RoundJoin);
+        painter.setPen(pen);
+
+        // 提示符 ">"（与终端图标同一条路径）
+        QPainterPath prompt;
+        prompt.moveTo(offset + QPointF(4, 17) * scale);
+        prompt.lineTo(offset + QPointF(10, 11) * scale);
+        prompt.lineTo(offset + QPointF(4, 5) * scale);
+        painter.drawPath(prompt);
+
+        // 光标 "_"：明暗循环，模拟终端等待输入
+        QColor cursor = theme.accentText;
+        cursor.setAlphaF(m_cursorOpacity);
+        pen.setColor(cursor);
+        painter.setPen(pen);
+        painter.drawLine(offset + QPointF(12, 19) * scale,
+                         offset + QPointF(20, 19) * scale);
+    }
+
+private:
+    QVariantAnimation *m_animation = nullptr;
+    qreal m_cursorOpacity = 1.0;
+};
 } // namespace
 
 MainWindow::MainWindow(QWidget *parent)
@@ -1187,6 +1296,11 @@ void MainWindow::onTabCurrentChanged(int index)
 void MainWindow::showEvent(QShowEvent *event)
 {
     QMainWindow::showEvent(event);
+
+    // 主窗口外边框使用 Nokia 品牌蓝（2023 logo 色 #005AFF）；
+    // 仅 Windows 11 支持，其它平台保持系统默认边框
+    ThemeManager::setWindowBorderColor(this, QColor(0x00, 0x5A, 0xFF));
+
     if (m_geometryAdjusted) {
         return;
     }
@@ -1429,11 +1543,16 @@ QWidget *MainWindow::buildTopBar()
     addSeparator();
 
     // 会话操作图标组（提示文案延迟到语言切换时重新求值）
-    auto addIconButton = [&](const QString &icon, std::function<QString()> tip,
+    // tone：图标语义色（见 iconToneColor），空则用主题单色
+    auto addIconButton = [&](const QString &icon, const QString &tone,
+                             std::function<QString()> tip,
                              const std::function<void()> &handler) {
         QToolButton *button = new QToolButton;
         button->setProperty("iconName", icon);
-        button->setIcon(IconProvider::themedIcon(icon));
+        button->setProperty("iconTone", tone);
+        const QColor toneColor = iconToneColor(tone);
+        button->setIcon(toneColor.isValid() ? IconProvider::icon(icon, toneColor)
+                                            : IconProvider::themedIcon(icon));
         bindText([button, tip] { button->setToolTip(tip()); });
         button->setAutoRaise(true);
         button->setCursor(Qt::PointingHandCursor);
@@ -1443,31 +1562,31 @@ QWidget *MainWindow::buildTopBar()
         return button;
     };
 
-    addIconButton("disconnect", [] { return tr("断开当前会话"); }, [this]() {
+    addIconButton("disconnect", "danger", [] { return tr("断开当前会话"); }, [this]() {
         if (TerminalProxy *t = getCurrentTerminal()) {
             t->closeConnection();
         }
     });
-    addIconButton("reconnect", [] { return tr("重新连接"); }, [this]() {
+    addIconButton("reconnect", "success", [] { return tr("重新连接"); }, [this]() {
         if (TerminalProxy *t = getCurrentTerminal()) {
             t->closeConnection();
             t->openConnection();
         }
     });
-    addIconButton("duplicate", [] { return tr("复制会话"); }, [this]() {
+    addIconButton("duplicate", "accent", [] { return tr("复制会话"); }, [this]() {
         duplicateSession();
     });
 
     addSeparator();
 
     // 工具入口
-    addIconButton("server", [] { return tr("MCP"); }, [this]() { showMcpSettings(); });
-    addIconButton("tools", [] { return tr("工具"); }, [this]() { showPortScanner(); });
+    addIconButton("server", "violet", [] { return tr("MCP"); }, [this]() { showMcpSettings(); });
+    addIconButton("tools", "warning", [] { return tr("工具"); }, [this]() { showPortScanner(); });
 
     lay->addStretch(1);
 
-    addIconButton("theme", [] { return tr("主题设置"); }, [this]() { showThemeSettings(); });
-    addIconButton("settings", [] { return tr("日志设置"); }, [this]() { showLogSettings(); });
+    addIconButton("theme", "accent", [] { return tr("主题设置"); }, [this]() { showThemeSettings(); });
+    addIconButton("settings", QString(), [] { return tr("日志设置"); }, [this]() { showLogSettings(); });
 
     return bar;
 }
@@ -1701,13 +1820,8 @@ QWidget *MainWindow::buildEmptyState()
     cardLay->setContentsMargins(24, 24, 24, 20);
     cardLay->setSpacing(10);
 
-    QLabel *iconChip = new QLabel;
+    EmptyStateTerminalIcon *iconChip = new EmptyStateTerminalIcon;
     iconChip->setObjectName("emptyStateIcon");
-    iconChip->setAlignment(Qt::AlignCenter);
-    iconChip->setFixedSize(64, 64);
-    iconChip->setPixmap(IconProvider::pixmap("terminal",
-                                             ThemeManager::instance()->currentAppTheme().accentText,
-                                             30, devicePixelRatioF()));
     cardLay->addWidget(iconChip, 0, Qt::AlignHCenter);
 
     QLabel *title = new QLabel;
@@ -2232,11 +2346,16 @@ void MainWindow::refreshIcons()
         if (name.isEmpty()) {
             continue;
         }
-        // 命令栏发送按钮等少数按钮用强调色图标，作为所在栏的颜色标识
-        button->setIcon(button->property("iconAccent").toBool()
-                            ? IconProvider::icon(name,
-                                  ThemeManager::instance()->currentAppTheme().accent)
-                            : IconProvider::themedIcon(name));
+        // 顶栏按钮按功能着色；命令栏发送按钮等用强调色；其余保持主题单色
+        const QColor tone = iconToneColor(button->property("iconTone").toString());
+        if (tone.isValid()) {
+            button->setIcon(IconProvider::icon(name, tone));
+        } else if (button->property("iconAccent").toBool()) {
+            button->setIcon(IconProvider::icon(
+                name, ThemeManager::instance()->currentAppTheme().accent));
+        } else {
+            button->setIcon(IconProvider::themedIcon(name));
+        }
     }
     for (QPushButton *button : findChildren<QPushButton *>()) {
         const QString name = button->property("iconName").toString();
@@ -2250,10 +2369,9 @@ void MainWindow::refreshIcons()
                             : IconProvider::themedIcon(name));
     }
     if (m_emptyState) {
-        if (QLabel *chip = m_emptyState->findChild<QLabel *>(QStringLiteral("emptyStateIcon"))) {
-            chip->setPixmap(IconProvider::pixmap("terminal",
-                                                 ThemeManager::instance()->currentAppTheme().accentText,
-                                                 30, devicePixelRatioF()));
+        // 空状态图标为自绘控件：按当前主题取色，这里触发一次重绘
+        if (QWidget *chip = m_emptyState->findChild<QWidget *>(QStringLiteral("emptyStateIcon"))) {
+            chip->update();
         }
     }
     if (m_terminalTabBar) {

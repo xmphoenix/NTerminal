@@ -208,7 +208,7 @@ QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; lef
 #toolbarSep { background-color: @hairline@; border: none; }
 #emptyState { background-color: @bg@; }
 #emptyStateCard { background-color: @panelRaised@; border: 1px solid @border@; border-radius: 16px; }
-#emptyStateIcon { background-color: @accentSoft@; border-radius: 16px; }
+#emptyStateIcon { background-color: @accentSoft@; border-radius: 14px; }
 #emptyStateTitle { color: @text@; font-size: 16px; font-weight: 700; }
 #emptyStateText { color: @textDim@; font-size: 12px; }
 QSplitter::handle:horizontal { background-color: @bg@; width: 7px; }
