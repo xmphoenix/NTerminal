@@ -74,9 +74,6 @@
 #include <QMessageBox>
 #include <QClipboard>
 #include <QFileDialog>
-#include <QDir>
-#include <QDesktopServices>
-#include <QUrl>
 
 namespace {
 // 菜单栏与工具栏共用高度，保证两行视觉上连成一条紧凑的工具链
@@ -218,7 +215,6 @@ MainWindow::MainWindow(QWidget *parent)
     , m_optMenu(nullptr)
     , m_transmitMenu(nullptr)
     , m_toolsMenu(nullptr)
-    , m_pluginMenu(nullptr)
     , m_helpMenu(nullptr)
     , m_sessionAction(nullptr)
     , m_exitAction(nullptr)
@@ -1944,7 +1940,6 @@ void MainWindow::initMainWindowMenu()
     m_transmitMenu = m_menuBar->addMenu(QString());
     m_toolsMenu = m_menuBar->addMenu(QString());
     m_mcpMenu = m_menuBar->addMenu(QString());
-    m_pluginMenu = m_menuBar->addMenu(QString());
     m_helpMenu = m_menuBar->addMenu(QString());
 
     bindText([this] {
@@ -1955,7 +1950,6 @@ void MainWindow::initMainWindowMenu()
         m_transmitMenu->setTitle(tr("传输(&T)"));
         m_toolsMenu->setTitle(tr("工具(&O)"));
         m_mcpMenu->setTitle(tr("MCP(&M)"));
-        m_pluginMenu->setTitle(tr("插件(&L)"));
         m_helpMenu->setTitle(tr("帮助(&H)"));
     });
 
@@ -2327,18 +2321,6 @@ void MainWindow::initMainWindowMenu()
                                        false, QStringLiteral("download"));
     bindText([aRecv] { aRecv->setText(tr("ASCII 接收...")); });
 
-    // ---- 插件菜单：当前仅提供插件目录入口 ----
-    m_pluginDirAction = new QAction(this);
-    bindText([this] { m_pluginDirAction->setText(tr("打开插件目录...")); });
-    connect(m_pluginDirAction, &QAction::triggered, this, [] {
-        QDir dir(QCoreApplication::applicationDirPath() + QStringLiteral("/plugins"));
-        if (!dir.exists()) {
-            dir.mkpath(QStringLiteral("."));
-        }
-        QDesktopServices::openUrl(QUrl::fromLocalFile(dir.absolutePath()));
-    });
-    m_pluginMenu->addAction(m_pluginDirAction);
-
     // 各菜单已通过 menuBar()->addMenu(QString) 创建并挂载，无需再次添加
 
     connect(m_sessionAction, &QAction::triggered, this, [this]() {
@@ -2413,7 +2395,7 @@ void MainWindow::applyMenuIcons()
     if (m_saveSessionAction) m_saveSessionAction->setIcon(IconProvider::themedIcon("save"));
     if (m_manageSessionsAction) m_manageSessionsAction->setIcon(IconProvider::themedIcon("settings"));
     if (m_printAction) m_printAction->setIcon(IconProvider::themedIcon("print"));
-    // 编辑 / 视图 / 传输 / 插件
+    // 编辑 / 视图 / 传输
     if (m_copyAction) m_copyAction->setIcon(IconProvider::themedIcon("copy"));
     if (m_pasteAction) m_pasteAction->setIcon(IconProvider::themedIcon("paste"));
     if (m_clearScreenAction) m_clearScreenAction->setIcon(IconProvider::themedIcon("clear"));
@@ -2427,7 +2409,6 @@ void MainWindow::applyMenuIcons()
     if (m_sftpAction) m_sftpAction->setIcon(IconProvider::themedIcon("sftp"));
     if (m_ftpAction) m_ftpAction->setIcon(IconProvider::themedIcon("transfer"));
     if (m_scpAction) m_scpAction->setIcon(IconProvider::themedIcon("sftp"));
-    if (m_pluginDirAction) m_pluginDirAction->setIcon(IconProvider::themedIcon("grid"));
     if (m_languageMenu) m_languageMenu->menuAction()->setIcon(IconProvider::themedIcon("globe"));
     // 工具/测试动作按成员指针设置图标：菜单文案会随语言切换，不能按文字匹配
     if (m_terminalTestAction) m_terminalTestAction->setIcon(IconProvider::themedIcon("terminal"));

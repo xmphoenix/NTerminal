@@ -190,7 +190,6 @@ private:
     QMenu *m_protocolMenu = nullptr;
     QMenu *m_mcpMenu = nullptr;
     QMenu *m_toolsMenu = nullptr;
-    QMenu *m_pluginMenu = nullptr;
     QMenu *m_helpMenu = nullptr;
     QAction *m_sessionAction = nullptr;
     QAction *m_exitAction = nullptr;
@@ -218,7 +217,7 @@ private:
     QAction *m_aboutAction = nullptr;
     QAction *m_checkUpdatesAction = nullptr;
     QAction *m_updateSettingsAction = nullptr;
-    // 编辑 / 视图 / 传输 / 插件菜单动作
+    // 编辑 / 视图 / 传输菜单动作
     QAction *m_copyAction = nullptr;
     QAction *m_pasteAction = nullptr;
     QAction *m_clearScreenAction = nullptr;
@@ -232,7 +231,6 @@ private:
     QAction *m_twoVerticalLayoutAction = nullptr;
     QAction *m_twoHorizontalLayoutAction = nullptr;
     QAction *m_fourLayoutAction = nullptr;
-    QAction *m_pluginDirAction = nullptr;
 
     // MCP（AI 控制）
     McpServer *m_mcpServer = nullptr;

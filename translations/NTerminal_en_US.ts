@@ -808,10 +808,6 @@ Continue?</translation>
         <translation>&amp;MCP</translation>
     </message>
     <message>
-        <source>插件(&amp;L)</source>
-        <translation>P&amp;lugins</translation>
-    </message>
-    <message>
         <source>帮助(&amp;H)</source>
         <translation>&amp;Help</translation>
     </message>
