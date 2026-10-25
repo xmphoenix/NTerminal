@@ -108,6 +108,35 @@ QColor iconToneColor(const QString &tone)
     return QColor();
 }
 
+// 菜单二级项图标：记下图标名与语义色，主题切换后由 applyMenuIcons() 统一重绘。
+// 颜色与顶栏按钮共用 iconToneColor() 的语义色板。
+void setMenuIcon(QAction *action, const QString &iconName, const QString &tone)
+{
+    if (!action || iconName.isEmpty()) {
+        return;
+    }
+    action->setProperty("iconName", iconName);
+    action->setProperty("iconTone", tone);
+    action->setProperty("iconProtocol", QVariant());
+    const QColor color = iconToneColor(tone);
+    action->setIcon(color.isValid() ? IconProvider::icon(iconName, color)
+                                    : IconProvider::themedIcon(iconName));
+}
+
+// 会话菜单项：图标与识别色跟随协议（与侧栏会话树、终端标签保持一致）
+void setSessionMenuIcon(QAction *action, Common::ConnectionType type)
+{
+    if (!action) {
+        return;
+    }
+    const ProtocolVisual visual = protocolVisual(type);
+    action->setProperty("iconName", visual.icon);
+    action->setProperty("iconTone", QVariant());
+    action->setProperty("iconProtocol", static_cast<int>(type));
+    const bool dark = ThemeManager::instance()->currentAppTheme().dark;
+    action->setIcon(IconProvider::icon(visual.icon, protocolAccentColor(type, dark)));
+}
+
 // 空状态图标：自绘终端提示符（">" + 光标），光标按终端节奏循环明暗。
 // 圆角底色仍由 QSS 的 #emptyStateIcon 绘制，这里只画图标本身；
 // 颜色在每次绘制时从当前主题读取，深/浅主题切换后自动跟随。
@@ -395,6 +424,8 @@ void MainWindow::populateSessionMenu()
         QString displayName = QString("%1 (%2)").arg(session.name).arg(session.settings.sessionName);
         QAction* sessionAction = new QAction(displayName, m_loadSessionMenu);
         sessionAction->setData(session.name);
+        // 二级菜单里的会话项按协议着色，和侧栏会话树使用同一套识别色
+        setSessionMenuIcon(sessionAction, session.settings.type);
 
         connect(sessionAction, &QAction::triggered, this, [this, session]() {
             Common::ConnectionSettings settings = session.settings;
@@ -2273,9 +2304,9 @@ void MainWindow::initMainWindowMenu()
                                     FileTransfer::Kind kind, bool send,
                                     const QString &iconName) {
         auto *action = new QAction(text, this);
-        if (!iconName.isEmpty()) {
-            action->setIcon(IconProvider::themedIcon(iconName));
-        }
+        // 发送=蓝、接收=绿，和菜单里其它语义色的含义一致
+        setMenuIcon(action, iconName, send ? QStringLiteral("accent")
+                                           : QStringLiteral("success"));
         const FileTransfer::Kind kindCopy = kind;
         const bool sendCopy = send;
         connect(action, &QAction::triggered, this, [this, kindCopy, sendCopy] {
@@ -2379,45 +2410,67 @@ void MainWindow::refreshIcons()
 
 void MainWindow::applyMenuIcons()
 {
-    if (m_sessionAction) m_sessionAction->setIcon(IconProvider::themedIcon("new-session"));
-    if (m_themeAction) m_themeAction->setIcon(IconProvider::themedIcon("theme"));
-    if (m_logSettingsAction) m_logSettingsAction->setIcon(IconProvider::themedIcon("log"));
-    if (m_updateSettingsAction) m_updateSettingsAction->setIcon(IconProvider::themedIcon("settings"));
-    if (m_checkUpdatesAction) m_checkUpdatesAction->setIcon(IconProvider::themedIcon("download"));
-    if (m_exitAction) m_exitAction->setIcon(IconProvider::themedIcon("close"));
-    if (m_mcpEnableAction) m_mcpEnableAction->setIcon(IconProvider::themedIcon("server"));
-    if (m_mcpCopyDesktopAction) m_mcpCopyDesktopAction->setIcon(IconProvider::themedIcon("copy"));
-    if (m_mcpCopyClaudeCodeAction) m_mcpCopyClaudeCodeAction->setIcon(IconProvider::themedIcon("copy"));
-    if (m_mcpSettingsAction) m_mcpSettingsAction->setIcon(IconProvider::themedIcon("settings"));
-    if (m_mcpLogAction) m_mcpLogAction->setIcon(IconProvider::themedIcon("log"));
+    // 菜单二级项按语义着色：蓝=常用操作、绿=保存/接收/启用、
+    // 黄=文件/日志/传输、紫=设置/管理、红=退出/清屏；空色调保持主题单色。
+    // 已知动作在这里写属性，动态项（协议传输、加载会话）在创建时写属性，
+    // 末尾统一重绘，主题切换后所有菜单项一起换色。
+    if (m_sessionAction) setMenuIcon(m_sessionAction, "new-session", "accent");
+    if (m_themeAction) setMenuIcon(m_themeAction, "theme", "violet");
+    if (m_logSettingsAction) setMenuIcon(m_logSettingsAction, "log", "warning");
+    if (m_updateSettingsAction) setMenuIcon(m_updateSettingsAction, "settings", "accent");
+    if (m_checkUpdatesAction) setMenuIcon(m_checkUpdatesAction, "download", "success");
+    if (m_exitAction) setMenuIcon(m_exitAction, "close", "danger");
+    if (m_mcpEnableAction) setMenuIcon(m_mcpEnableAction, "server", "success");
+    if (m_mcpCopyDesktopAction) setMenuIcon(m_mcpCopyDesktopAction, "copy", "accent");
+    if (m_mcpCopyClaudeCodeAction) setMenuIcon(m_mcpCopyClaudeCodeAction, "copy", "accent");
+    if (m_mcpSettingsAction) setMenuIcon(m_mcpSettingsAction, "settings", "violet");
+    if (m_mcpLogAction) setMenuIcon(m_mcpLogAction, "log", "warning");
     // 文件菜单
-    if (m_loadSessionMenu) m_loadSessionMenu->menuAction()->setIcon(IconProvider::themedIcon("folder"));
-    if (m_saveSessionAction) m_saveSessionAction->setIcon(IconProvider::themedIcon("save"));
-    if (m_manageSessionsAction) m_manageSessionsAction->setIcon(IconProvider::themedIcon("settings"));
-    if (m_printAction) m_printAction->setIcon(IconProvider::themedIcon("print"));
+    if (m_loadSessionMenu) setMenuIcon(m_loadSessionMenu->menuAction(), "folder", "warning");
+    if (m_saveSessionAction) setMenuIcon(m_saveSessionAction, "save", "success");
+    if (m_manageSessionsAction) setMenuIcon(m_manageSessionsAction, "settings", "violet");
+    if (m_printAction) setMenuIcon(m_printAction, "print", QString());
     // 编辑 / 视图 / 传输
-    if (m_copyAction) m_copyAction->setIcon(IconProvider::themedIcon("copy"));
-    if (m_pasteAction) m_pasteAction->setIcon(IconProvider::themedIcon("paste"));
-    if (m_clearScreenAction) m_clearScreenAction->setIcon(IconProvider::themedIcon("clear"));
-    if (m_singleLayoutAction) m_singleLayoutAction->setIcon(IconProvider::themedIcon("terminal"));
-    if (m_twoVerticalLayoutAction) m_twoVerticalLayoutAction->setIcon(IconProvider::themedIcon("split"));
-    if (m_twoHorizontalLayoutAction) m_twoHorizontalLayoutAction->setIcon(IconProvider::themedIcon("split-horizontal"));
-    if (m_fourLayoutAction) m_fourLayoutAction->setIcon(IconProvider::themedIcon("grid"));
-    if (m_toggleSidebarAction) m_toggleSidebarAction->setIcon(IconProvider::themedIcon("split"));
-    if (m_toggleCommandBarAction) m_toggleCommandBarAction->setIcon(IconProvider::themedIcon("send"));
-    if (m_fullScreenAction) m_fullScreenAction->setIcon(IconProvider::themedIcon("fullscreen"));
-    if (m_sftpAction) m_sftpAction->setIcon(IconProvider::themedIcon("sftp"));
-    if (m_ftpAction) m_ftpAction->setIcon(IconProvider::themedIcon("transfer"));
-    if (m_scpAction) m_scpAction->setIcon(IconProvider::themedIcon("sftp"));
-    if (m_languageMenu) m_languageMenu->menuAction()->setIcon(IconProvider::themedIcon("globe"));
+    if (m_copyAction) setMenuIcon(m_copyAction, "copy", "accent");
+    if (m_pasteAction) setMenuIcon(m_pasteAction, "paste", "success");
+    if (m_clearScreenAction) setMenuIcon(m_clearScreenAction, "clear", "danger");
+    if (m_singleLayoutAction) setMenuIcon(m_singleLayoutAction, "terminal", "accent");
+    if (m_twoVerticalLayoutAction) setMenuIcon(m_twoVerticalLayoutAction, "split", "accent");
+    if (m_twoHorizontalLayoutAction) setMenuIcon(m_twoHorizontalLayoutAction, "split-horizontal", "accent");
+    if (m_fourLayoutAction) setMenuIcon(m_fourLayoutAction, "grid", "accent");
+    if (m_toggleSidebarAction) setMenuIcon(m_toggleSidebarAction, "split", "violet");
+    if (m_toggleCommandBarAction) setMenuIcon(m_toggleCommandBarAction, "send", "accent");
+    if (m_fullScreenAction) setMenuIcon(m_fullScreenAction, "fullscreen", QString());
+    if (m_sftpAction) setMenuIcon(m_sftpAction, "sftp", "accent");
+    if (m_ftpAction) setMenuIcon(m_ftpAction, "transfer", QString());
+    if (m_scpAction) setMenuIcon(m_scpAction, "sftp", "accent");
+    if (m_protocolMenu) setMenuIcon(m_protocolMenu->menuAction(), "transfer", "warning");
+    if (m_languageMenu) setMenuIcon(m_languageMenu->menuAction(), "globe", "accent");
     // 工具/测试动作按成员指针设置图标：菜单文案会随语言切换，不能按文字匹配
-    if (m_terminalTestAction) m_terminalTestAction->setIcon(IconProvider::themedIcon("terminal"));
-    if (m_calculatorAction) m_calculatorAction->setIcon(IconProvider::themedIcon("calculator"));
-    if (m_portScannerAction) m_portScannerAction->setIcon(IconProvider::themedIcon("search"));
-    if (m_lanScanAction) m_lanScanAction->setIcon(IconProvider::themedIcon("users"));
-    if (m_asciiTableAction) m_asciiTableAction->setIcon(IconProvider::themedIcon("log"));
-    if (m_networkServicesAction) m_networkServicesAction->setIcon(IconProvider::themedIcon("server"));
-    if (m_aboutAction) m_aboutAction->setIcon(IconProvider::themedIcon("terminal"));
+    if (m_terminalTestAction) setMenuIcon(m_terminalTestAction, "terminal", QString());
+    if (m_calculatorAction) setMenuIcon(m_calculatorAction, "calculator", "warning");
+    if (m_portScannerAction) setMenuIcon(m_portScannerAction, "search", "accent");
+    if (m_lanScanAction) setMenuIcon(m_lanScanAction, "users", "success");
+    if (m_asciiTableAction) setMenuIcon(m_asciiTableAction, "log", QString());
+    if (m_networkServicesAction) setMenuIcon(m_networkServicesAction, "server", "violet");
+    if (m_aboutAction) setMenuIcon(m_aboutAction, "terminal", "accent");
+
+    // 统一重绘：包括上面写入属性的动作，以及协议传输/加载会话里动态生成的项
+    const AppTheme theme = ThemeManager::instance()->currentAppTheme();
+    const QList<QAction *> actions = findChildren<QAction *>();
+    for (QAction *action : actions) {
+        const QString iconName = action->property("iconName").toString();
+        if (iconName.isEmpty()) {
+            continue;
+        }
+        const QVariant protocol = action->property("iconProtocol");
+        const QColor color = protocol.isValid()
+            ? protocolAccentColor(static_cast<Common::ConnectionType>(protocol.toInt()),
+                                  theme.dark)
+            : iconToneColor(action->property("iconTone").toString());
+        action->setIcon(color.isValid() ? IconProvider::icon(iconName, color)
+                                        : IconProvider::themedIcon(iconName));
+    }
 }
 
 void MainWindow::openConnectionFromDialog(bool applyTheme, Common::ConnectionType type)
