@@ -42,6 +42,7 @@
 #include <QStackedWidget>
 #include <QLineEdit>
 #include <QComboBox>
+#include <QSerialPortInfo>
 #include <QLabel>
 #include <QPushButton>
 #include <QToolButton>
@@ -80,6 +81,20 @@ namespace {
 constexpr int kTopBarHeight = 28;
 // 命令输入栏高度：与工具栏一致，输入框上下贴边、边界与栏首尾两条分隔线重合
 constexpr int kCommandBarHeight = kTopBarHeight;
+
+// 快速连接协议下拉框的索引顺序（界面文案随语言变化，索引保持稳定）
+constexpr Common::ConnectionType kQuickConnectTypes[] = {
+    Common::ConnectionType::SSH,    Common::ConnectionType::Telnet,
+    Common::ConnectionType::Rlogin, Common::ConnectionType::Serial,
+    Common::ConnectionType::SFTP,   Common::ConnectionType::FTP,
+    Common::ConnectionType::TFTP,   Common::ConnectionType::SCP,
+    Common::ConnectionType::RDP,
+};
+
+Common::ConnectionType quickConnectType(int index)
+{
+    return kQuickConnectTypes[qBound(0, index, 8)];
+}
 
 // 顶栏图标的语义着色：按功能取主题色板中的语义色，深浅主题下都保持可读。
 // tone 为空时返回无效色，表示沿用默认的主题单色图标。
@@ -992,27 +1007,30 @@ void MainWindow::onSessionTreeActivated(QTreeWidgetItem *item, int column)
 
 void MainWindow::onQuickConnect()
 {
-    const QString input = m_quickConnectEdit->text().trimmed();
-    if (input.isEmpty()) {
-        return;
-    }
-
-    static const Common::ConnectionType kQuickTypes[] = {
-        Common::ConnectionType::SSH, Common::ConnectionType::Telnet,
-        Common::ConnectionType::Rlogin, Common::ConnectionType::Serial,
-        Common::ConnectionType::SFTP, Common::ConnectionType::FTP,
-        Common::ConnectionType::TFTP, Common::ConnectionType::SCP,
-        Common::ConnectionType::RDP,
-    };
-    const int index = qBound(0, m_quickProtocolCombo->currentIndex(), 8);
-
     Common::ConnectionSettings settings;
-    settings.type = kQuickTypes[index];
+    settings.type = quickConnectType(m_quickProtocolCombo->currentIndex());
 
     if (settings.type == Common::ConnectionType::Serial) {
-        settings.portName = input;
-        settings.sessionName = input;
+        // 串口：端口从下拉框取（支持手动输入），波特率单独选择
+        QString port = m_quickSerialPort->currentData().toString().trimmed();
+        if (port.isEmpty()) {
+            port = m_quickSerialPort->currentText().trimmed();
+        }
+        if (port.isEmpty()) {
+            refreshQuickSerialPorts();
+            return;
+        }
+        settings.portName = port;
+        settings.baudRate = m_quickSerialBaud->currentData().toInt();
+        if (settings.baudRate <= 0) {
+            settings.baudRate = 115200;
+        }
+        settings.sessionName = port;
     } else {
+        const QString input = m_quickConnectEdit->text().trimmed();
+        if (input.isEmpty()) {
+            return;
+        }
         QString rest = input;
         QString user;
         const int at = rest.indexOf(QLatin1Char('@'));
@@ -1036,7 +1054,82 @@ void MainWindow::onQuickConnect()
     // 快速连接同样登记到会话管理器，避免“连上了但在侧栏里找不到”的情况
     registerSession(settings);
     openSession(settings, settings.sessionName);
-    m_quickConnectEdit->clear();
+    // 只清空网络地址框；串口模式下它处于隐藏状态，清空会丢掉用户之前输入的地址
+    if (settings.type != Common::ConnectionType::Serial) {
+        m_quickConnectEdit->clear();
+    }
+}
+
+void MainWindow::updateQuickConnectMode()
+{
+    if (!m_quickProtocolCombo || !m_quickConnectEdit
+        || !m_quickSerialPort || !m_quickSerialBaud) {
+        return;
+    }
+
+    const bool serial = quickConnectType(m_quickProtocolCombo->currentIndex())
+                        == Common::ConnectionType::Serial;
+    // 网络协议用“user@host:port”单行输入；串口改用端口下拉框 + 波特率，
+    // 避免用户在地址框里不知道串口该填什么。
+    m_quickConnectEdit->setVisible(!serial);
+    m_quickSerialPort->setVisible(serial);
+    m_quickSerialBaud->setVisible(serial);
+    if (serial) {
+        refreshQuickSerialPorts();
+    }
+
+    // 只在用户操作协议下拉框时转移焦点；语言切换重建下拉项时不要抢焦点。
+    if (m_quickProtocolCombo->hasFocus()) {
+        if (serial && m_quickSerialPort->lineEdit()) {
+            m_quickSerialPort->lineEdit()->setFocus();
+        } else if (!serial) {
+            m_quickConnectEdit->setFocus();
+        }
+    }
+}
+
+void MainWindow::refreshQuickSerialPorts()
+{
+    if (!m_quickSerialPort) {
+        return;
+    }
+
+    // 保留用户已选/已输入的端口；刷新设备列表时不能把输入冲掉。
+    QString keep = m_quickSerialPort->currentData().toString().trimmed();
+    if (keep.isEmpty()) {
+        keep = m_quickSerialPort->currentText().trimmed();
+    }
+
+    const QSignalBlocker blocker(m_quickSerialPort);
+    m_quickSerialPort->clear();
+
+    const QList<QSerialPortInfo> ports = QSerialPortInfo::availablePorts();
+    for (const QSerialPortInfo &port : ports) {
+        QString label = port.portName();
+        const QString description = port.description().trimmed();
+        if (!description.isEmpty()) {
+            label = QStringLiteral("%1 (%2)").arg(label, description);
+        }
+        m_quickSerialPort->addItem(label, port.portName());
+        m_quickSerialPort->setItemData(m_quickSerialPort->count() - 1,
+                                       description, Qt::ToolTipRole);
+    }
+
+    const int index = keep.isEmpty() ? -1 : m_quickSerialPort->findData(keep);
+    if (index >= 0) {
+        m_quickSerialPort->setCurrentIndex(index);
+    } else if (!keep.isEmpty()) {
+        m_quickSerialPort->setEditText(keep);
+    } else if (m_quickSerialPort->count() > 0) {
+        // 首次打开串口模式时直接选中检测到的第一个端口，点“连接”即可使用。
+        m_quickSerialPort->setCurrentIndex(0);
+    }
+
+    // 端口名 + 设备描述的文案可能比输入框宽；光标停在末尾会把开头的 COMx 滚出视野，
+    // 这里回到行首，保证用户第一眼看到的是端口名而不是描述的后半截。
+    if (m_quickSerialPort->lineEdit()) {
+        m_quickSerialPort->lineEdit()->setCursorPosition(0);
+    }
 }
 
 void MainWindow::filterSessionTree(const QString &text)
@@ -1527,6 +1620,7 @@ QWidget *MainWindow::buildTopBar()
     // 协议名按语言重设（选项按索引取协议，重建时保留当前索引）
     bindText([this] {
         const int index = m_quickProtocolCombo->currentIndex();
+        const QSignalBlocker blocker(m_quickProtocolCombo);
         m_quickProtocolCombo->clear();
         m_quickProtocolCombo->addItems({ QStringLiteral("SSH"), QStringLiteral("Telnet"),
                                          QStringLiteral("Rlogin"), tr("串口"),
@@ -1534,6 +1628,7 @@ QWidget *MainWindow::buildTopBar()
                                          QStringLiteral("TFTP"), QStringLiteral("SCP"),
                                          QStringLiteral("RDP") });
         m_quickProtocolCombo->setCurrentIndex(index < 0 ? 0 : index);
+        updateQuickConnectMode();
     });
     m_quickProtocolCombo->setFixedWidth(88);
     m_quickProtocolCombo->setFixedHeight(kTopBarHeight - 2);
@@ -1544,6 +1639,36 @@ QWidget *MainWindow::buildTopBar()
     m_quickConnectEdit->setMinimumWidth(190);
     m_quickConnectEdit->setFixedHeight(kTopBarHeight - 2);
 
+    // 串口模式：端口下拉框（可手动输入）+ 波特率。仅在选择“串口”时显示，
+    // 让用户直接从检测到的设备中选择，而不是猜地址框里该填什么。
+    m_quickSerialPort = new QComboBox;
+    m_quickSerialPort->setEditable(true);
+    m_quickSerialPort->setInsertPolicy(QComboBox::NoInsert);
+    // 端口项显示为“COM3 (USB Serial Port)”，留出足够宽度，避免描述被截断
+    m_quickSerialPort->setMinimumWidth(180);
+    m_quickSerialPort->setMaximumWidth(300);
+    m_quickSerialPort->setFixedHeight(kTopBarHeight - 2);
+    m_quickSerialPort->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    bindText([this] {
+        m_quickSerialPort->setToolTip(
+            tr("从列表选择串口，或直接输入端口名（如 COM3）"));
+        if (m_quickSerialPort->lineEdit()) {
+            m_quickSerialPort->lineEdit()->setPlaceholderText(
+                tr("选择或输入串口，如 COM3"));
+        }
+    });
+
+    m_quickSerialBaud = new QComboBox;
+    const int baudRates[] = { 1200, 2400, 4800, 9600, 19200, 38400,
+                              57600, 115200, 230400, 460800, 921600 };
+    for (int baud : baudRates) {
+        m_quickSerialBaud->addItem(QString::number(baud), baud);
+    }
+    m_quickSerialBaud->setCurrentIndex(m_quickSerialBaud->findData(115200));
+    m_quickSerialBaud->setFixedWidth(92);
+    m_quickSerialBaud->setFixedHeight(kTopBarHeight - 2);
+    bindText([this] { m_quickSerialBaud->setToolTip(tr("串口波特率")); });
+
     QPushButton *goBtn = new QPushButton;
     goBtn->setObjectName("quickConnectGo");
     bindText([goBtn] { goBtn->setText(tr("连接")); });
@@ -1552,11 +1677,18 @@ QWidget *MainWindow::buildTopBar()
     goBtn->setFixedHeight(kTopBarHeight - 2);
     connect(goBtn, &QPushButton::clicked, this, &MainWindow::onQuickConnect);
     connect(m_quickConnectEdit, &QLineEdit::returnPressed, this, &MainWindow::onQuickConnect);
+    connect(m_quickSerialPort->lineEdit(), &QLineEdit::returnPressed,
+            this, &MainWindow::onQuickConnect);
+    connect(m_quickProtocolCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int) { updateQuickConnectMode(); });
 
     quickLay->addWidget(m_quickProtocolCombo);
     quickLay->addWidget(m_quickConnectEdit, 1);
+    quickLay->addWidget(m_quickSerialPort, 1);
+    quickLay->addWidget(m_quickSerialBaud);
     quickLay->addWidget(goBtn);
     lay->addWidget(quickBar);
+    updateQuickConnectMode();
 
     auto addSeparator = [&lay]() {
         QFrame *line = new QFrame;

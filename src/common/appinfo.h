@@ -17,7 +17,7 @@ inline constexpr const char *ProductName = "NTerminal";
 
 // 未通过 qmake 注入时（例如单独编译某个源文件）保留工程当前版本
 #ifndef APP_VERSION
-#define APP_VERSION "2.0.0"
+#define APP_VERSION "2.0.1"
 #endif
 
 inline QString version()

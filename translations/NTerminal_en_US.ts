@@ -732,6 +732,18 @@ Continue?</translation>
         <translation>user@host:port quick connect</translation>
     </message>
     <message>
+        <source>选择或输入串口，如 COM3</source>
+        <translation>Select or type a serial port, e.g. COM3</translation>
+    </message>
+    <message>
+        <source>从列表选择串口，或直接输入端口名（如 COM3）</source>
+        <translation>Choose a port from the list, or type a port name (e.g. COM3)</translation>
+    </message>
+    <message>
+        <source>串口波特率</source>
+        <translation>Serial baud rate</translation>
+    </message>
+    <message>
         <source>连接</source>
         <translation>Connect</translation>
     </message>

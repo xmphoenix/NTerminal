@@ -29,7 +29,7 @@ TARGET    = NTerminal
 # ---- 版本信息（单一来源） ----
 # VERSION 同时用于 Windows 可执行文件的 VERSIONINFO 属性；
 # APP_VERSION 注入 C++，供窗口标题与"关于"对话框读取。
-VERSION   = 2.0.0
+VERSION   = 2.0.1
 DEFINES  += APP_VERSION=\\\"$$VERSION\\\"
 # 显示在 Windows 文件属性“详细信息”中的说明（保持 ASCII，避免资源脚本编码问题）
 QMAKE_TARGET_DESCRIPTION = NTerminal - multi-protocol terminal tool

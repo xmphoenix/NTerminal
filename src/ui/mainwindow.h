@@ -70,6 +70,9 @@ private slots:
     // ---- GUI 重设计新增 ----
     void onSessionTreeActivated(QTreeWidgetItem *item, int column);
     void onQuickConnect();
+    // 快速连接栏随协议切换：网络协议显示地址输入框，串口显示端口/波特率选择
+    void updateQuickConnectMode();
+    void refreshQuickSerialPorts();
     void filterSessionTree(const QString &text);
     void updateTabStates();
     void updateStatusBar();
@@ -157,6 +160,8 @@ private:
     QLineEdit *m_sessionSearch = nullptr;
     QComboBox *m_quickProtocolCombo = nullptr;
     QLineEdit *m_quickConnectEdit = nullptr;
+    QComboBox *m_quickSerialPort = nullptr;
+    QComboBox *m_quickSerialBaud = nullptr;
     TerminalTabBar *m_terminalTabBar = nullptr;
     QTabWidget *m_screenTabWidget = nullptr;
     QStackedWidget *m_mainStack = nullptr;
